@@ -136,10 +136,11 @@ export function invalidateSpamConfig() {
 let scanScheduled = false
 async function scheduleScan() {
   if (scanScheduled) return
-  // 非详情页（如 /home 首页时间线）不参与评论垃圾过滤；
+  // 非详情页且非 Deck 页面（如 /home 首页时间线）不参与评论垃圾过滤；
   // 若页面上无残留的调试条或隐藏状态，无需调度扫描，避免主页高频滚动时无谓轮询。
   const { isDetailPage } = isTweetDetailPage()
-  if (!isDetailPage && !document.querySelector(`article[${STATE_ATTR}="hidden"], #${DEBUG_BAR_ID}`)) {
+  const isDeck = isDeckPage()
+  if (!isDetailPage && !isDeck && !document.querySelector(`article[${STATE_ATTR}="hidden"], #${DEBUG_BAR_ID}`)) {
     return
   }
   scanScheduled = true
