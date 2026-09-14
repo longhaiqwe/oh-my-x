@@ -19,7 +19,7 @@ Last updated: September 2026
 The extension strictly follows the principle of least privilege:
 - **`storage`**: Used solely to save your display preferences, custom spam filter keywords, whitelist, blacklist, and local filter statistics on your local device.
 
-The extension runs content scripts strictly on `x.com` and `twitter.com` to provide UI customization (e.g. adjusting timeline width, displaying table of contents) and client-side comment filtering.
+The extension runs content scripts strictly on `x.com`, `pro.x.com` and `twitter.com` to provide UI customization (e.g. adjusting timeline width, displaying table of contents) and client-side comment filtering.
 
 ## 4. Third-Party Disclosures
 

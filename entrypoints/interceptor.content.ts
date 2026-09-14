@@ -16,7 +16,12 @@
 import { XF_BRIDGE_MARKER, SCHEDULED_TWEETS_TYPE } from '../shared/bridge'
 
 export default defineContentScript({
-  matches: ['https://twitter.com/*', 'https://mobile.twitter.com/*', 'https://x.com/*'],
+  matches: [
+    'https://twitter.com/*',
+    'https://mobile.twitter.com/*',
+    'https://x.com/*',
+    'https://pro.x.com/*',
+  ],
   world: 'MAIN',
   runAt: 'document_start',
   main() {

@@ -36,7 +36,12 @@ function notifyInterceptorEnabled(enabled: boolean) {
   cleanupAllSpamArtifacts()
 
 export default defineContentScript({
-  matches: ['https://twitter.com/*', 'https://mobile.twitter.com/*', 'https://x.com/*'],
+  matches: [
+    'https://twitter.com/*',
+    'https://mobile.twitter.com/*',
+    'https://x.com/*',
+    'https://pro.x.com/*',
+  ],
   runAt: 'document_end',
   main() {
     let currentSettings: ExtensionSettings | null = null

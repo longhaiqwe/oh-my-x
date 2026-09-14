@@ -157,62 +157,129 @@ export function isTweetDetailPage(pathname: string = window.location.pathname): 
   return { isDetailPage: Boolean(match), statusId: match?.[1] }
 }
 
-export async function runScan(force = false) {
-  const config = await getSpamConfig()
-  if (!config) {
-    cleanupDebugBars()
-    removeScrollStabilityStyles()
-    document.querySelectorAll<HTMLElement>(`article[${PROCESSED_ATTR}]`).forEach((el) => {
-      applyAllow(el)
-      el.removeAttribute(PROCESSED_ATTR)
-    })
-    cleanupOrphanReplacements()
-    return
+export function isDeckPage(pathname: string = window.location.pathname): boolean {
+  return /^\/i\/decks(\/|$)/.test(pathname)
+}
+
+// 对话时间线的 aria-label：英文 Timeline: Conversation，中文「时间线：对话」等。
+// 不能只认 /status/，pro.x.com 的 Deck 地址是 /i/decks/:id，对话栏仍用这套 DOM。
+const CONVERSATION_ARIA_RE = /conversation|对话|会話|conversa|konversation/i
+
+interface ScanScope {
+  articles: HTMLElement[]
+  mainTweetIndex: number
+}
+
+function isConversationLabel(label: string): boolean {
+  return CONVERSATION_ARIA_RE.test(label)
+}
+
+function tweetsIn(root: ParentNode): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('article[data-testid="tweet"]'))
+}
+
+function nearestTweetAncestor(start: Element | null): HTMLElement | null {
+  let el = start?.parentElement ?? null
+  while (el) {
+    if (el.querySelector('article[data-testid="tweet"]')) return el
+    el = el.parentElement
+  }
+  return null
+}
+
+/** 去掉互相嵌套的根：保留最内层，避免同一批评论被扫两遍、或误把整页多栏当成一栏。 */
+function innermostRoots(roots: Iterable<HTMLElement>): HTMLElement[] {
+  const arr = Array.from(roots)
+  return arr.filter((el) => !arr.some((other) => other !== el && el.contains(other)))
+}
+
+/**
+ * 找出页面上的「对话栏」根节点。
+ * 信号（语言无关优先）：Conversation aria-label、栏头返回按钮、主贴下方的行内回复框。
+ */
+export function collectConversationRoots(root: ParentNode = document): HTMLElement[] {
+  const found = new Set<HTMLElement>()
+
+  for (const el of root.querySelectorAll<HTMLElement>('[aria-label]')) {
+    if (!isConversationLabel(el.getAttribute('aria-label') || '')) continue
+    if (el.querySelector('article[data-testid="tweet"]')) found.add(el)
   }
 
-  const { isDetailPage, statusId } = isTweetDetailPage()
-
-  // 限制评分范围：仅推文详情页下的评论参与评分体系
-  // 非详情页（如 /home 首页时间线）完全不评分、不展示调试条，并清理可能残留的调试条与隐藏状态
-  if (!isDetailPage) {
-    cleanupDebugBars()
-    removeScrollStabilityStyles()
-    cleanupOrphanReplacements()
-    document.querySelectorAll<HTMLElement>(`article[${STATE_ATTR}="hidden"], article[${PROCESSED_ATTR}]`).forEach((el) => {
-      applyAllow(el)
-      el.removeAttribute(PROCESSED_ATTR)
-      el.removeAttribute(SCORE_ATTR)
-    })
-    return
+  for (const back of root.querySelectorAll('[data-testid="app-bar-back"]')) {
+    const column = nearestTweetAncestor(back)
+    if (column) found.add(column)
   }
 
-  installScrollStabilityStyles()
-  if (!config.debug) cleanupDebugBars()
-  cleanupOrphanReplacements()
+  for (const reply of root.querySelectorAll('[data-testid="inline_reply_offscreen"]')) {
+    const column = nearestTweetAncestor(reply)
+    if (column) found.add(column)
+  }
 
-  const articles = Array.from(document.querySelectorAll<HTMLElement>('article[data-testid="tweet"]'))
-  if (!articles.length) return
+  return innermostRoots(found)
+}
 
-  // 定位主贴索引：处于 index <= mainTweetIndex 的是主贴（及可能的前置上下文），严格跳过评分
-  let mainTweetIndex = -1
+function findMainTweetIndex(scopeRoot: HTMLElement, articles: HTMLElement[], statusId?: string): number {
   if (statusId) {
-    mainTweetIndex = articles.findIndex((art) =>
-      art.querySelector(`a[href*="/status/${statusId}"]`),
-    )
-  }
-  if (mainTweetIndex === -1) {
-    // 降级：若未能找到对应 statusId 的链接，默认第 1 条为主贴
-    mainTweetIndex = 0
+    const matched = articles.findIndex((art) => art.querySelector(`a[href*="/status/${statusId}"]`))
+    if (matched !== -1) return matched
   }
 
-  const debugConfigKey = config.debug ? getDebugConfigKey(config) : ''
-  for (let i = 0; i < articles.length; i++) {
-    const article = articles[i]
+  const composer = scopeRoot.querySelector('[data-testid="inline_reply_offscreen"]')
+  if (composer) {
+    let lastBefore = -1
+    for (let i = 0; i < articles.length; i++) {
+      const pos = articles[i].compareDocumentPosition(composer)
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) lastBefore = i
+    }
+    if (lastBefore >= 0) return lastBefore
+  }
+
+  return 0
+}
+
+function collectStatusPageScope(statusId?: string): ScanScope | null {
+  const articles = tweetsIn(document)
+  if (!articles.length) return null
+  return {
+    articles,
+    mainTweetIndex: findMainTweetIndex(document.body, articles, statusId),
+  }
+}
+
+function collectDeckConversationScopes(): ScanScope[] {
+  return collectConversationRoots(document)
+    .map((root) => {
+      const articles = tweetsIn(root)
+      if (!articles.length) return null
+      return { articles, mainTweetIndex: findMainTweetIndex(root, articles) }
+    })
+    .filter((scope): scope is ScanScope => scope !== null)
+}
+
+function resetSpamArtifactsOutside(keep: Set<HTMLElement>) {
+  document.querySelectorAll<HTMLElement>(`article[${STATE_ATTR}="hidden"], article[${PROCESSED_ATTR}]`).forEach((el) => {
+    if (keep.has(el)) return
+    applyAllow(el)
+    el.removeAttribute(PROCESSED_ATTR)
+    el.removeAttribute(SCORE_ATTR)
+  })
+}
+
+function clearPageSpamState() {
+  cleanupDebugBars()
+  removeScrollStabilityStyles()
+  cleanupOrphanReplacements()
+  resetSpamArtifactsOutside(new Set())
+}
+
+function scanScope(scope: ScanScope, config: SpamConfig, force: boolean, debugConfigKey: string) {
+  for (let i = 0; i < scope.articles.length; i++) {
+    const article = scope.articles[i]
     if (article.closest('[data-xf-spam-hidden-replacement]')) continue
     if (config.debug && isInsideDialog(article)) removeDebugBar(article)
 
     // 主贴（及主贴前置上下文）：不进入评分体系、不展示调试条
-    if (i <= mainTweetIndex) {
+    if (i <= scope.mainTweetIndex) {
       removeDebugBar(article)
       if (article.getAttribute(STATE_ATTR) === 'hidden') applyAllow(article)
       article.removeAttribute(PROCESSED_ATTR)
@@ -236,6 +303,57 @@ export async function runScan(force = false) {
 
     void processArticle(article, config)
     injectKeywordButton(article)
+  }
+}
+
+export async function runScan(force = false) {
+  const config = await getSpamConfig()
+  if (!config) {
+    cleanupDebugBars()
+    removeScrollStabilityStyles()
+    document.querySelectorAll<HTMLElement>(`article[${PROCESSED_ATTR}]`).forEach((el) => {
+      applyAllow(el)
+      el.removeAttribute(PROCESSED_ATTR)
+    })
+    cleanupOrphanReplacements()
+    return
+  }
+
+  const { isDetailPage, statusId } = isTweetDetailPage()
+
+  // 评分范围：
+  // - /username/status/:id 详情页：整页按主贴/评论切分（原逻辑）
+  // - /i/decks/:id 专业版：只扫对话栏里的评论，时间线栏不评分
+  // - 其它页面（/home 等）：不评分，并清掉残留隐藏状态
+  let scopes: ScanScope[] = []
+  if (isDetailPage) {
+    const scope = collectStatusPageScope(statusId)
+    if (!scope) return
+    scopes = [scope]
+  } else if (isDeckPage()) {
+    scopes = collectDeckConversationScopes()
+    if (!scopes.length) {
+      clearPageSpamState()
+      return
+    }
+  } else {
+    clearPageSpamState()
+    return
+  }
+
+  installScrollStabilityStyles()
+  if (!config.debug) cleanupDebugBars()
+  cleanupOrphanReplacements()
+
+  const inScope = new Set<HTMLElement>()
+  for (const scope of scopes) {
+    for (const article of scope.articles) inScope.add(article)
+  }
+  resetSpamArtifactsOutside(inScope)
+
+  const debugConfigKey = config.debug ? getDebugConfigKey(config) : ''
+  for (const scope of scopes) {
+    scanScope(scope, config, force, debugConfigKey)
   }
 }
 

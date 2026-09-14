@@ -110,7 +110,7 @@ x-focus/
 扩展在 x.com 上运行**两个 content script**（不同 world）+ 一个 background + 一个 popup：
 
 ### 1. Isolated Content Script（`entrypoints/content.ts`）
-- 匹配 `twitter.com` / `x.com`，`document_end` 运行。
+- 匹配 `twitter.com` / `x.com` / `pro.x.com`，`document_end` 运行。
 - **总开关**：读 `KeyExtensionStatus`，为 `off` 则不初始化；切换该 key 会 `location.reload()`。
 - **storage.onChanged**：只处理 setting key 变更，合并到 `currentSettings` 后调用 `applyChangedStaticFeatures`（按 key 分组增量应用），避免任意存储写入都重跑全部静态功能。
 - spam 相关 key 变更触发 `invalidateSpamConfig()` + `runScan()`；viral 相关 key 变更触发对应刷新。
@@ -149,7 +149,9 @@ x-focus/
 - `getSpamConfig()` 带 TTL 缓存；`KeySpamFilterEnabled !== 'on'` 时返回 `null`，扫描器据此跳过并清理已注入工件。
 
 ### 扫描（`spam/scanner.ts`）
-- `runScan()` 遍历 `article[data-testid="tweet"]`：黑名单→强制隐藏；白名单→放行；否则 `evaluateSpam()` 评分，达阈值隐藏并记日志。debug 模式只显示评分条。
+- `runScan()` 只在「对话」里给评论评分：`/username/status/:id` 详情页整页按主贴/评论切分；`/i/decks/:id`（X Pro）只扫对话栏，时间线栏不评分。其它页面（如 `/home`）完全不评分并清掉残留隐藏状态。
+- 对话栏靠 DOM 识别（`Timeline: Conversation` / `时间线：对话`、栏头返回按钮、行内回复框），不依赖 URL 里有没有 `/status/`。
+- 命中后：黑名单→强制隐藏；白名单→放行；否则 `evaluateSpam()` 评分，达阈值隐藏并记日志。debug 模式只显示评分条。
 - 每条推文操作按钮（选词/名单）的注入在扫描循环中触发（幂等）。
 - 自身 mutation 检测避免反馈循环。
 

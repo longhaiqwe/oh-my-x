@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  collectConversationRoots,
   invalidateSpamConfig,
+  isDeckPage,
   isTweetDetailPage,
   runScan,
 } from '../../content-scripts/spam/scanner'
@@ -54,6 +56,22 @@ describe('isTweetDetailPage URL matching', () => {
     expect(isTweetDetailPage('/elonmusk/status/12345/quotes')).toEqual({ isDetailPage: false })
     expect(isTweetDetailPage('/elonmusk/status/12345/retweets')).toEqual({ isDetailPage: false })
     expect(isTweetDetailPage('/elonmusk/status/12345/likes')).toEqual({ isDetailPage: false })
+    expect(isTweetDetailPage('/i/decks/2097239772783837235')).toEqual({ isDetailPage: false })
+  })
+})
+
+describe('isDeckPage URL matching', () => {
+  it('identifies X Pro deck routes', () => {
+    expect(isDeckPage('/i/decks/2097239772783837235')).toBe(true)
+    expect(isDeckPage('/i/decks')).toBe(true)
+    expect(isDeckPage('/i/decks/')).toBe(true)
+  })
+
+  it('rejects non-deck routes', () => {
+    expect(isDeckPage('/home')).toBe(false)
+    expect(isDeckPage('/i/bookmarks')).toBe(false)
+    expect(isDeckPage('/alice/status/12345')).toBe(false)
+    expect(isDeckPage('/i/decksfoo/1')).toBe(false)
   })
 })
 
@@ -244,6 +262,131 @@ describe('spam filter page scoping', () => {
 
       // 评论显示调试条
       expect(commentTweet.querySelector('#x-focus-spam-debug-bar')).not.toBeNull()
+    })
+  })
+
+  describe('on X Pro deck page (/i/decks/:id)', () => {
+    beforeEach(() => {
+      window.history.pushState({}, '', '/i/decks/2097239772783837235')
+      invalidateSpamConfig()
+    })
+
+    function tweet({
+      id,
+      handle,
+      href,
+      text,
+    }: {
+      id: string
+      handle: string
+      href: string
+      text: string
+    }) {
+      return `
+        <article data-testid="tweet" id="${id}">
+          <a href="${href}">Timestamp</a>
+          <a href="/${handle}" role="link">@${handle}</a>
+          <div data-testid="User-Name">${handle}</div>
+          <div data-testid="tweetText">${text}</div>
+        </article>
+      `
+    }
+
+    it('filters spam comments inside an English conversation column and leaves Home tweets alone', async () => {
+      mockSpamConfig({ debug: false, threshold: 30 })
+      document.body.innerHTML = `
+        <div id="home-column">
+          <div aria-label="Timeline: Your Home Timeline">
+            ${tweet({ id: 'home-spam', handle: 'spammer', href: '/spammer/status/1', text: '点击主页购买优惠商品' })}
+          </div>
+        </div>
+        <div id="conversation-column">
+          <div aria-label="Timeline: Conversation">
+            ${tweet({ id: 'deck-main', handle: 'vista8', href: '/vista8/status/2098107889428857080', text: '应该没人比我玩的开了吧' })}
+            ${tweet({ id: 'deck-spam', handle: 'spammer', href: '/spammer/status/2', text: '点击主页领取免费福利' })}
+            ${tweet({ id: 'deck-clean', handle: 'charlie', href: '/charlie/status/3', text: '非常赞同这个观点！' })}
+          </div>
+        </div>
+      `
+
+      await runScan(true)
+
+      expect(document.querySelector<HTMLElement>('#home-spam')!.style.display).not.toBe('none')
+      expect(document.querySelector('#home-spam')!.getAttribute('data-xf-spam-state')).toBeNull()
+
+      expect(document.querySelector<HTMLElement>('#deck-main')!.style.display).not.toBe('none')
+      expect(document.querySelector('#deck-main')!.getAttribute('data-xf-spam-state')).toBeNull()
+
+      expect(document.querySelector<HTMLElement>('#deck-spam')!.style.display).toBe('none')
+      expect(document.querySelector('#deck-spam')!.getAttribute('data-xf-spam-state')).toBe('hidden')
+
+      expect(document.querySelector<HTMLElement>('#deck-clean')!.style.display).not.toBe('none')
+    })
+
+    it('recognizes Chinese conversation timeline labels', async () => {
+      mockSpamConfig({ debug: false, threshold: 30 })
+      document.body.innerHTML = `
+        <div aria-label="时间线：对话">
+          ${tweet({ id: 'zh-main', handle: 'vista8', href: '/vista8/status/100', text: '主贴内容' })}
+          ${tweet({ id: 'zh-spam', handle: 'spammer', href: '/spammer/status/101', text: '点击主页领取免费福利' })}
+        </div>
+      `
+
+      await runScan(true)
+
+      expect(document.querySelector<HTMLElement>('#zh-main')!.style.display).not.toBe('none')
+      expect(document.querySelector<HTMLElement>('#zh-spam')!.style.display).toBe('none')
+    })
+
+    it('treats a column with a back button as a conversation even without aria-label', async () => {
+      mockSpamConfig({ debug: false, threshold: 30 })
+      document.body.innerHTML = `
+        <div id="opened-tweet-column">
+          <button data-testid="app-bar-back">Back</button>
+          ${tweet({ id: 'back-main', handle: 'vista8', href: '/vista8/status/100', text: '主贴内容' })}
+          ${tweet({ id: 'back-spam', handle: 'spammer', href: '/spammer/status/101', text: '点击主页领取免费福利' })}
+        </div>
+      `
+
+      await runScan(true)
+
+      expect(collectConversationRoots()).toHaveLength(1)
+      expect(document.querySelector<HTMLElement>('#back-main')!.style.display).not.toBe('none')
+      expect(document.querySelector<HTMLElement>('#back-spam')!.style.display).toBe('none')
+    })
+
+    it('does not score tweets when the deck has only timeline columns', async () => {
+      mockSpamConfig({ debug: true, threshold: 30 })
+      document.body.innerHTML = `
+        <div aria-label="Timeline: Your Home Timeline">
+          ${tweet({ id: 'timeline-spam', handle: 'spammer', href: '/spammer/status/1', text: '点击主页购买优惠商品' })}
+        </div>
+      `
+
+      await runScan(true)
+
+      const tweetEl = document.querySelector<HTMLElement>('#timeline-spam')!
+      expect(tweetEl.querySelector('#x-focus-spam-debug-bar')).toBeNull()
+      expect(tweetEl.hasAttribute('data-xf-spam-score')).toBe(false)
+      expect(tweetEl.style.display).not.toBe('none')
+    })
+
+    it('uses the inline reply box to keep ancestor tweets unscored', async () => {
+      mockSpamConfig({ debug: true, threshold: 30 })
+      document.body.innerHTML = `
+        <div aria-label="Timeline: Conversation">
+          ${tweet({ id: 'ancestor', handle: 'someone', href: '/someone/status/111', text: '点击主页父推文内容' })}
+          ${tweet({ id: 'focal', handle: 'vista8', href: '/vista8/status/222', text: '点击主页当前推文内容' })}
+          <div data-testid="inline_reply_offscreen"></div>
+          ${tweet({ id: 'reply-spam', handle: 'spammer', href: '/spammer/status/333', text: '点击主页领取免费福利' })}
+        </div>
+      `
+
+      await runScan(true)
+
+      expect(document.querySelector('#ancestor')!.querySelector('#x-focus-spam-debug-bar')).toBeNull()
+      expect(document.querySelector('#focal')!.querySelector('#x-focus-spam-debug-bar')).toBeNull()
+      expect(document.querySelector('#reply-spam')!.querySelector('#x-focus-spam-debug-bar')).not.toBeNull()
     })
   })
 })
