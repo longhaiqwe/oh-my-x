@@ -583,8 +583,6 @@ export async function attachSchedulePickerOverview() {
       // 绑定表单变动监听，实现实时变动重绘
       const handleModalChange = () => renderSchedulePickerOverview(scheduleModal, overviewContainer!)
       scheduleModal.querySelectorAll('select, input').forEach((input) => {
-        input.removeEventListener('change', handleModalChange)
-        input.removeEventListener('input', handleModalChange)
         input.addEventListener('change', handleModalChange)
         input.addEventListener('input', handleModalChange)
       })

@@ -20,7 +20,8 @@ const RE_MARKDOWN_H1 = /^#\s+(.+)$/
 const RE_MARKDOWN_H2 = /^##\s+(.+)$/
 const RE_MARKDOWN_H3_PLUS = /^#{3,6}\s+(.+)$/
 
-const RE_CHINESE_NUM_L1 = /^(?:第[0-9一二三四五六七八九十百]+[章节篇部分]|Part\s*\d+|Chapter\s*\d+|[一二三四五六七八九十]+[、.．])\s*(.*)$/i
+const RE_CHINESE_NUM_L1 = /^(?:(?:第[0-9一二三四五六七八九十百]+[章节篇部分条集期部])|(?:其[次一二三]|首先|最后)[、:：\s]|Part\s*\d+|Chapter\s*\d+|[一二三四五六七八九十]+[、.．])\s*(.*)$/i
+const RE_CHINESE_NUM_L2 = /^(?:(?:然后|接下来)?(?:第[0-9一二三四五六七八九十百]+[个点步阶段方面]))\s*(.*)$/i
 const RE_CHINESE_PAREN_L2 = /^[（(][一二三四五六七八九十]+[）)]\s*(.*)$/
 const RE_ARABIC_NUM_L2 = /^(\d+)[.、．/]\s*(.+)$/
 const RE_ARABIC_PAREN_L2 = /^[（(](\d+)[）)]\s*(.+)$/
@@ -29,6 +30,45 @@ const RE_LETTER_L2 = /^[a-zA-Z][.、）)]\s*(.+)$/
 const RE_BRACKET_L1 = /^【([^】]+)】\s*(.*)$/
 const RE_EMOJI_DIGIT_L2 = /^[0-9]\uFE0F?\u20E3\s*(.+)$/u
 const RE_KEY_EMOJI_L2 = /^[📌🔥💡🚀🎯🌟✨📢⚡️👉🔑]\s*(.+)$/u
+
+/**
+ * 清理标题文本的首尾 Markdown 符号与标点符号（句号、逗号、冒号、分号等）
+ */
+export function cleanHeadingPunctuation(text: string): string {
+  return text
+    .replace(/^[#\s]+/, '')
+    .replace(/[\s，。：:；;、……]+$/, '')
+    .trim()
+}
+
+/**
+ * 检查 DOM 元素内部的全部文字是否都是加粗显示（全段粗体）
+ */
+export function isElementFullyBold(el: HTMLElement): boolean {
+  const tagName = el.tagName.toLowerCase()
+  if (tagName === 'b' || tagName === 'strong') return true
+
+  const totalText = el.textContent?.trim() || ''
+  if (!totalText) return false
+
+  const boldSpans = Array.from(
+    el.querySelectorAll<HTMLElement>('strong, b, [style*="font-weight"]'),
+  )
+  if (boldSpans.length === 0) return false
+
+  const boldText = boldSpans
+    .filter((span) => {
+      const tag = span.tagName.toLowerCase()
+      if (tag === 'b' || tag === 'strong') return true
+      const style = span.getAttribute('style') || ''
+      return /font-weight\s*:\s*(bold|[6-9]00)/i.test(style)
+    })
+    .map((s) => s.textContent || '')
+    .join('')
+    .trim()
+
+  return totalText === boldText
+}
 
 /**
  * 将单行文本分类为 Level 1, 2 标题或 null
@@ -40,47 +80,56 @@ export function classifyHeading(
   const text = rawText.trim()
   if (!text || text.length > 60) return null
 
-  // 标题不会以句子结尾标点（。；;，,……、...）结尾
-  if (/(?:[。；;，,……]|\.\.\.)$/.test(text)) return null
   // 标题内部不应包含分号（分号通常表示排比或复合长句）
   if (text.includes('；') || text.includes(';')) return null
   // 标题内部不应包含两个及以上逗号（多逗号属于散文/长句描述）
   if ((text.match(/[，,]/g) || []).length >= 2) return null
 
-  // 1. Markdown 标记判断
+  // 1. Markdown 标记判断（即使结尾带标点也允许修剪）
   const mH1 = text.match(RE_MARKDOWN_H1)
-  if (mH1) return { level: 1, cleanText: mH1[1].trim() }
+  if (mH1) return { level: 1, cleanText: cleanHeadingPunctuation(mH1[1]) }
 
   const mH2 = text.match(RE_MARKDOWN_H2)
-  if (mH2) return { level: 2, cleanText: mH2[1].trim() }
+  if (mH2) return { level: 2, cleanText: cleanHeadingPunctuation(mH2[1]) }
 
   const mH3Plus = text.match(RE_MARKDOWN_H3_PLUS)
-  if (mH3Plus) return { level: 2, cleanText: mH3Plus[1].trim() }
+  if (mH3Plus) return { level: 2, cleanText: cleanHeadingPunctuation(mH3Plus[1]) }
 
-  // 2. 中文大纲模式（Level 1）
+  // 2. 中文大纲模式（Level 1：第一章、一、首先：等强结构标识）
   const mCnL1 = text.match(RE_CHINESE_NUM_L1)
   if (mCnL1) {
-    return { level: 1, cleanText: text }
+    const clean = cleanHeadingPunctuation(text)
+    return { level: 1, cleanText: clean }
   }
 
   const mBracket = text.match(RE_BRACKET_L1)
   if (mBracket) {
     const combined = mBracket[2] ? `${mBracket[1]} - ${mBracket[2]}` : mBracket[1]
-    return { level: 1, cleanText: combined.trim() }
+    return { level: 1, cleanText: cleanHeadingPunctuation(combined) }
   }
+
+  // 3. 中文序号模式（Level 2：第一个、第二步、第3点等）
+  const mCnL2 = text.match(RE_CHINESE_NUM_L2)
+  if (mCnL2) {
+    const clean = cleanHeadingPunctuation(text.replace(/^(?:然后|接下来)/, ''))
+    return { level: 2, cleanText: clean }
+  }
+
+  // 弱判断规则：普通行末尾带句子结束标点时不作为标题
+  if (/(?:[。；;，,……]|\.\.\.)$/.test(text)) return null
 
   // 若文章正文中已存在明确的原生 H1/H2 标签，则不从普通段落中弱推断副标题（避免将正文第1条/Emoji段落误判为标题）
   if (options?.hasNativeHeadings) {
     return null
   }
 
-  // 3. 多级小数（Level 2）
+  // 4. 多级小数（Level 2）
   const mDec = text.match(RE_DECIMAL_L2)
   if (mDec) {
     return { level: 2, cleanText: text }
   }
 
-  // 4. 阿拉伯数字与括号序号、重点 Emoji（Level 2，要求不能是带逗号的叙述句）
+  // 5. 阿拉伯数字与括号序号、重点 Emoji（Level 2，要求不能是带逗号的叙述句）
   const mKeyEmoji = text.match(RE_KEY_EMOJI_L2)
   if (mKeyEmoji && text.length <= 35 && !/[，,]/.test(text)) {
     return { level: 2, cleanText: text }
@@ -101,7 +150,7 @@ export function classifyHeading(
     return { level: 2, cleanText: text }
   }
 
-  // 5. 字母序号（Level 2）
+  // 6. 字母序号（Level 2）
   const mLetter = text.match(RE_LETTER_L2)
   if (mLetter && text.length <= 35) {
     return { level: 2, cleanText: text }
@@ -110,15 +159,21 @@ export function classifyHeading(
   return null
 }
 
+interface BlockInfo {
+  element: HTMLElement
+  text: string
+  isBold?: boolean
+}
+
 /**
  * 从 HTML 节点递归提取文本块
  */
-function extractBlockTexts(element: HTMLElement): Array<{ element: HTMLElement; text: string }> {
-  const blocks: Array<{ element: HTMLElement; text: string }> = []
+function extractBlockTexts(element: HTMLElement): BlockInfo[] {
+  const blocks: BlockInfo[] = []
 
   // 匹配所有可能的标题和文本块节点（原生标题、段落、Draft.js 块、推文文本块等）
   const candidateElements = element.querySelectorAll<HTMLElement>(
-    'h1, h2, h3, h4, [role="heading"], p, [data-testid="twitter-article-title"], [data-block="true"]',
+    'h1, h2, h3, h4, [role="heading"], p, [data-testid="twitter-article-title"], [data-block="true"], .longform-unstyled',
   )
 
   if (candidateElements.length > 0) {
@@ -163,7 +218,8 @@ function extractBlockTexts(element: HTMLElement): Array<{ element: HTMLElement; 
       }
       const text = el.textContent?.trim() || ''
       if (text) {
-        blocks.push({ element: el, text })
+        const isBold = isElementFullyBold(el)
+        blocks.push({ element: el, text, isBold })
       }
     })
     return blocks
@@ -272,6 +328,7 @@ export function extractHeadingsFromArticle(
       (el.getAttribute('role') === 'heading' && el.getAttribute('aria-level') === '1')
     ) {
       level = 1
+      cleanText = text
     } else if (
       tagName === 'h2' ||
       tagName === 'h3' ||
@@ -280,12 +337,24 @@ export function extractHeadingsFromArticle(
       (el.getAttribute('role') === 'heading')
     ) {
       level = 2
+      cleanText = text
     } else {
       // 文本模式分类（支持 # 一、xxx, ## 1. xxx, 一、xxx, 1. xxx 等）
       const classified = classifyHeading(text, { hasNativeHeadings })
       if (classified) {
         level = classified.level
         cleanText = classified.cleanText
+      } else if (
+        !hasNativeHeadings &&
+        block.isBold &&
+        cleanHeadingPunctuation(text).length >= 2 &&
+        cleanHeadingPunctuation(text).length <= 40 &&
+        !text.includes('\n') &&
+        (cleanHeadingPunctuation(text).match(/[，,]/g) || []).length < 2
+      ) {
+        // 当文章没有原生 H1/H2 富文本标题时，作者通常使用整段全加粗的短行来作为章节小标题
+        level = 2
+        cleanText = cleanHeadingPunctuation(text)
       }
     }
 

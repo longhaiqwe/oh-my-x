@@ -12,6 +12,8 @@ export interface RuleContext {
   authorName: string
   authorHandle: string
   keywords: string[]
+  /** 与 keywords 按索引对应的预 normalize 结果；由调用方缓存，避免每次扫描重复正则 */
+  normalizedKeywords: string[]
   enabledRules: Set<SpamRuleId>
 }
 
@@ -52,10 +54,10 @@ function checkMarketingNickname(ctx: RuleContext): RuleHit | null {
   const meta = getRuleMeta('marketing_nickname')
   const raw = `${ctx.authorName} ${ctx.authorHandle}`.toLowerCase()
   const norm = normalizeForSpam(`${ctx.authorName} ${ctx.authorHandle}`)
-  const matched = ctx.keywords.find((kw) => {
+  const matched = ctx.keywords.find((kw, i) => {
     if (!kw) return false
     const kwLower = kw.toLowerCase()
-    const kwNorm = normalizeForSpam(kw)
+    const kwNorm = ctx.normalizedKeywords[i]
     return raw.includes(kwLower) || (kwNorm.length >= 2 && norm.includes(kwNorm))
   })
   if (!matched) return null
@@ -135,10 +137,11 @@ function checkMarketingKeyword(ctx: RuleContext): RuleHit | null {
   const normText = normalizeForSpam(ctx.text)
 
   const matchedKeywords: string[] = []
-  for (const kw of ctx.keywords) {
+  for (let i = 0; i < ctx.keywords.length; i++) {
+    const kw = ctx.keywords[i]
     if (!kw) continue
     const kwLower = kw.toLowerCase()
-    const kwNorm = normalizeForSpam(kw)
+    const kwNorm = ctx.normalizedKeywords[i]
     if (
       rawText.includes(kwLower) ||
       (kwNorm.length >= 2 && normText.includes(kwNorm))
@@ -213,10 +216,12 @@ function checkDecoratedNickname(ctx: RuleContext): RuleHit | null {
   const name = ctx.authorName
   if (!name) return null
   const emojiCount = countEmoji(name)
-  if (emojiCount < 2) return null
+  // 满足 2 个以上 emoji，或者包含指向性引流装饰符号（如 👉/👇/👆/☞）
+  const hasReferralPointing = /(?:👉|👇|👆|☞)/u.test(name)
+  if (emojiCount < 2 && !hasReferralPointing) return null
   return {
     id: meta.id,
-    label: `${meta.label}（${emojiCount}个）`,
+    label: `${meta.label}（${emojiCount || 1}个）`,
     score: meta.defaultScore,
   }
 }
@@ -273,15 +278,19 @@ export function evaluateSpam(input: {
   authorName: string
   authorHandle: string
   keywords?: string[]
+  /** 预 normalize 的关键词；与 keywords 索引对应。未提供时自动计算。 */
+  normalizedKeywords?: string[]
   enabledRules?: Set<SpamRuleId> | null
 }): SpamEvaluation {
   const enabledRules =
     input.enabledRules ?? new Set(SPAM_RULES.map((r) => r.id))
+  const keywords = input.keywords ?? defaultSpamKeywords
   const ctx: RuleContext = {
     text: input.text,
     authorName: input.authorName,
     authorHandle: input.authorHandle,
-    keywords: input.keywords ?? defaultSpamKeywords,
+    keywords,
+    normalizedKeywords: input.normalizedKeywords ?? keywords.map((kw) => normalizeForSpam(kw)),
     enabledRules,
   }
 

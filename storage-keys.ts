@@ -164,7 +164,18 @@ export const defaultSpamKeywords = [
   '微密圈',
   '反差',
   '无门槛',
+  '低门槛',
   '吃瓜',
+  '无偿约',
+  '选妃',
+  '线下选妃',
+  '同城上门',
+  '同城约',
+  'sao货',
+  '没人比她sao',
+  '没人比我sao',
+  '太涩了',
+  '真顶不住',
 ]
 
 export const defaultPreferences: Record<string, string | number | boolean> = {

@@ -56,7 +56,7 @@ function parseProfileActivity(raw: unknown): ProfileActivitySummary | null {
 async function refresh() {
   const [today, log, storageMap] = await Promise.all([
     getTodayStats(),
-    readLog(),
+    readLog(5),
     getStorage([
       KeySpamFilterEnabled,
       KeySpamThreshold,
@@ -68,7 +68,8 @@ async function refresh() {
   ])
   todayTotal.value = today.total
   todayByCategory.value = today.byCategory
-  recent.value = log.slice(0, 5)
+  recent.value = log
+
   profileActivity.value = parseProfileActivity(storageMap[KeyProfileActivityStats])
   enabled.value = storageMap[KeySpamFilterEnabled] === 'on'
   threshold.value = Number(storageMap[KeySpamThreshold]) || 55

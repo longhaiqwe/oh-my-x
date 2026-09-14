@@ -69,4 +69,26 @@ describe('changeHighlightNonFollowers 页面作用域测试', () => {
     expect(user1Btn.classList.contains('xf-non-follower-btn')).toBe(false)
     expect(document.getElementById('xf-style-highlightNonFollowers')).toBeNull()
   })
+
+  it('注入的样式包含结构性 :has 选择器，即便 React 在 hover/移出时重置类名，也能持续命中非互关按钮', () => {
+    createDom('https://x.com/my_username/following')
+    changeHighlightNonFollowers('on')
+
+    const styleEl = document.getElementById('xf-style-highlightNonFollowers')
+    expect(styleEl).not.toBeNull()
+    const cssText = styleEl!.textContent || ''
+    expect(cssText).toContain(':not(:has([data-testid="userFollowIndicator"]))')
+
+    // 模拟 React 在 hover 移出后重置了 button 的 className，导致 xf-non-follower-btn 被抹除
+    const user1Btn = document.querySelector('#user-1 button')!
+    const user2Btn = document.querySelector('#user-2 button')!
+    user1Btn.classList.remove('xf-non-follower-btn')
+
+    // 验证基于结构的选择器仍能精准命中 user-1（未关注），而不会命中 user-2（已关注我）
+    const selector = '[data-testid="UserCell"]:not(:has([data-testid="userFollowIndicator"])) button[data-testid*="-unfollow"]'
+    const matchedButtons = Array.from(document.querySelectorAll(selector))
+    expect(matchedButtons).toContain(user1Btn)
+    expect(matchedButtons).not.toContain(user2Btn)
+  })
 })
+

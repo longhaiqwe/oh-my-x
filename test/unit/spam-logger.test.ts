@@ -52,4 +52,33 @@ describe('recordIntercept serialization', () => {
     const handles = new Set(log.map((e) => e.authorHandle))
     expect(handles.size).toBe(10) // 没有重复也没有丢失
   })
+
+  it('preserves reverse-chronological order and flushes immediately on readLog', async () => {
+    // 连续调用两个拦截，不显式 await recordIntercept，直接调 readLog 验证立即 flush
+    void recordIntercept({
+      authorHandle: 'first_user',
+      authorName: 'First User',
+      text: 'first text',
+      score: 60,
+      category: 'marketing',
+      hits: [],
+      action: 'filter',
+    })
+
+    void recordIntercept({
+      authorHandle: 'second_user',
+      authorName: 'Second User',
+      text: 'second text',
+      score: 70,
+      category: 'marketing',
+      hits: [],
+      action: 'filter',
+    })
+
+    const log = await readLog()
+    expect(log).toHaveLength(2)
+    // 后截获的 second_user 应该在最前面（index 0）
+    expect(log[0].authorHandle).toBe('second_user')
+    expect(log[1].authorHandle).toBe('first_user')
+  })
 })

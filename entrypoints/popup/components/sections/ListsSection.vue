@@ -4,8 +4,16 @@ import { KeySpamWhitelist, KeySpamBlacklist } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseHandleList } from '../../../../shared/spam-rules'
 
-const whitelist = ref('')
-const blacklist = ref('')
+function getInitialList(key: string): string {
+  try {
+    return window?.localStorage?.getItem(key) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+const whitelist = ref(getInitialList(KeySpamWhitelist))
+const blacklist = ref(getInitialList(KeySpamBlacklist))
 
 const parsedWhitelist = computed(() => parseHandleList(whitelist.value))
 const parsedBlacklist = computed(() => parseHandleList(blacklist.value))
@@ -22,23 +30,33 @@ function flushList(key: ListKey) {
   const value = pendingValues.get(key)
   if (value === undefined) return
   pendingValues.delete(key)
+  try {
+    localStorage.setItem(key, value)
+  } catch {}
   void setStorage({ [key]: value })
 }
 
 function scheduleListSave(key: ListKey, value: string) {
   pendingValues.set(key, value)
+  try {
+    localStorage.setItem(key, value)
+  } catch {}
   const timer = saveTimers.get(key)
   if (timer) clearTimeout(timer)
   saveTimers.set(key, setTimeout(() => flushList(key), SAVE_DELAY_MS))
 }
 
 onMounted(async () => {
-  const [wl, bl] = await Promise.all([
-    getStorage(KeySpamWhitelist),
-    getStorage(KeySpamBlacklist),
-  ])
-  whitelist.value = String(wl ?? '')
-  blacklist.value = String(bl ?? '')
+  // 单次批量 IPC 查询，代替之前的两个独立 getStorage 请求
+  const data = await getStorage([KeySpamWhitelist, KeySpamBlacklist])
+  const wl = String(data?.[KeySpamWhitelist] ?? '')
+  const bl = String(data?.[KeySpamBlacklist] ?? '')
+  if (whitelist.value !== wl) whitelist.value = wl
+  if (blacklist.value !== bl) blacklist.value = bl
+  try {
+    localStorage.setItem(KeySpamWhitelist, wl)
+    localStorage.setItem(KeySpamBlacklist, bl)
+  } catch {}
 })
 
 function updateWhitelist(value: string) {

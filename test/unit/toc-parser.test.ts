@@ -269,6 +269,79 @@ describe('toc-parser: extractHeadingsFromArticle on simulated DOM', () => {
       { level: 2, text: '3. 解决了什么问题？' },
     ])
   })
+
+  it('should extract headings from Twitter Article using bold paragraphs and Chinese ordinal numbers', () => {
+    const html = `
+      <article data-testid="tweet">
+        <article data-testid="twitterArticleReadView">
+          <h1 data-testid="twitter-article-title">
+            <span>继UU远程后，网易又整了一个识别速度快到没朋友的AI语音输入法</span>
+          </h1>
+          <div data-testid="twitterArticleRichTextView">
+            <div class="longform-unstyled" data-block="true">
+              <span>我是真没想到网易除了UU远程，又在AI赛道整了一个新活。</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>Typeless，</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>从 Typeless 做出来的这个格式就知道了...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>叭哥说，</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>叭哥说这个其实跟Typeless的风格还挺不一样的...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>豆包，</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>豆包在常规语音识别上表现良好...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>闪电说，</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>闪电说有AI调整功能，但需要自己配API...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>第一个就是上班上的小声嘀嘀咕咕。</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>在办公室安静环境下，小声说也能精准识别...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>然后第二个是给AI写长Prompt和专业术语。</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>专业术语识别率非常高...</span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span style="font-weight: bold;"><span>第三个我非常常用的功能，多语言翻译。</span></span>
+            </div>
+            <div class="longform-unstyled" data-block="true">
+              <span>中英日韩互译...</span>
+            </div>
+          </div>
+        </article>
+      </article>
+    `
+    const dom = new JSDOM(html)
+    const headings = extractHeadingsFromArticle(dom.window.document)
+
+    expect(headings.map((h) => ({ level: h.level, text: h.text }))).toEqual([
+      { level: 1, text: '继UU远程后，网易又整了一个识别速度快到没朋友的AI语音输入法' },
+      { level: 2, text: 'Typeless' },
+      { level: 2, text: '叭哥说' },
+      { level: 2, text: '豆包' },
+      { level: 2, text: '闪电说' },
+      { level: 2, text: '第一个就是上班上的小声嘀嘀咕咕' },
+      { level: 2, text: '第二个是给AI写长Prompt和专业术语' },
+      { level: 2, text: '第三个我非常常用的功能，多语言翻译' },
+    ])
+  })
 })
+
 
 

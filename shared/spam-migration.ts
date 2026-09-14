@@ -7,7 +7,7 @@ import { parseEnabledRules, parseKeywordList, serializeEnabledRules } from './sp
 import { SPAM_RULES } from './spam-types'
 
 export const KEY_SPAM_CONFIG_VERSION = 'spamKeywordsVersion'
-export const CURRENT_SPAM_CONFIG_VERSION = 3
+export const CURRENT_SPAM_CONFIG_VERSION = 4
 
 export interface MigrationResult {
   migrated: boolean

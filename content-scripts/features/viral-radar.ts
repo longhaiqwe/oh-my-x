@@ -140,17 +140,26 @@ function getTweetKey(article: HTMLElement): string {
   return time?.getAttribute('datetime') || ''
 }
 
+let cachedViralData: Record<string, string | number | boolean | undefined> | null = null
+
+export function invalidateViralRadarCache() {
+  cachedViralData = null
+}
+
 export async function runViralRadar(force = false) {
-  const data = await getStorage([
-    KeyViralRadarEnabled,
-    KeyViralPotentialThreshold,
-    KeyViralViralThreshold,
-    KeyViralShowNormalBadge,
-    KeyViralEnableHighlight,
-    KeyViralHighlightStyle,
-    KeyViralShowLevels,
-    KeyViralShowBadge,
-  ])
+  if (force || !cachedViralData) {
+    cachedViralData = await getStorage([
+      KeyViralRadarEnabled,
+      KeyViralPotentialThreshold,
+      KeyViralViralThreshold,
+      KeyViralShowNormalBadge,
+      KeyViralEnableHighlight,
+      KeyViralHighlightStyle,
+      KeyViralShowLevels,
+      KeyViralShowBadge,
+    ])
+  }
+  const data = cachedViralData
 
   const enabled = data?.[KeyViralRadarEnabled] !== 'off'
   if (!enabled) {

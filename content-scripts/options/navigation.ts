@@ -103,22 +103,7 @@ export const changeNavigationButtonsLabels = (setting: string | number | boolean
   if (cacheKey === lastNavigationLabelsCacheKey) return
   lastNavigationLabelsCacheKey = cacheKey
 
-  const isMessagesPage = window.location.pathname.startsWith('/messages')
-  const isSearchPage = window.location.pathname.startsWith('/search')
-
-  if (isMessagesPage || isSearchPage) {
-    removeStyles('navigation-position')
-    addStyles(
-      'customDMsAndSearchStyle',
-      `${selectors.leftSidebar} { flex: 0.5 1 auto; }
-      @media only screen and (min-width: 1200px) {
-        ${selectors.leftSidebar} { flex: 0.3 1 auto; }
-      }
-      ${selectors.mainWrapper} { align-items: flex-start; }`
-    )
-  } else {
-    removeStyles('customDMsAndSearchStyle')
-  }
+  removeStyles('customDMsAndSearchStyle')
 
   const tweetBtn = selectors.tweetButton
 

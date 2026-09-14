@@ -115,6 +115,9 @@ describe('migrateSpamStorage (自动版本迁移)', () => {
     expect(migratedKeywords).toContain('微密圈')
     expect(migratedKeywords).toContain('反差')
     expect(migratedKeywords).toContain('比她骚')
+    expect(migratedKeywords).toContain('无偿约')
+    expect(migratedKeywords).toContain('选妃')
+    expect(migratedKeywords).toContain('sao货')
 
     // 规则开关：自动启用新增的 mention_referral 规则
     expect(String(mockStorage[KeySpamRulesEnabled])).toContain('mention_referral:on')

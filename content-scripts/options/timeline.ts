@@ -57,11 +57,14 @@ export const changeTimelineWidth = (
         max-width: ${width}px !important;
       }
       /* X caps the timeline wrapper at 600px (e.g. .r-1ye8kvj). Override that
-         parent + section so the feed fills the custom column width. */
-      body:not([data-xf-account-analytics]) ${selectors.mainColumn} div:has(> section[role="region"]) {
-        max-width: ${width}px !important;
-        width: 100% !important;
-      }
+         parent + section so the feed fills the custom column width.
+         Included selectors:
+         - div:has(> section[role="region"]): Standard timeline feed container
+         - div.r-13qz1uu.r-1ye8kvj: Timeline wrapper on profile, home, search, bookmarks, and tweet status
+         - section[role="region"]: Timeline section itself
+      */
+      body:not([data-xf-account-analytics]) ${selectors.mainColumn} div:has(> section[role="region"]),
+      body:not([data-xf-account-analytics]) ${selectors.mainColumn} div.r-13qz1uu.r-1ye8kvj,
       body:not([data-xf-account-analytics]) ${selectors.mainColumn} section[role="region"] {
         max-width: ${width}px !important;
         width: 100% !important;

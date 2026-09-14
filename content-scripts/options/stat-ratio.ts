@@ -278,7 +278,10 @@ export function isTweetAuthorTarget(group: Element, targetUsername: string): boo
 export function addStatRatioBadges(targetUsername = '*') {
   if (!isTargetProfilePage(targetUsername)) {
     // 若离开主页，清理已追加的徽章
-    document.querySelectorAll('.xf-stat-ratio-badge').forEach((el) => el.remove())
+    const badges = document.querySelectorAll('.xf-stat-ratio-badge')
+    if (badges.length > 0) {
+      badges.forEach((el) => el.remove())
+    }
     return
   }
 

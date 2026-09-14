@@ -7,7 +7,8 @@ import {
   startSpamObserver,
   stopSpamObserver,
 } from '../content-scripts/spam/scanner'
-import { runViralRadar } from '../content-scripts/features/viral-radar'
+import { runViralRadar, invalidateViralRadarCache } from '../content-scripts/features/viral-radar'
+import { dynamicFeatures, invalidateDynamicSettingsCache } from '../content-scripts/features/dynamic'
 import constructNewData from '../content-scripts/utilities/constructNewData'
 import { getStorage } from '../content-scripts/utilities/storage'
 import { XF_BRIDGE_MARKER } from '../shared/bridge'
@@ -15,6 +16,9 @@ import { mergeSettings, normalizeSettings, type ExtensionSettings } from '../sha
 import {
   KeyExtensionStatus,
   KeySpamFilterEnabled,
+  KeyStatRatioEnabled,
+  KeyStatRatioTargetHandle,
+  KeyHighlightNonFollowers,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
   allSettingsKeys,
@@ -82,6 +86,18 @@ export default defineContentScript({
         }
         currentSettings = mergeSettings(currentSettings, newData)
         applyChangedStaticFeatures(currentSettings, changedSettingKeys)
+        invalidateDynamicSettingsCache()
+
+        if (
+          changedSettingKeys.some(
+            (k) =>
+              k === KeyStatRatioEnabled ||
+              k === KeyStatRatioTargetHandle ||
+              k === KeyHighlightNonFollowers,
+          )
+        ) {
+          void dynamicFeatures.general(['tweet'])
+        }
       }
 
       // 任意 spam 相关 key 变化时，刷新扫描
@@ -100,6 +116,7 @@ export default defineContentScript({
       // 任意 爆款雷达 相关 key 变化时，立即重扫
       const viralChanged = Object.keys(changes).some((k) => VIRAL_RELEVANT_KEYS.has(k))
       if (viralChanged) {
+        invalidateViralRadarCache()
         void runViralRadar(true)
       }
     })

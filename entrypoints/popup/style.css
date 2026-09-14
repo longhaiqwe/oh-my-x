@@ -23,8 +23,9 @@ html {
 html,
 body {
   width: 400px;
-  min-height: 520px;
-  overflow-x: hidden;
+  /* 锁死窗口高度：阻止 Chrome Popup 根据内容动态伸缩 popup 窗口高度（根治抖动根因） */
+  height: 600px;
+  overflow: hidden;
 }
 
 body {
@@ -37,6 +38,36 @@ body {
 
 #app {
   width: 400px;
-  min-height: 520px;
+  height: 600px;
+  /* 滚动下沉到 #app：窗口永不伸缩，内容在此容器内滚动 */
+  overflow-y: auto;
+  overflow-x: hidden;
   isolation: isolate;
+  /* 为内部滚动条预留槽位，防止滚动条出现/消失时内容宽度变化（对 Windows/Linux 经典滚动条生效） */
+  scrollbar-gutter: stable;
+}
+
+/* 方案四：极细悬浮滚动条 —— 平时透明，悬停/滚动时浮现为半透明细滑块，不占排版空间 */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+/* 滚动条所在容器 hover 时显示滑块 */
+*:hover > ::-webkit-scrollbar-thumb,
+html:hover::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
 }

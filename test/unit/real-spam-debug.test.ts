@@ -16,6 +16,14 @@ const cases = [
   { name: '030999_s_ry (英文字母噪音混淆+矩阵引流)', author: 'e.b', handle: '030999_s', text: 'X ry就比她骚 @030999_s 0J' },
   { name: '030999_s_bg (英文字母噪音混淆+矩阵引流)', author: 'f.h', handle: '030999_s', text: 'X bg就比她骚 @030999_s 0E' },
   { name: '030999_s_qb (英文字母噪音混淆+矩阵引流)', author: 't.h', handle: '030999_s', text: 'X qb就比她骚 @030999_s 0d' },
+  // 来自推文 https://x.com/Shenxiao123971/status/2098250610714042605 及热榜采集真实样本
+  { name: '南之溪 (无偿约昵称+随机用户名)', author: '南之溪👉无偿约', handle: 'bikbq730', text: 'pouring\n☝️\n🖤\nskate' },
+  { name: '苒之萤 (无偿约昵称+随机用户名)', author: '苒之萤👉无偿约', handle: 'xvrcsethrn5yim', text: 'prohibit\n🤓\n☹️\npelvic' },
+  { name: '马曼 (同城上门+线下选妃+正文多营销词)', author: '马曼🌸同城上门♥线下选妃', handle: 'NaomiLafera', text: '应该没人比我玩的开了吧❣️🎄我福不黑不信你看' },
+  { name: 'sao货矩阵 (sao货+没人比她sao+矩阵短码)', author: 'zdhsgjko', handle: 'ScottMalcolm18', text: 'sao货fg 没人比她sao❣️ \n@lapchh\n 8f' },
+  { name: '30+sao货 (sao货+没人比她sao+引流)', author: 'ᴘʀι̥ɴᴄᴇss', handle: 'aisha_fx', text: '30+的sao货lm没人比她sao ❣️\n@julzc69\n 6f' },
+  { name: '太涩了顶不住 (太涩了+真顶不住+短码)', author: 'gicchi', handle: 'gicchi46', text: '30+果然太涩了py 我真顶不住 \n@xycijm\n 5i' },
+  { name: '主页能打飞机 (主页能打+打✈️+短码)', author: 'Crack The Lens', handle: 'CrackTheLens', text: '刷了半天的X mg就她主页能打✈️了@kkilyc 0t' },
 ]
 
 describe('real spam from screenshot', () => {

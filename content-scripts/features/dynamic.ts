@@ -40,11 +40,39 @@ function includesScope(scopes: ReadonlySet<DynamicFeatureScope>, scope: DynamicF
   return scopes.has('all') || scopes.has(scope)
 }
 
+let cachedTweetSettings: {
+  targetHandle: string
+  ratioEnabled: boolean
+  highlightNonFollowers: string
+} | null = null
+
+export function invalidateDynamicSettingsCache() {
+  cachedTweetSettings = null
+}
+
+async function getCachedTweetSettings() {
+  if (!cachedTweetSettings) {
+    const data = await getStorage([
+      KeyStatRatioTargetHandle,
+      KeyStatRatioEnabled,
+      KeyHighlightNonFollowers,
+    ])
+    const ratioEnabled = !data || data[KeyStatRatioEnabled] !== 'off'
+    const targetHandle = (data && typeof data[KeyStatRatioTargetHandle] === 'string' && (data[KeyStatRatioTargetHandle] as string).trim())
+      ? (data[KeyStatRatioTargetHandle] as string).trim()
+      : '*'
+    const highlightNonFollowers = String(data?.[KeyHighlightNonFollowers] ?? 'on')
+    cachedTweetSettings = { targetHandle, ratioEnabled, highlightNonFollowers }
+  }
+  return cachedTweetSettings
+}
+
 export const dynamicFeatures = {
   general: async (requestedScopes: Iterable<DynamicFeatureScope> = ['all']) => {
     for (const scope of requestedScopes) pendingScopes.add(scope)
     if (generalInFlight) return
     generalInFlight = true
+
     try {
       while (pendingScopes.size > 0) {
         const scopes = new Set(pendingScopes)
@@ -61,20 +89,13 @@ export const dynamicFeatures = {
           updateProfileActivityStats()
           void runViralRadar()
           updateArticleToc()
-          const data = await getStorage([
-            KeyStatRatioTargetHandle,
-            KeyStatRatioEnabled,
-            KeyHighlightNonFollowers,
-          ])
-          if (!data || data[KeyStatRatioEnabled] !== 'off') {
-            const targetHandle = (data && typeof data[KeyStatRatioTargetHandle] === 'string' && (data[KeyStatRatioTargetHandle] as string).trim())
-              ? (data[KeyStatRatioTargetHandle] as string).trim()
-              : '*'
-            addStatRatioBadges(targetHandle)
+          const s = await getCachedTweetSettings()
+          if (s.ratioEnabled) {
+            addStatRatioBadges(s.targetHandle)
           } else {
             document.querySelectorAll('.xf-stat-ratio-badge').forEach((el) => el.remove())
           }
-          changeHighlightNonFollowers(data?.[KeyHighlightNonFollowers] ?? 'on')
+          changeHighlightNonFollowers(s.highlightNonFollowers)
         }
 
         if (includesScope(scopes, 'composer')) {
@@ -161,7 +182,7 @@ const flushDynamicFeatures = throttle(async () => {
     } else {
       await dynamicFeatures.sidebarButtons()
     }
-    changeTweetButton(data[KeyTweetButton] ?? 'off')
+    changeTweetButton(data[KeyTweetButton] ?? 'off', data[KeyNavigationButtonsLabels])
     dynamicFeatures.navigation(data)
   }
 }, 50)

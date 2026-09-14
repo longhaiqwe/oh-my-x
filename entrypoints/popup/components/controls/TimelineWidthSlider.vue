@@ -4,25 +4,40 @@ import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
 import { KeyTimelineWidth } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 
-const userTrack = ref(700)
+function getInitialWidth(): number {
+  try {
+    const cached = window?.localStorage?.getItem(KeyTimelineWidth)
+    if (cached) return Number(cached)
+  } catch {}
+  return 700
+}
+
+const userTrack = ref(getInitialWidth())
 const trackDots = [600, 650, 700, 750, 800]
 
 // 只读 computed，供 SliderRoot :model-value 绑定
 const sliderValue = computed(() => [userTrack.value])
 
 function onSliderUpdate(val: number[]) {
-  if (val[0] !== undefined) userTrack.value = val[0]
+  if (val[0] !== undefined && val[0] !== userTrack.value) {
+    userTrack.value = val[0]
+    try {
+      localStorage.setItem(KeyTimelineWidth, String(val[0]))
+    } catch {}
+    void setStorage({ [KeyTimelineWidth]: val[0] })
+  }
 }
-
-// 副作用集中在 watch 里，而不是 computed setter 里
-watch(userTrack, (val) => {
-  void setStorage({ [KeyTimelineWidth]: val })
-})
 
 onMounted(async () => {
   const stored = await getStorage(KeyTimelineWidth)
   if (stored !== undefined) {
-    userTrack.value = Number(stored)
+    const num = Number(stored)
+    if (userTrack.value !== num) {
+      userTrack.value = num
+    }
+    try {
+      localStorage.setItem(KeyTimelineWidth, String(num))
+    } catch {}
   }
 })
 </script>

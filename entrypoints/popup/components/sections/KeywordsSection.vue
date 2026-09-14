@@ -11,7 +11,17 @@ import {
   mergeDefaultKeywords,
 } from '../../../../shared/spam-migration'
 
-const keywords = ref('')
+let migrationChecked = false
+
+function getInitialKeywords(): string {
+  try {
+    return window?.localStorage?.getItem(KeySpamKeywordList) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+const keywords = ref(getInitialKeywords())
 const newKeyword = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const syncMessage = ref('')
@@ -37,13 +47,24 @@ function showSyncMsg(msg: string) {
 }
 
 onMounted(async () => {
-  await migrateSpamStorage()
+  // 单次会话守卫：不在每次打开词库 Tab 时重复触发重量级存储版本比对与迁移
+  if (!migrationChecked) {
+    migrationChecked = true
+    await migrateSpamStorage()
+  }
   const kw = await getStorage(KeySpamKeywordList)
-  keywords.value = String(kw ?? '')
+  const val = String(kw ?? '')
+  if (keywords.value !== val) keywords.value = val
+  try {
+    localStorage.setItem(KeySpamKeywordList, val)
+  } catch {}
 })
 
 async function updateKeywords(value: string) {
   keywords.value = value
+  try {
+    localStorage.setItem(KeySpamKeywordList, value)
+  } catch {}
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     void setStorage({ [KeySpamKeywordList]: keywords.value })

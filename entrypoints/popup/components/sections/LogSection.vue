@@ -6,7 +6,8 @@ import type { SpamCategory, SpamLogEntry } from '../../../../shared/spam-types'
 
 const log = ref<SpamLogEntry[]>([])
 
-const sorted = computed(() => [...log.value].sort((a, b) => b.timestamp - a.timestamp))
+// log 本身在存储时已按时间逆序插入（最新在前），无需在前端额外做 O(N log N) 排序
+const sorted = computed(() => log.value)
 
 async function refresh() {
   log.value = await readLog()
@@ -34,7 +35,7 @@ onMounted(refresh)
 <template>
  <section class="flex flex-col gap-2 bg-card-bg rounded-b-xl p-3">
   <div class="flex items-center justify-between gap-2 ">
-   <p class="text-[10px] text-color-glyphs">共拦截 {{ sorted.length }} 条 · 仅本地存储 · 最近 200 条</p>
+   <p class="text-[10px] text-color-glyphs">共拦截 {{ sorted.length }} 条 · 仅本地存储 · 最近 50 条</p>
    <div class="flex items-center gap-1">
     <button
      type="button"

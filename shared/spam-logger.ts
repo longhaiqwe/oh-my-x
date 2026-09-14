@@ -2,7 +2,7 @@ import { KeySpamLog, KeySpamStats } from '../storage-keys'
 import type { DailyStats, SpamCategory, SpamLogEntry } from './spam-types'
 import { SPAM_CATEGORY_LABEL } from './spam-types'
 
-const MAX_LOG_ENTRIES = 200 // 防止 storage 过大
+const MAX_LOG_ENTRIES = 50 // 精简最近拦截日志条数（原200），减轻 storage 体积与 IPC 传输
 const STAT_RETENTION_DAYS = 30
 
 // 运行时去重 Map：同一推文 5 分钟内不重复记录
@@ -45,14 +45,25 @@ function emptyCategoryStats(): Record<SpamCategory, number> {
   }
 }
 
-export async function readLog(): Promise<SpamLogEntry[]> {
+export async function readLog(limit?: number): Promise<SpamLogEntry[]> {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+    await flushPending()
+  }
   const data = await browser.storage.local.get(KeySpamLog)
   const raw = data[KeySpamLog]
   if (!Array.isArray(raw)) return []
-  return raw as SpamLogEntry[]
+  return typeof limit === 'number' ? (raw as SpamLogEntry[]).slice(0, limit) : (raw as SpamLogEntry[])
 }
 
+
 export async function readStats(): Promise<DailyStats[]> {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+    await flushPending()
+  }
   const data = await browser.storage.local.get(KeySpamStats)
   const raw = data[KeySpamStats]
   if (!Array.isArray(raw)) return []
@@ -67,50 +78,98 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
   return next
 }
 
-export async function recordIntercept(entry: Omit<SpamLogEntry, 'id' | 'timestamp'>): Promise<void> {
+const pendingEntries: Array<Omit<SpamLogEntry, 'id' | 'timestamp'>> = []
+const pendingResolvers: Array<() => void> = []
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+async function flushPending(): Promise<void> {
+  if (pendingEntries.length === 0) return
+  const batch = pendingEntries.splice(0, pendingEntries.length)
+  const resolvers = pendingResolvers.splice(0, pendingResolvers.length)
+
+  try {
+    await serialize(async () => {
+      const data = await browser.storage.local.get([KeySpamLog, KeySpamStats])
+      const log = Array.isArray(data[KeySpamLog]) ? (data[KeySpamLog] as SpamLogEntry[]) : []
+      const stats = Array.isArray(data[KeySpamStats]) ? (data[KeySpamStats] as DailyStats[]) : []
+      const today = getTodayKey()
+
+      let todayStat = stats.find((s) => s.date === today)
+      if (!todayStat) {
+        todayStat = { date: today, total: 0, byCategory: emptyCategoryStats() }
+        stats.unshift(todayStat)
+      }
+
+      const newEntries: SpamLogEntry[] = []
+      const now = Date.now()
+      // batch 是按拦截顺序进入队列的，log 数组是以最新项在最前（index 0）排列。
+      // 因此将新截获批次以逆序（最新在前）前置合并进 log。
+      for (let i = batch.length - 1; i >= 0; i--) {
+        const entry = batch[i]
+        const id = `${now}-${i}-${Math.random().toString(36).slice(2, 8)}`
+        newEntries.push({
+          id,
+          timestamp: now,
+          ...entry,
+        })
+        todayStat.total += 1
+        todayStat.byCategory[entry.category] = (todayStat.byCategory[entry.category] || 0) + 1
+      }
+
+      const nextLog = [...newEntries, ...log].slice(0, MAX_LOG_ENTRIES)
+
+      // 清理过期统计
+      const cutoff = now - STAT_RETENTION_DAYS * 24 * 60 * 60 * 1000
+      const nextStats = stats.filter((s) => {
+        const ts = new Date(s.date).getTime()
+        return Number.isFinite(ts) && ts >= cutoff - 24 * 60 * 60 * 1000
+      })
+
+      await browser.storage.local.set({
+        [KeySpamLog]: nextLog,
+        [KeySpamStats]: nextStats,
+      })
+    })
+  } catch (err) {
+    console.error('[X-Focus] failed to flush spam log:', err)
+  } finally {
+    resolvers.forEach((r) => r())
+  }
+}
+
+export function recordIntercept(entry: Omit<SpamLogEntry, 'id' | 'timestamp'>): Promise<void> {
   // 去重：同推文在 5 分钟内只记一次
-  if (isDuplicate(dedupKey(entry))) return
+  if (isDuplicate(dedupKey(entry))) return Promise.resolve()
 
-  return serialize(async () => {
-    const log = await readLog()
-    const stats = await readStats()
-    const today = getTodayKey()
-
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const fullEntry: SpamLogEntry = {
-      id,
-      timestamp: Date.now(),
-      ...entry,
+  return new Promise((resolve) => {
+    pendingEntries.push(entry)
+    pendingResolvers.push(resolve)
+    if (!flushTimer) {
+      flushTimer = setTimeout(() => {
+        flushTimer = null
+        void flushPending()
+      }, 50)
     }
-    const nextLog = [fullEntry, ...log].slice(0, MAX_LOG_ENTRIES)
-
-    let todayStat = stats.find((s) => s.date === today)
-    if (!todayStat) {
-      todayStat = { date: today, total: 0, byCategory: emptyCategoryStats() }
-      stats.unshift(todayStat)
-    }
-    todayStat.total += 1
-    todayStat.byCategory[entry.category] = (todayStat.byCategory[entry.category] || 0) + 1
-
-    // 清理过期统计
-    const cutoff = Date.now() - STAT_RETENTION_DAYS * 24 * 60 * 60 * 1000
-    const nextStats = stats.filter((s) => {
-      const ts = new Date(s.date).getTime()
-      return Number.isFinite(ts) && ts >= cutoff - 24 * 60 * 60 * 1000
-    })
-
-    await browser.storage.local.set({
-      [KeySpamLog]: nextLog,
-      [KeySpamStats]: nextStats,
-    })
   })
 }
 
 export async function clearLog(): Promise<void> {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  pendingEntries.length = 0
+  pendingResolvers.splice(0).forEach((r) => r())
   await browser.storage.local.remove(KeySpamLog)
 }
 
 export async function clearStats(): Promise<void> {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  pendingEntries.length = 0
+  pendingResolvers.splice(0).forEach((r) => r())
   await browser.storage.local.remove(KeySpamStats)
 }
 

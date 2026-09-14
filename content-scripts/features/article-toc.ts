@@ -34,37 +34,33 @@ const TOC_STYLES = `
   align-items: flex-end !important;
   padding: 8px 6px !important;
   cursor: pointer !important;
-  border-radius: 6px !important;
   width: 32px !important;
   min-width: 32px !important;
   max-width: 32px !important;
-  box-sizing: border-box !important;
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(128, 128, 128, 0.16) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  border: none !important;
+  box-shadow: none !important;
   transition: all 0.2s ease !important;
 }
 
 @media (prefers-color-scheme: dark) {
   .xf-toc-minimal {
-    background: rgba(22, 24, 28, 0.9) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 }
 
 body[style*="background-color: rgb(0, 0, 0)"] .xf-toc-minimal,
 body[style*="background-color: rgb(21, 32, 43)"] .xf-toc-minimal {
-  background: rgba(22, 24, 28, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .xf-toc-minimal:hover {
-  border-color: #1d9bf0 !important;
-  box-shadow: 0 2px 10px rgba(29, 155, 240, 0.18) !important;
   transform: scale(1.05);
 }
 
@@ -343,11 +339,22 @@ class ArticleTocManager {
   private composerElement: HTMLElement | null = null
   private composerObserver: MutationObserver | null = null
   private composerInputListener: ((e: Event) => void) | null = null
+  private titleTextareaElement: HTMLElement | null = null
   public debouncedUpdate: () => void = debounce(() => {
     void this.update()
   }, 350)
 
   public async update(forceEnabled?: boolean) {
+    // 快速前置判断：普通短推文时间线（如 /home 首页）不包含长文阅读或写作编辑器；
+    // 既无文章容器且无已挂载的目录面板时直接短路，避免主页高频滚动反复 IPC 读 storage 与遍历 DOM。
+    const hasArticleOrComposer = Boolean(
+      window.location.pathname.includes('/article') ||
+      document.querySelector('[data-testid="composer"], [data-testid="composerRichTextInputContainer"], [data-testid="twitterArticleReadView"], [data-testid="twitterArticleRichTextView"], article[data-testid="article"]')
+    )
+    if (!hasArticleOrComposer && !this.container) {
+      return
+    }
+
     let isEnabled = forceEnabled
     if (typeof isEnabled === 'undefined') {
       const stored = await getStorage(KeyArticleToc)
@@ -397,7 +404,10 @@ class ArticleTocManager {
 
       composer.addEventListener('input', this.composerInputListener, { passive: true })
       composer.addEventListener('keyup', this.composerInputListener, { passive: true })
-      titleTextarea?.addEventListener('input', this.composerInputListener, { passive: true })
+      if (titleTextarea) {
+        this.titleTextareaElement = titleTextarea
+        titleTextarea.addEventListener('input', this.composerInputListener, { passive: true })
+      }
 
       this.composerObserver = new MutationObserver(() => {
         this.debouncedUpdate()
@@ -414,11 +424,11 @@ class ArticleTocManager {
     if (this.composerElement && this.composerInputListener) {
       this.composerElement.removeEventListener('input', this.composerInputListener)
       this.composerElement.removeEventListener('keyup', this.composerInputListener)
-      const titleTextarea = document.querySelector<HTMLElement>('textarea[placeholder*="标题"], textarea[placeholder*="title"], textarea[placeholder*="Title"]')
-      titleTextarea?.removeEventListener('input', this.composerInputListener)
+      this.titleTextareaElement?.removeEventListener('input', this.composerInputListener)
     }
     this.composerElement = null
     this.composerInputListener = null
+    this.titleTextareaElement = null
   }
 
   private ensureStyles() {

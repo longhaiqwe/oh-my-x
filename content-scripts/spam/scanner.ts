@@ -29,22 +29,23 @@ const SPAM_FP_ATTR = 'data-xf-spam-fp'
 let spamConfigVersion = 0
 
 async function processArticle(article: HTMLElement, config: SpamConfig) {
+  // 轻量级预指纹短路（非 debug）：
+  // 在昂贵的 extractTweetInfo（TreeWalker 遍历 DOM）之前，用 textContent 长度 +
+  // 首尾 16 字符 + 配置版本快速判断推文是否已变更。
+  // 注意：使用 textContent 而非 innerText，因为 textContent 不会触发强制回流（reflow）。
+  // 指纹匹配 → 跳过整条处理链路（含 TreeWalk + evaluateSpam），节省大量 CPU。
+  if (!config.debug) {
+    const rawText = article.textContent || ''
+    const preFp = `${rawText.length}:${rawText.slice(0, 16)}:${rawText.slice(-16)}:v${spamConfigVersion}`
+    if (article.getAttribute(PROCESSED_ATTR) === '1' && article.getAttribute(SPAM_FP_ATTR) === preFp) {
+      return
+    }
+    article.setAttribute(SPAM_FP_ATTR, preFp)
+  }
+
   // X 推文分阶段渲染；每轮重评估能避免初次拿到不完整 text/name。
   const info = extractTweetInfo(document, article)
   if (!info) return
-
-  // 增量评估短路（仅非 debug）：已处理且「文本指纹 + 配置版本」未变则跳过重算。
-  // - X 分阶段渲染会让 info.text 变化 → 指纹变 → 自然触发重评，渐进渲染不受影响；
-  // - config 变化（黑/白名单/阈值/规则）经 invalidateSpamConfig 使 spamConfigVersion
-  //   自增 → 指纹失效 → 强制重评，保证策略变更立即生效；
-  // - debug 模式不短路，保持「始终刷新」便于排查。
-  if (!config.debug) {
-    const fp = `${info.text.length}:${info.text.slice(0, 16)}:${info.text.slice(-16)}:${info.authorHandle}:v${spamConfigVersion}`
-    if (article.getAttribute(PROCESSED_ATTR) === '1' && article.getAttribute(SPAM_FP_ATTR) === fp) {
-      return
-    }
-    article.setAttribute(SPAM_FP_ATTR, fp)
-  }
 
   if (info.authorHandle && config.blacklist.has(info.authorHandle.toLowerCase())) {
     article.setAttribute(PROCESSED_ATTR, '1')
@@ -89,6 +90,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
     authorHandle: info.authorHandle,
     // 空数组表示用户明确清空了词库；只有 storage key 缺失时，getStorage 才会回退默认词库。
     keywords: config.keywords,
+    normalizedKeywords: config.normalizedKeywords,
     enabledRules: config.enabledRules,
   })
 
@@ -134,6 +136,12 @@ export function invalidateSpamConfig() {
 let scanScheduled = false
 async function scheduleScan() {
   if (scanScheduled) return
+  // 非详情页（如 /home 首页时间线）不参与评论垃圾过滤；
+  // 若页面上无残留的调试条或隐藏状态，无需调度扫描，避免主页高频滚动时无谓轮询。
+  const { isDetailPage } = isTweetDetailPage()
+  if (!isDetailPage && !document.querySelector(`article[${STATE_ATTR}="hidden"], #${DEBUG_BAR_ID}`)) {
+    return
+  }
   scanScheduled = true
   const idle = (window as any).requestIdleCallback as ((cb: () => void) => void) | undefined
   if (idle) {
@@ -395,12 +403,9 @@ let observer: MutationObserver | null = null
 
 export function isOwnNode(node: Node): boolean {
   if (node.nodeType !== Node.ELEMENT_NODE) return false
-  let el: Element | null = node as Element
-  while (el) {
-    if (el.matches?.(XF_SELF_SELECTOR)) return true
-    el = el.parentElement
-  }
-  return false
+  // 使用浏览器原生 closest()（C++ 实现）替代手动 while 循环逐层上溯，
+  // 在深层嵌套的 React DOM 中性能提升显著（避免 20-30 层 JS 循环）。
+  return !!(node as Element).closest?.(XF_SELF_SELECTOR)
 }
 
 export function isSelfMutation(records: MutationRecord[]): boolean {
@@ -422,6 +427,17 @@ export function startSpamObserver() {
   if (observer) return
   installScrollStabilityStyles()
   observer = new MutationObserver((records) => {
+    // 快速路径：跳过纯属性变更（spam scanner 只关心 childList 增删）
+    // 以及全部为文本节点的变更（#text 不可能包含 tweet article）。
+    let hasRelevant = false
+    for (const rec of records) {
+      if (rec.type !== 'childList') continue
+      if (rec.addedNodes.length > 0 || rec.removedNodes.length > 0) {
+        hasRelevant = true
+        break
+      }
+    }
+    if (!hasRelevant) return
     if (isSelfMutation(records)) return
     void scheduleScan()
   })
