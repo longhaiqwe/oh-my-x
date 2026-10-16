@@ -297,7 +297,7 @@ export function addStatRatioBadges(targetUsername = '*') {
       align-items: center;
       justify-content: center;
       margin-left: 2px;
-      padding:  1.5px 4px ;
+      padding: 1.5px 4px;
       font-size: 10px;
       font-weight: 700;
       line-height: 1.2;
@@ -311,6 +311,22 @@ export function addStatRatioBadges(targetUsername = '*') {
     }
     .xf-stat-ratio-badge:hover {
       transform: scale(1.06);
+    }
+    /* 确保带有徽章的推文底栏释放宽度限制并避免挤压书签 */
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-13awgt0 {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-1wron08 {
+      flex-shrink: 0 !important;
+      margin-left: 6px !important;
+    }
+    .xf-stat-ratio-badge + .x-focus-velocity-badge {
+      margin-left: 2px !important;
     }
     .xf-instant-tooltip {
       position: absolute;
@@ -451,7 +467,17 @@ export function addStatRatioBadges(targetUsername = '*') {
       if (!badge) {
         badge = document.createElement('span')
         badge.className = 'xf-stat-ratio-badge'
-        container.appendChild(badge)
+        const velocityBadge = container.querySelector('.x-focus-velocity-badge')
+        if (velocityBadge) {
+          container.insertBefore(badge, velocityBadge)
+        } else {
+          container.appendChild(badge)
+        }
+      } else {
+        const velocityBadge = container.querySelector('.x-focus-velocity-badge')
+        if (velocityBadge && (badge.compareDocumentPosition(velocityBadge) & Node.DOCUMENT_POSITION_PRECEDING)) {
+          container.insertBefore(badge, velocityBadge)
+        }
       }
 
       badge.removeAttribute('title')

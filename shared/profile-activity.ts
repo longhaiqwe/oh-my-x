@@ -9,6 +9,8 @@ export interface ProfileActivityEntry {
   id: string
   date: string
   type: ProfileActivityType
+  timestamp?: number
+  isPinned?: boolean
 }
 
 export interface ProfileActivityDay {
@@ -67,6 +69,13 @@ function formatLocalDay(datetime: string) {
   return `${year}-${month}-${day}`
 }
 
+function isPinnedTweet(article: HTMLElement): boolean {
+  const socialContext = article.querySelector('[data-testid="socialContext"]')
+  if (!socialContext) return false
+  const text = (socialContext.textContent || '').trim().toLowerCase()
+  return text.includes('pinned') || text.includes('置顶')
+}
+
 export function collectProfileActivity(
   doc: Document,
   route: ProfileActivityRoute,
@@ -85,21 +94,54 @@ export function collectProfileActivity(
 
     const date = formatLocalDay(datetime)
     if (!date) return
-    entries.set(statusLink.status.id, { id: statusLink.status.id, date, type: route.type })
+    const timestamp = new Date(datetime).getTime()
+    const isPinned = isPinnedTweet(article)
+    entries.set(statusLink.status.id, {
+      id: statusLink.status.id,
+      date,
+      type: route.type,
+      timestamp: Number.isNaN(timestamp) ? undefined : timestamp,
+      isPinned,
+    })
   })
 
   return Array.from(entries.values())
 }
 
+export function getOldestActivityTimestamp(
+  entries: Iterable<ProfileActivityEntry>,
+  options?: { ignorePinned?: boolean },
+): number | null {
+  let oldest: number | null = null
+  for (const entry of entries) {
+    if (options?.ignorePinned && entry.isPinned) continue
+    if (typeof entry.timestamp === 'number') {
+      if (oldest === null || entry.timestamp < oldest) {
+        oldest = entry.timestamp
+      }
+    }
+  }
+  return oldest
+}
+
 export function summarizeProfileActivity(
   profileHandle: string,
   entries: Iterable<ProfileActivityEntry>,
+  options?: { cutoffTimestamp?: number },
 ): ProfileActivitySummary {
   const days = new Map<string, ProfileActivityDay>()
   let posts = 0
   let replies = 0
 
   for (const entry of entries) {
+    if (
+      typeof options?.cutoffTimestamp === 'number' &&
+      typeof entry.timestamp === 'number' &&
+      entry.timestamp < options.cutoffTimestamp
+    ) {
+      continue
+    }
+
     const day = days.get(entry.date) ?? { date: entry.date, posts: 0, replies: 0 }
     if (entry.type === 'post') {
       day.posts += 1

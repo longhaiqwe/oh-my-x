@@ -34,4 +34,12 @@ describe('dynamic feature scope routing', () => {
     const label = document.getElementById('label')!
     expect(getDynamicFeatureScopes([record(label)])).toEqual(new Set(['navigation']))
   })
+
+  it('routes inline reply editor and lazy toolbar changes to composer', () => {
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML = '<div data-testid="tweetTextarea_0" contenteditable="true"></div>'
+    expect(getDynamicFeatureScopes([record(document.body, [wrapper])]).has('composer')).toBe(true)
+    wrapper.innerHTML = '<div data-testid="toolBar"><div role="tablist"></div><button data-testid="tweetButtonInline"></button></div>'
+    expect(getDynamicFeatureScopes([record(wrapper.firstElementChild!)])).toContain('composer')
+  })
 })

@@ -50,7 +50,12 @@ export async function setStorage(kv: Record<string, unknown>): Promise<boolean> 
   // 调用方可选择回滚或提示；非关键后台写入仍可忽略返回值。
   // 扩展上下文失效时 browser 可能未定义，try/catch 兜住并返回 false。
   try {
-    await browser.storage.local.set(kv)
+    // 保护性清洗：消除 Vue 响应式 Proxy 与原型链属性引发的 DataCloneError
+    let sanitized = kv
+    try {
+      sanitized = JSON.parse(JSON.stringify(kv))
+    } catch {}
+    await browser.storage.local.set(sanitized)
     return true
   } catch {
     return false

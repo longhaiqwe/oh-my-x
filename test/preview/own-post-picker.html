@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>引用我的帖子 · UI 预览</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fff;color:#0f1419;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body.dark{background:#000;color:#f7f9f9}main{max-width:600px;margin:48px auto;padding:24px;border:1px solid #8b98a544;border-radius:16px}h1{font-size:20px;margin:0}p{margin:8px 0 24px;color:#536471}.dark p{color:#8e969d}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}.controls button{font:inherit;border:1px solid #8b98a566;border-radius:20px;padding:6px 12px;background:transparent;color:inherit;cursor:pointer}.editor{padding:16px 0 24px;min-height:100px;outline:none}.publish-row{display:flex;justify-content:space-between;align-items:center}.publish-row button{font:inherit;border:0;border-radius:24px;padding:8px 16px;background:#0f1419;color:#fff}.dark .publish-row button{background:#e7e9ea;color:#0f1419}.eyebrow{font-size:12px;margin-bottom:8px;color:#536471}.dark .eyebrow{color:#8e969d}@media(max-width:600px){main{margin:0;border:0;padding:16px}}
+</style>
+<body><main><div class="eyebrow">OH-MY-X / 组件预览 · 示例数据</div><h1>回复中，随手引用自己的旧帖</h1><p>搜索、选择、继续写作。</p><div class="controls"><button id="theme">切换明暗</button><button data-state="results">帖子列表</button><button data-state="empty">空结果</button><button data-state="error">请求失败</button><button id="offline">离线搜索</button><button id="benchmark">测试一万条缓存</button><output id="metrics"></output></div><a data-testid="AppTabBar_Profile_Link" href="/demo" hidden></a><section id="composer"><div class="editor" contenteditable="true" data-testid="tweetTextarea_0" aria-label="回复内容">关于这个话题，我之前写过一些想法。</div><div class="publish-row"><button id="trigger">引用我的帖子</button><button data-testid="tweetButtonInline" disabled>回复</button></div></section></main>
+<script type="module">
+import { openOwnPostPicker } from '/content-scripts/options/own-post-picker.ts'
+import { OWN_POSTS_FETCH_REQ_TYPE, OWN_POSTS_FETCH_RES_TYPE, XF_BRIDGE_MARKER } from '/shared/bridge.ts'
+import { createLibraryRepository } from '/shared/own-post-library-db.ts'
+import { createLibraryService } from '/shared/own-post-library.ts'
+const repository=createLibraryRepository('oh-my-x-library-preview')
+let service=createLibraryService(repository)
+let state='results',offline=false
+const accounts={results:'42101',empty:'42102',error:'42103'}
+document.cookie='twid=u%3D'+accounts.results
+window.browser={storage:{local:{get:async()=>({ownPostAutoSync:'on'})}},runtime:{sendMessage:async request=>{try{return {ok:true,result:await service(request)}}catch(e){return {ok:false,error:e.message}}}}}
+const samples=[
+{id:'1001',handle:'demo',title:'把时间留给真正重要的事',thumbnailUrl:'https://pbs.twimg.com/media/HUvKTvNbMAARWfj?format=jpg&name=medium',text:'保持每天的作息一致，把注意力留给生活。我们为什么总想早睡，却总在深夜舍不得放下手机？',timestamp:1792108800000},
+{id:'1002',handle:'demo',title:'',thumbnailUrl:'https://pbs.twimg.com/media/HUvKgm3asAA2Fiy?format=jpg&name=medium',text:'写作最好的反馈，是过了一段时间，依然有人告诉你：那篇文章帮到了我。好的内容，值得被再次看见。',timestamp:1792022400000},
+{id:'1003',handle:'demo',title:'',text:'做了一个小工具：让常用操作少一步，把省下的时间用在更有意思的事情上。',timestamp:1791936000000}]
+const root=document.querySelector('#composer'),trigger=document.querySelector('#trigger');
+const open=()=>openOwnPostPicker(root,trigger,url=>{document.querySelector('.editor').textContent+=' '+url});
+const reset=()=>{root.querySelector('[aria-label="关闭帖子选择器"]')?.click();open()};
+window.addEventListener('message',event=>{
+  const d=event.data;if(d?.type!==OWN_POSTS_FETCH_REQ_TYPE)return
+  setTimeout(()=>window.postMessage({__xf:XF_BRIDGE_MARKER,type:OWN_POSTS_FETCH_RES_TYPE,requestId:d.requestId,ok:state!=='error'&&!offline,error:'当前离线，已有缓存仍可搜索',page:{posts:state==='empty'?[]:samples,cursor:null,hasTimeline:true}},location.origin),350)
+})
+trigger.onclick=open
+// If a stale lease remains after reloading a fixture, local queries must still work.
+document.querySelector('#theme').onclick=()=>{document.body.classList.toggle('dark');reset()}
+document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>{state=b.dataset.state;document.cookie='twid=u%3D'+accounts[state];reset()})
+document.querySelector('#offline').onclick=()=>{offline=!offline;document.querySelector('#offline').textContent=offline?'恢复联网':'离线搜索';document.querySelector('#metrics').textContent=offline?'网络已断开；仍可搜索本地缓存':''}
+document.querySelector('#benchmark').onclick=async()=>{
+  const metrics=document.querySelector('#metrics');metrics.textContent='准备一万条测试缓存…'
+  await repository.update('43999',state=>{for(let i=0;i<10_000;i++){const text=i%100===0?'早睡与阅读':'日常笔记';state.posts[String(i+1)]={id:String(i+1),handle:'demo',text,title:'',timestamp:i,url:'',searchText:text}}})
+  // Recreate both service and DB adapter to verify persistence across instances.
+  service=createLibraryService(createLibraryRepository('oh-my-x-library-preview'))
+  const start=performance.now();const result=await service({account:'43999',handle:'demo',action:'search',query:'早睡'})
+  metrics.textContent=`持久化验证：10,000 条中命中 ${result.total} 条；本地搜索 ${Math.round(performance.now()-start)} ms`
+}
+if(new URLSearchParams(location.search).get('theme')==='dark')document.body.classList.add('dark')
+open()
+</script></body></html>

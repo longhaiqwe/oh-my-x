@@ -16,6 +16,11 @@
   },
 }
 
+// Mock WXT auto-imported defineContentScript macro in test environment
+if (typeof (globalThis as any).defineContentScript === 'undefined') {
+  ;(globalThis as any).defineContentScript = (config: any) => config
+}
+
 // 允许测试用例重新赋值 document/window（如使用独立 JSDOM 实例）
 if (typeof (globalThis as any).document !== 'undefined') {
   Object.defineProperty(globalThis, 'document', {

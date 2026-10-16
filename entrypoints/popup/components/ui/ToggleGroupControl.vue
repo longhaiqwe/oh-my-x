@@ -47,7 +47,7 @@ watch(model, async (newVal, oldVal) => {
    v-for="opt in options"
    :key="opt.value"
    :value="opt.value"
-   class="flex-1 px-3 py-0.5 text-xs font-semibold transition-colors duration-150 outline-none
+   class="flex-1 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-center transition-colors duration-150 outline-none
     data-[state=on]:bg-accent data-[state=on]:text-white
     data-[state=off]:text-gray-400 data-[state=off]:hover:text-text data-[state=off]:hover:bg-body-bg/50
     border-r border-secondary-text/30 last:border-r-0

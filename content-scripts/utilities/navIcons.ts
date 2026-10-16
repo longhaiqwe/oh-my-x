@@ -49,6 +49,7 @@ function matchByHref(href: string): NavItemConfig | null {
   if (href.includes('/lists')) return findConfig('lists')
   if (href.includes('premium')) return findConfig('xPremium')
   if (href.includes('creators/studio')) return findConfig('creatorStudio')
+  if (href.includes('money') || href.includes('chatmoney')) return findConfig('chatMoney')
   return null
 }
 
@@ -100,7 +101,7 @@ function collectNavLinks(nav: Element): Element[] {
   if (direct.length > 0) return direct
 
   const selector =
-    'a, button, a[data-testid^="AppTabBar_"], button[data-testid^="AppTabBar_"], a[data-testid="premium-signup-tab"], a[href*="/i/grok"], a[href*="creators/studio"], a[href*="/i/history"], a[href*="/i/bookmarks"], a[href*="/history"]'
+    'a, button, a[data-testid^="AppTabBar_"], button[data-testid^="AppTabBar_"], a[data-testid="premium-signup-tab"], a[href*="/i/grok"], a[href*="creators/studio"], a[href*="/i/history"], a[href*="/i/bookmarks"], a[href*="/history"], a[href*="money"], a[href*="chatmoney"]'
   const results: Element[] = []
   const seen = new Set<Element>()
 

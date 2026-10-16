@@ -1,5 +1,5 @@
 /*--
-- X Focus - Clean theme for Twitter / X
+- oh-my-x - Clean theme for Twitter / X
 --*/
 
 /* Remove Promoted Posts */
@@ -344,4 +344,27 @@ a[href*="quick_promote_web"] {
   font-weight: 400;
   font-size: 12px;
   padding-left: 16px;
+}
+
+/* ─── 推文底部数据工具栏自适应排版与书签防重叠 ─── */
+/* 1. 放开推文底栏 425px 限制，占满推文卡片可用宽度，释放右侧充裕空间 */
+article[data-testid="tweet"] [role="group"][id*="id__"]:only-child {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* 2. 释放前 4 个列的 flex-basis: 0% 等分死锁，允许根据内容宽度弹性分配 */
+article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-13awgt0 {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* 3. 保护书签（Bookmark）及分享等按钮，防止被左侧徽章覆盖，确保独立安全间距 */
+article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-1wron08,
+article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.xf-enhanced-share,
+article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.mt-enhanced-share {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 1 !important;
+  margin-left: 6px !important;
 }

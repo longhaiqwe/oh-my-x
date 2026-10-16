@@ -17,18 +17,26 @@ import {
   addMediaDownloadButtons,
   syncAccountAnalyticsPageMarker,
 } from '../options/timeline'
+import { syncRadarPageMarker } from '../options/radar'
 import { addComposerInsertLinkButton } from '../options/composer'
 import { addScheduledRelativeTimes, maintainScheduledPostsCache, removeScheduledPanorama } from '../options/scheduled-time'
 import { addStatRatioBadges } from '../options/stat-ratio'
-import { updateProfileActivityStats } from '../options/profile-activity'
 import { changeTweetButton, changeHighlightNonFollowers } from '../options/interface'
 import { getStorage } from '../utilities/storage'
 import throttle from '../utilities/throttle'
 import type { ExtensionSettings } from '../../shared/settings'
 
 import { runViralRadar } from './viral-radar'
+import { runTweetFilter } from './tweet-filter'
 import { injectKeywordButton } from '../spam/keyword-picker'
 import { updateArticleToc } from './article-toc'
+import { runQuickListFeature } from './quick-list'
+import { updateReplyAssistant } from './reply-assistant'
+import { updateBookmarkCounters } from './bookmark-counter'
+import { updateQuickInteraction } from './quick-interaction'
+import { updateUserFollowerBadges } from './user-followers'
+import { updateAiRepostComposerButton } from './ai-repost'
+import { scanCreatorRewardsFromDom } from './creator-rewards'
 
 export type DynamicFeatureScope = 'tweet' | 'composer' | 'scheduled' | 'navigation' | 'all'
 
@@ -86,9 +94,13 @@ export const dynamicFeatures = {
           document
             .querySelectorAll<HTMLElement>('article[data-testid="tweet"]')
             .forEach(injectKeywordButton)
-          updateProfileActivityStats()
           void runViralRadar()
+          void runTweetFilter()
           updateArticleToc()
+          updateReplyAssistant()
+          updateBookmarkCounters()
+          updateQuickInteraction()
+          void updateUserFollowerBadges()
           const s = await getCachedTweetSettings()
           if (s.ratioEnabled) {
             addStatRatioBadges(s.targetHandle)
@@ -96,11 +108,14 @@ export const dynamicFeatures = {
             document.querySelectorAll('.xf-stat-ratio-badge').forEach((el) => el.remove())
           }
           changeHighlightNonFollowers(s.highlightNonFollowers)
+          void runQuickListFeature()
         }
 
         if (includesScope(scopes, 'composer')) {
           addComposerInsertLinkButton()
+          void updateAiRepostComposerButton()
           updateArticleToc()
+          updateBookmarkCounters()
         }
         if (includesScope(scopes, 'scheduled')) {
           const schedState = await getStorage(KeyScheduledPanorama)
@@ -113,7 +128,12 @@ export const dynamicFeatures = {
         }
         if (includesScope(scopes, 'navigation')) {
           syncAccountAnalyticsPageMarker()
+          syncRadarPageMarker()
+          void runQuickListFeature()
         }
+
+        // 若当前处于创作者奖励页面，从页面 DOM 实时同步指标
+        scanCreatorRewardsFromDom()
       }
     } finally {
       generalInFlight = false
@@ -125,7 +145,13 @@ export const dynamicFeatures = {
   sidebarButtons: async () => {
     const data = await getStorage([KeyListsButton, KeyCommunitiesButton, KeyTopicsButton, KeyXPremiumButton])
     if (!data) return
-    if (data[KeyListsButton] === 'on') addListsButton()
+    if (data[KeyListsButton] === 'on') {
+      addListsButton()
+    } else {
+      document
+        .querySelectorAll('.xf-sidebar-button[aria-label="Lists"], .xf-sidebar-button[aria-label="lists"]')
+        .forEach((el) => el.remove())
+    }
     if (data[KeyCommunitiesButton] === 'on') addCommunitiesButton()
     if (data[KeyTopicsButton] === 'on') addTopicsButton()
     if (data[KeyXPremiumButton] === 'on') addXPremiumButton()
@@ -175,7 +201,13 @@ const flushDynamicFeatures = throttle(async () => {
 
   if (data) {
     if (settings) {
-      if (data[KeyListsButton] === 'on') addListsButton()
+      if (data[KeyListsButton] === 'on') {
+        addListsButton()
+      } else {
+        document
+          .querySelectorAll('.xf-sidebar-button[aria-label="Lists"], .xf-sidebar-button[aria-label="lists"]')
+          .forEach((el) => el.remove())
+      }
       if (data[KeyCommunitiesButton] === 'on') addCommunitiesButton()
       if (data[KeyTopicsButton] === 'on') addTopicsButton()
       if (data[KeyXPremiumButton] === 'on') addXPremiumButton()

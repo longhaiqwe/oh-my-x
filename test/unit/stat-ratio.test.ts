@@ -190,5 +190,56 @@ describe('stat-ratio.ts 单元测试', () => {
       expect(getEngagementRatioLevel(0.30).label).toBe('爆火') // 30%
     })
   })
+
+  describe('双徽章共存与底栏防遮挡', () => {
+    beforeEach(() => {
+      document.body.innerHTML = ''
+    })
+
+    it('当已存在速度徽章时，比例徽章插入在速度徽章之前', () => {
+      window.history.pushState({}, '', '/creator_user')
+      document.body.innerHTML = `
+        <a href="/creator_user/followers">10,000 关注者</a>
+        <article data-testid="tweet">
+          <div data-testid="UserAvatar-Container-creator_user"></div>
+          <div data-testid="User-Name"><a href="/creator_user">@creator_user</a></div>
+          <div>
+            <div role="group" id="id__my_tweet">
+              <a href="/creator_user/status/200/analytics" aria-label="242000 次查看">
+                <span class="css-146c3p1">
+                  <span>242K</span>
+                  <span class="x-focus-velocity-badge">🚀 3.4k/h</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </article>
+      `
+
+      addStatRatioBadges('creator_user')
+
+      const container = document.querySelector('.css-146c3p1')!
+      const ratioBadge = container.querySelector('.xf-stat-ratio-badge')!
+      const velocityBadge = container.querySelector('.x-focus-velocity-badge')!
+
+      expect(ratioBadge).not.toBeNull()
+      expect(velocityBadge).not.toBeNull()
+      // 比例徽章必须位于速度徽章之前
+      expect(ratioBadge.nextElementSibling).toBe(velocityBadge)
+    })
+
+    it('注入的样式包含推文底栏 100% 宽度和书签保护规则', () => {
+      window.history.pushState({}, '', '/creator_user')
+      document.body.innerHTML = `<a href="/creator_user/followers">1,000 关注者</a>`
+      addStatRatioBadges('creator_user')
+
+      const styleEl = document.getElementById('xf-style-statRatioBadges')
+      expect(styleEl).not.toBeNull()
+      const css = styleEl!.textContent!
+      expect(css).toContain('max-width: 100% !important')
+      expect(css).toContain('flex: 1 1 auto !important')
+      expect(css).toContain('flex-shrink: 0 !important')
+    })
+  })
 })
 

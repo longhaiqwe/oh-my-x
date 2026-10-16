@@ -7,6 +7,7 @@ import {
   KeyViralViralThreshold,
   KeyTimelineWidth,
   KeySpamThreshold,
+  KeyRadarWidth,
   defaultPreferences,
 } from '../../storage-keys'
 import { parseViralShowLevels, normalizeSettings } from '../../shared/settings'
@@ -95,5 +96,14 @@ describe('normalizeSettings numeric constraints', () => {
     })
     expect(settings[KeyViralPotentialThreshold]).toBe(2000)
     expect(settings[KeyViralViralThreshold]).toBe(8000)
+  })
+
+  it('normalizes KeyRadarWidth correctly', () => {
+    expect(normalizeSettings({ [KeyRadarWidth]: 'off' })[KeyRadarWidth]).toBe('off')
+    expect(normalizeSettings({ [KeyRadarWidth]: 'wide' })[KeyRadarWidth]).toBe('wide')
+    expect(normalizeSettings({ [KeyRadarWidth]: 'full' })[KeyRadarWidth]).toBe('full')
+    expect(normalizeSettings({ [KeyRadarWidth]: 'invalid_mode' })[KeyRadarWidth]).toBe(
+      defaultPreferences[KeyRadarWidth],
+    )
   })
 })

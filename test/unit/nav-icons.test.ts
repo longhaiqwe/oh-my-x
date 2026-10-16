@@ -123,18 +123,34 @@ describe('extractNavItems', () => {
     expect(getNavIconSvg('explore')).toBe('<path d="M12 2"></path>')
     expect(getNavIconSvg('home' as any)).toBeUndefined()
   })
+  it('matches money path as chatMoney', () => {
+    document.body.innerHTML = `
+      <header role="banner">
+        <nav role="navigation">
+          <a href="/i/money" role="link">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12"/></svg>
+            <div><div></div><div><span>Money</span></div></div>
+          </a>
+        </nav>
+      </header>
+    `
+
+    const items = extractNavItems()
+    expect(items.map((i) => i.id)).toEqual(['chatMoney'])
+    expect(items[0].label).toBe('Money')
+  })
 })
 
 describe('STATIC_NAV_ITEMS', () => {
-  it('contains exactly 10 navigation items', () => {
-    expect(STATIC_NAV_ITEMS.length).toBe(10)
+  it('contains exactly 11 navigation items', () => {
+    expect(STATIC_NAV_ITEMS.length).toBe(11)
   })
 
   it('contains valid and unique storage keys defined in allSettingsKeys', () => {
     const validKeys = new Set(allSettingsKeys)
     const storageKeys = STATIC_NAV_ITEMS.map((item) => item.storageKey)
 
-    expect(new Set(storageKeys).size).toBe(10)
+    expect(new Set(storageKeys).size).toBe(11)
     for (const key of storageKeys) {
       expect(validKeys.has(key as any)).toBe(true)
     }

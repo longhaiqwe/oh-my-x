@@ -131,7 +131,7 @@ async function flushPending(): Promise<void> {
       })
     })
   } catch (err) {
-    console.error('[X-Focus] failed to flush spam log:', err)
+    console.error('[oh-my-x] failed to flush spam log:', err)
   } finally {
     resolvers.forEach((r) => r())
   }

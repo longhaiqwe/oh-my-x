@@ -10,6 +10,7 @@ import {
   KeyMessagesButton,
   KeyNotificationsButton,
   KeyCreatorStudioButton,
+  KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeyProfileButton,
   KeyTopicsButton,
@@ -33,6 +34,7 @@ export type NavIconId =
   | 'verifiedOrgs'
   | 'profile'
   | 'creatorStudio'
+  | 'chatMoney'
   | 'moreMenu'
 
 export interface NavItemConfig {
@@ -57,5 +59,6 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { id: 'verifiedOrgs', storageKey: KeyVerifiedOrgsButton, label: 'Verified Orgs', selector: 'a[href*="verified-orgs"]' },
   { id: 'profile', storageKey: KeyProfileButton, label: 'Profile', selector: '[data-testid="AppTabBar_Profile_Link"]' },
   { id: 'creatorStudio', storageKey: KeyCreatorStudioButton, label: 'Creator Studio', selector: 'a[href*="creators/studio"]' },
+  { id: 'chatMoney', storageKey: KeyChatMoneyButton, label: 'X Money', selector: 'a[href*="money"], a[href*="chatmoney"]' },
   { id: 'moreMenu', storageKey: KeyMoreMenuButton, label: 'More', selector: '[data-testid="AppTabBar_More_Menu"]' },
 ]

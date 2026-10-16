@@ -33,8 +33,9 @@ const version = pkg.version
     >
      {{ version }}
     </span>
-    <h1 class="text-xl font-extrabold tracking-tight">
-     <span>X FOCUS</span>
+    <h1 class="flex items-center gap-2 text-xl font-extrabold tracking-tight">
+     <img src="/icons/128.png" alt="" class="w-7 h-7" />
+     <span>oh-my-x</span>
     </h1>
    </div>
 

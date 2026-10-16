@@ -88,7 +88,7 @@ export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HT
   firstRow.appendChild(sep)
   const head = document.createElement('span')
   head.style.fontWeight = '600'
-  head.textContent = `X Focus · Spam Score ${evaluation.score} · ${evaluation.category}`
+  head.textContent = `oh-my-x · Spam Score ${evaluation.score} · ${evaluation.category}`
   firstRow.appendChild(head)
   bar.appendChild(firstRow)
 

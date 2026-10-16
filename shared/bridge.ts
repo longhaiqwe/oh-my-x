@@ -11,3 +11,24 @@ export const XF_BRIDGE_MARKER = '__x_focus_bridge_v1__'
 
 /** 排期数据 postMessage 的 type */
 export const SCHEDULED_TWEETS_TYPE = 'XF_SCHEDULED_TWEETS'
+
+/** 推文/长文书签指标 postMessage 的 type */
+export const BOOKMARK_METRICS_TYPE = 'XF_BOOKMARK_METRICS'
+
+/** 回复成功发布 postMessage 的 type */
+export const REPLY_POSTED_TYPE = 'XF_REPLY_POSTED'
+
+/** 用户指标（粉丝数、关注数） postMessage 的 type */
+export const USER_METRICS_TYPE = 'XF_USER_METRICS'
+
+/** 原创内容奖励指标 postMessage 的 type */
+export const CREATOR_REWARDS_TYPE = 'XF_CREATOR_REWARDS'
+
+/** 后台静默抓取博主近期活动度请求 postMessage 的 type */
+export const PROFILE_ACTIVITY_FETCH_REQ_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_REQ'
+
+/** 后台静默抓取博主近期活动度响应 postMessage 的 type */
+export const PROFILE_ACTIVITY_FETCH_RES_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_RES'
+
+export const OWN_POSTS_FETCH_REQ_TYPE = 'XF_OWN_POSTS_FETCH_REQ'
+export const OWN_POSTS_FETCH_RES_TYPE = 'XF_OWN_POSTS_FETCH_RES'

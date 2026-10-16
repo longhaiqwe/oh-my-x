@@ -3,6 +3,7 @@ import {
   KeyBookmarksButton,
   KeyCommunitiesButton,
   KeyCreatorStudioButton,
+  KeyChatMoneyButton,
   KeyExploreButton,
   KeyExtensionStatus,
   KeyGrokButton,
@@ -40,14 +41,34 @@ import {
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyOwnPostAutoSync,
+  KeyRadarWidth,
+  KeyTweetFilterEnabled,
+  KeyTweetFilterAction,
+  KeyTweetFilterKeywords,
+  KeyJumpToReplies,
+  KeySortRepliesByTime,
+  KeyRepliesSortOrder,
+  KeyAutoLikeOnReply,
+  KeyQuickInteraction,
+  KeyQuickInteractionDock,
+  KeyUserFollowerCount,
+  KeyAiRepostEnabled,
+  KeyAiRepostBaseUrl,
+  KeyAiRepostApiKey,
+  KeyAiRepostModel,
+  KeyAiRepostCustomPrompt,
   allSettingsKeys,
   defaultPreferences,
 } from '../storage-keys'
 
 export type ToggleValue = 'on' | 'off'
-export type NavigationLabelMode = 'never' | 'hover' | 'always'
+export type NavigationLabelMode = 'always' | 'hover' | 'never'
 export type ViralHighlightStyle = 'border' | 'background' | 'both' | 'none'
 export type ViralLevels = { normal: boolean; potential: boolean; viral: boolean }
+export type RadarWidthValue = 'off' | 'wide' | 'full'
+export type TweetFilterAction = 'collapse' | 'hide'
+export type UserFollowerCountMode = 'all' | 'list' | 'off'
 
 export interface ExtensionSettings {
   [KeyExtensionStatus]: ToggleValue
@@ -69,6 +90,7 @@ export interface ExtensionSettings {
   [KeyVerifiedOrgsButton]: ToggleValue
   [KeyProfileButton]: ToggleValue
   [KeyCreatorStudioButton]: ToggleValue
+  [KeyChatMoneyButton]: ToggleValue
   [KeyMoreMenuButton]: ToggleValue
   [KeySpamFilterEnabled]: ToggleValue
   [KeySpamThreshold]: number
@@ -91,6 +113,23 @@ export interface ExtensionSettings {
   [KeyViralShowBadge]: ToggleValue
   [KeyArticleToc]: ToggleValue
   [KeyScheduledPanorama]: ToggleValue
+  [KeyOwnPostAutoSync]: ToggleValue
+  [KeyRadarWidth]: RadarWidthValue
+  [KeyTweetFilterEnabled]: ToggleValue
+  [KeyTweetFilterAction]: TweetFilterAction
+  [KeyTweetFilterKeywords]: string
+  [KeyJumpToReplies]: ToggleValue
+  [KeySortRepliesByTime]: ToggleValue
+  [KeyRepliesSortOrder]: 'default' | 'newest' | 'oldest'
+  [KeyAutoLikeOnReply]: ToggleValue
+  [KeyQuickInteraction]: ToggleValue
+  [KeyQuickInteractionDock]: ToggleValue
+  [KeyUserFollowerCount]: UserFollowerCountMode
+  [KeyAiRepostEnabled]: ToggleValue
+  [KeyAiRepostBaseUrl]: string
+  [KeyAiRepostApiKey]: string
+  [KeyAiRepostModel]: string
+  [KeyAiRepostCustomPrompt]: string
 }
 
 export type SettingsPatch = Partial<Record<keyof ExtensionSettings, unknown>>
@@ -113,6 +152,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyVerifiedOrgsButton,
   KeyProfileButton,
   KeyCreatorStudioButton,
+  KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeySpamFilterEnabled,
   KeySpamDebugMode,
@@ -125,6 +165,14 @@ const TOGGLE_KEYS = new Set<string>([
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyOwnPostAutoSync,
+  KeyTweetFilterEnabled,
+  KeyJumpToReplies,
+  KeySortRepliesByTime,
+  KeyAutoLikeOnReply,
+  KeyQuickInteraction,
+  KeyQuickInteractionDock,
+  KeyAiRepostEnabled,
 ])
 
 function normalizeToggle(value: unknown, fallback: ToggleValue): ToggleValue {
@@ -176,6 +224,14 @@ function normalizeViralLevels(value: unknown, fallback: string): string {
 
 function normalizeString(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback
+}
+
+function normalizeRadarWidth(value: unknown, fallback: RadarWidthValue): RadarWidthValue {
+  return value === 'off' || value === 'wide' || value === 'full' ? value : fallback
+}
+
+function normalizeTweetFilterAction(value: unknown, fallback: TweetFilterAction): TweetFilterAction {
+  return value === 'collapse' || value === 'hide' ? value : fallback
 }
 
 /**
@@ -243,6 +299,19 @@ export function normalizeSettings(raw: Partial<Record<string, unknown>> = {}): E
       result[key] = normalizeViralHighlightStyle(value, fallback as ViralHighlightStyle)
     } else if (key === KeyViralShowLevels) {
       result[key] = normalizeViralLevels(value, fallback as string)
+    } else if (key === KeyRadarWidth) {
+      result[key] = normalizeRadarWidth(value, fallback as RadarWidthValue)
+    } else if (key === KeyTweetFilterAction) {
+      result[key] = normalizeTweetFilterAction(value, fallback as TweetFilterAction)
+    } else if (key === KeyRepliesSortOrder) {
+      result[key] = value === 'default' || value === 'newest' || value === 'oldest' ? value : 'newest'
+    } else if (key === KeyUserFollowerCount) {
+      result[key] =
+        value === 'all' || value === 'list' || value === 'off'
+          ? value
+          : value === 'on'
+            ? 'all'
+            : fallback
     } else {
       result[key] = normalizeString(value, String(fallback ?? ''))
     }

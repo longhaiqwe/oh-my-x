@@ -26,12 +26,20 @@ export const changeArticlesButton = (state: string | number | boolean) => change
 export const changeVerifiedOrgsButton = (state: string | number | boolean) => changeSidebarSetting('verifiedOrgs', state)
 export const changeProfileButton = (state: string | number | boolean) => changeSidebarSetting('profile', state)
 export const changeCreatorStudioButton = (state: string | number | boolean) => changeSidebarSetting('creatorStudio', state)
+export const changeChatMoneyButton = (state: string | number | boolean) => changeSidebarSetting('chatMoney', state)
 export const changeMoreMenuButton = (state: string | number | boolean) => changeSidebarSetting('moreMenu', state)
 export const changeXPremiumButton = (state: string | number | boolean) => changeSidebarSetting('xPremium', state, addXPremiumButton)
 export const changeGrokButton = (state: string | number | boolean) => changeSidebarSetting('grok', state)
 export const changeTopicsButton = (state: string | number | boolean) => changeSidebarSetting('topics', state, addTopicsButton)
 export const changeCommunitiesButton = (state: string | number | boolean) => changeSidebarSetting('communities', state, addCommunitiesButton)
-export const changeListsButton = (state: string | number | boolean) => changeSidebarSetting('lists', state, addListsButton)
+export const changeListsButton = (state: string | number | boolean) => {
+  if (state === 'off') {
+    document
+      .querySelectorAll('.xf-sidebar-button[aria-label="Lists"], .xf-sidebar-button[aria-label="lists"]')
+      .forEach((el) => el.remove())
+  }
+  changeSidebarSetting('lists', state, addListsButton)
+}
 
 function addSidebarButtonFromPage(name: string, id: NavIconId, options: { href?: string; userHref?: string }) {
   const svgAsset = getNavIconSvg(id)

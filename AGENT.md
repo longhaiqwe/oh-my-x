@@ -1,4 +1,4 @@
-# X Focus — 浏览器扩展开发指南
+# oh-my-x — 浏览器扩展开发指南
 
 X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览器扩展。
 
@@ -37,7 +37,7 @@ Chrome 加载：`chrome://extensions` → 开发者模式 → 加载已解压的
 ## 目录结构
 
 ```
-x-focus/
+oh-my-x/
 ├── storage-keys.ts              # 所有 storage key + 默认值 + 默认词库 + 相关 key 集合
 ├── wxt.config.ts                # WXT 构建配置 + manifest 权限
 ├── vitest.config.ts             # Vitest 配置 + coverage 范围

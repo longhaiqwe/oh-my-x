@@ -18,13 +18,33 @@ export const KeyJobsButton = 'jobsButton'
 export const KeyArticlesButton = 'articles'
 export const KeyProfileButton = 'profileButton'
 export const KeyCreatorStudioButton = 'creatorStudioButton'
+export const KeyChatMoneyButton = 'chatMoneyButton'
 export const KeyMoreMenuButton = 'moreMenuButton'
 export const KeyNavigationButtonsLabels = 'navigationButtonsLabels'
 export const KeyTweetButton = 'tweetButton'
 export const KeySidebarColumn = 'sidebarColumn'
 export const KeyHighlightNonFollowers = 'highlightNonFollowers'
 export const KeyArticleToc = 'articleToc'
+export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyScheduledPanorama = 'scheduledPanorama'
+export const KeyRadarWidth = 'radarWidth'
+export const KeyUserFollowerCount = 'userFollowerCount' // 'all' | 'list' | 'off'
+
+// Reply assistant storage keys
+export const KeyJumpToReplies = 'jumpToReplies'
+export const KeySortRepliesByTime = 'sortRepliesByTime'
+export const KeyRepliesSortOrder = 'repliesSortOrder' // 'default' | 'newest' | 'oldest'
+export const KeyAutoLikeOnReply = 'autoLikeOnReply'
+
+// Quick interaction storage keys
+export const KeyQuickInteraction = 'quickInteraction'
+export const KeyQuickInteractionDock = 'quickInteractionDock'
+
+// Quick List storage keys
+export const KeyQuickListAdderEnabled = 'quickListAdderEnabled'
+export const KeyQuickListNavEnabled = 'quickListNavEnabled'
+export const KeyQuickListNavPosition = 'quickListNavPosition' // 'top' | 'sidebar'
+export const KeyQuickLists = 'quickLists'
 
 // Spam filter storage keys
 export const KeySpamFilterEnabled = 'spamFilterEnabled'
@@ -39,6 +59,7 @@ export const KeySpamStats = 'spamStats' // aggregated daily stats
 export const KeyPopupActiveTab = 'popupActiveTab' // last active tab
 
 // Stat ratio storage keys
+export const KeyCreatorRewardsStats = 'creatorRewardsStats'
 export const KeyStatRatioTargetHandle = 'statRatioTargetHandle'
 export const KeyStatRatioEnabled = 'statRatioEnabled'
 export const KeyProfileActivityStats = 'profileActivityStats'
@@ -53,6 +74,18 @@ export const KeyViralEnableHighlight = 'viralEnableHighlight'
 export const KeyViralHighlightStyle = 'viralHighlightStyle' // 'border' | 'background' | 'both' | 'none'
 export const KeyViralShowLevels = 'viralShowLevels' // comma-separated: normal,potential,viral
 export const KeyViralShowBadge = 'viralShowBadge' // 'on' | 'off'：是否展示标签
+
+// Tweet filter storage keys
+export const KeyTweetFilterEnabled = 'tweetFilterEnabled'
+export const KeyTweetFilterAction = 'tweetFilterAction' // 'collapse' | 'hide'
+export const KeyTweetFilterKeywords = 'tweetFilterKeywords'
+
+// AI Repost summary storage keys
+export const KeyAiRepostEnabled = 'aiRepostEnabled'
+export const KeyAiRepostBaseUrl = 'aiRepostBaseUrl'
+export const KeyAiRepostApiKey = 'aiRepostApiKey'
+export const KeyAiRepostModel = 'aiRepostModel'
+export const KeyAiRepostCustomPrompt = 'aiRepostCustomPrompt'
 
 export const allSettingsKeys = [
   KeyExtensionStatus,
@@ -74,6 +107,7 @@ export const allSettingsKeys = [
   KeyVerifiedOrgsButton,
   KeyProfileButton,
   KeyCreatorStudioButton,
+  KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeySpamFilterEnabled,
   KeySpamThreshold,
@@ -96,9 +130,36 @@ export const allSettingsKeys = [
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyOwnPostAutoSync,
+  KeyRadarWidth,
+  KeyTweetFilterEnabled,
+  KeyTweetFilterAction,
+  KeyTweetFilterKeywords,
+  KeyQuickListAdderEnabled,
+  KeyQuickListNavEnabled,
+  KeyQuickListNavPosition,
+  KeyJumpToReplies,
+  KeySortRepliesByTime,
+  KeyRepliesSortOrder,
+  KeyAutoLikeOnReply,
+  KeyQuickInteraction,
+  KeyQuickInteractionDock,
+  KeyUserFollowerCount,
+  KeyAiRepostEnabled,
+  KeyAiRepostBaseUrl,
+  KeyAiRepostApiKey,
+  KeyAiRepostModel,
+  KeyAiRepostCustomPrompt,
 ] as const
 
 export type SettingKey = (typeof allSettingsKeys)[number]
+
+// 触发 tweet filter 重扫的 key 集合
+export const TWEET_FILTER_RELEVANT_KEYS = new Set<string>([
+  KeyTweetFilterEnabled,
+  KeyTweetFilterAction,
+  KeyTweetFilterKeywords,
+])
 
 // 触发 spam filter 重扫的 key 集合
 export const SPAM_RELEVANT_KEYS = new Set<string>([
@@ -178,6 +239,19 @@ export const defaultSpamKeywords = [
   '真顶不住',
 ]
 
+// 默认推文过滤关键词（第一阶段重点过滤"说个暴论"及相关表达）
+export const defaultTweetFilterKeywords = [
+  '说个暴论',
+  '发个暴论',
+  '提个暴论',
+  '分享个暴论',
+  '来个暴论',
+  '一个暴论',
+  '暴论：',
+  '暴论:',
+  '暴论一下',
+]
+
 export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyExtensionStatus]: 'on',
   [KeyTimelineWidth]: 700,
@@ -189,7 +263,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyMessagesButton]: 'on',
   [KeyGrokButton]: 'on',
   [KeyXPremiumButton]: 'on',
-  [KeyListsButton]: 'on',
+  [KeyListsButton]: 'off',
   [KeyBookmarksButton]: 'on',
   [KeyJobsButton]: 'on',
   [KeyCommunitiesButton]: 'on',
@@ -198,6 +272,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyVerifiedOrgsButton]: 'on',
   [KeyProfileButton]: 'on',
   [KeyCreatorStudioButton]: 'on',
+  [KeyChatMoneyButton]: 'on',
   [KeyMoreMenuButton]: 'on',
   [KeySpamFilterEnabled]: 'on',
   [KeySpamThreshold]: 55,
@@ -220,4 +295,24 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyViralShowBadge]: 'on',
   [KeyArticleToc]: 'on',
   [KeyScheduledPanorama]: 'on',
+  [KeyOwnPostAutoSync]: 'on',
+  [KeyRadarWidth]: 'wide',
+  [KeyTweetFilterEnabled]: 'on',
+  [KeyTweetFilterAction]: 'collapse',
+  [KeyTweetFilterKeywords]: defaultTweetFilterKeywords.join('\n'),
+  [KeyQuickListAdderEnabled]: 'on',
+  [KeyQuickListNavEnabled]: 'on',
+  [KeyQuickListNavPosition]: 'top',
+  [KeyJumpToReplies]: 'on',
+  [KeySortRepliesByTime]: 'on',
+  [KeyRepliesSortOrder]: 'newest',
+  [KeyAutoLikeOnReply]: 'on',
+  [KeyQuickInteraction]: 'on',
+  [KeyQuickInteractionDock]: 'on',
+  [KeyUserFollowerCount]: 'all',
+  [KeyAiRepostEnabled]: 'on',
+  [KeyAiRepostBaseUrl]: 'https://api.openai.com/v1',
+  [KeyAiRepostApiKey]: '',
+  [KeyAiRepostModel]: 'gpt-4o-mini',
+  [KeyAiRepostCustomPrompt]: '',
 }

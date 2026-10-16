@@ -110,6 +110,20 @@ export function ensureViralRadarStyles() {
       background: rgba(244, 33, 46, 0.16);
       animation: xf-badge-pulse 2s infinite ease-in-out;
     }
+
+    /* 确保带有雷达速度徽章的推文底栏释放宽度限制并避免挤压书签 */
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-13awgt0 {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+    article[data-testid="tweet"] [role="group"][id*="id__"]:only-child > div.r-1wron08 {
+      flex-shrink: 0 !important;
+      margin-left: 6px !important;
+    }
   `
   document.head.appendChild(styleEl)
 }

@@ -78,13 +78,13 @@ describe('changeTimelineWidth', () => {
 
     const css = document.getElementById('xf-style-timelineWidth')!.textContent!
 
-    // 所有主列宽度规则都必须被 body 标记排除，账号分析页（/i/account_analytics）不受限
-    expect(css).toContain('body:not([data-xf-account-analytics]) [data-testid="primaryColumn"]')
+    // 所有主列宽度规则都必须被 body 标记排除，账号分析页（/i/account_analytics）与 Radar 页面不受限
+    expect(css).toContain('body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"]')
     expect(css).toContain(
-      'body:not([data-xf-account-analytics]) [data-testid="primaryColumn"] div:has(> section[role="region"])',
+      'body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"] div:has(> section[role="region"])',
     )
     expect(css).toContain(
-      'body:not([data-xf-account-analytics]) [data-testid="primaryColumn"] section[role="region"]',
+      'body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"] section[role="region"]',
     )
     // 左侧栏补偿规则不属于主列宽度，保持不受标记影响
     changeTimelineWidth(700, 'always')

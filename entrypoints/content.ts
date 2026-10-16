@@ -1,3 +1,4 @@
+import { startOwnPostSync } from '../content-scripts/options/own-post-library-client'
 import { applyChangedStaticFeatures } from '../content-scripts/features/static'
 import { initializeExtension } from '../content-scripts/initialize'
 import {
@@ -8,7 +9,10 @@ import {
   stopSpamObserver,
 } from '../content-scripts/spam/scanner'
 import { runViralRadar, invalidateViralRadarCache } from '../content-scripts/features/viral-radar'
+import { runTweetFilter, invalidateTweetFilterCache } from '../content-scripts/features/tweet-filter'
 import { dynamicFeatures, invalidateDynamicSettingsCache } from '../content-scripts/features/dynamic'
+import { runQuickListFeature } from '../content-scripts/features/quick-list'
+import { scanProfileActivity } from '../content-scripts/options/profile-activity'
 import constructNewData from '../content-scripts/utilities/constructNewData'
 import { getStorage } from '../content-scripts/utilities/storage'
 import { XF_BRIDGE_MARKER } from '../shared/bridge'
@@ -19,8 +23,20 @@ import {
   KeyStatRatioEnabled,
   KeyStatRatioTargetHandle,
   KeyHighlightNonFollowers,
+  KeyQuickListAdderEnabled,
+  KeyQuickListNavEnabled,
+  KeyQuickListNavPosition,
+  KeyQuickLists,
+  KeyJumpToReplies,
+  KeySortRepliesByTime,
+  KeyRepliesSortOrder,
+  KeyAutoLikeOnReply,
+  KeyQuickInteraction,
+  KeyQuickInteractionDock,
+  KeyAiRepostEnabled,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
+  TWEET_FILTER_RELEVANT_KEYS,
   allSettingsKeys,
   type SettingKey,
 } from '../storage-keys'
@@ -54,6 +70,12 @@ export default defineContentScript({
       if (message?.type === 'CLEANUP_SPAM_ARTIFACTS') {
         const remaining = cleanupAllSpamArtifacts()
         sendResponse({ ok: true, remaining })
+        return true
+      }
+      if (message?.type === 'XF_SCAN_PROFILE_ACTIVITY') {
+        void scanProfileActivity(message.days ?? 7).then((res) => {
+          sendResponse(res)
+        })
         return true
       }
     })
@@ -93,10 +115,19 @@ export default defineContentScript({
             (k) =>
               k === KeyStatRatioEnabled ||
               k === KeyStatRatioTargetHandle ||
-              k === KeyHighlightNonFollowers,
+              k === KeyHighlightNonFollowers ||
+              k === KeyJumpToReplies ||
+              k === KeySortRepliesByTime ||
+              k === KeyRepliesSortOrder ||
+              k === KeyQuickInteraction ||
+              k === KeyQuickInteractionDock,
           )
         ) {
           void dynamicFeatures.general(['tweet'])
+        }
+
+        if (changedSettingKeys.includes(KeyAiRepostEnabled)) {
+          void dynamicFeatures.general(['composer'])
         }
       }
 
@@ -119,6 +150,22 @@ export default defineContentScript({
         invalidateViralRadarCache()
         void runViralRadar(true)
       }
+
+      // 任意推文过滤相关 key 变化时，立即重扫推文
+      const tweetFilterChanged = Object.keys(changes).some((k) => TWEET_FILTER_RELEVANT_KEYS.has(k))
+      if (tweetFilterChanged) {
+        invalidateTweetFilterCache()
+        void runTweetFilter(true)
+      }
+
+      if (
+        changes[KeyQuickListAdderEnabled] ||
+        changes[KeyQuickListNavEnabled] ||
+        changes[KeyQuickListNavPosition] ||
+        changes[KeyQuickLists]
+      ) {
+        void runQuickListFeature()
+      }
     })
 
     const init = async () => {
@@ -128,10 +175,14 @@ export default defineContentScript({
       notifyInterceptorEnabled(enabled)
       if (!enabled) return
       await initializeExtension()
+      startOwnPostSync()
       currentSettings = normalizeSettings(await getStorage([...allSettingsKeys]))
 
       const spamEnabled = (await getStorage(KeySpamFilterEnabled)) === 'on'
       if (spamEnabled) startSpamObserver()
+
+      void runTweetFilter()
+      void runQuickListFeature()
     }
 
     init()

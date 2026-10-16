@@ -1,0 +1,12 @@
+# Concept 03 — personal cover palette
+
+Generated with the built-in image_gen tool. Approved by the user on 2026-10-16 and applied to the extension icons, popup, favicon and README logo. The original PNG is the master artwork; production PNGs are resized derivatives.
+
+Palette reference: chat 「画出 X 瑞士军刀」, user-provided 工位身体重置手册 cover. Approximate colors recorded in that chat: burnt copper #AA563B, midnight navy #101924, wine plum #572B46. This personal brand palette is distinct from the extension UI's green accent.
+
+Use case: precise-object-edit / logo-brand.
+Image 1 is the EDIT TARGET: the RIGHTMOST large icon, concept 03, in the three-icon comparison board. Ignore concepts 01/02.
+Image 2 is a COLOR PALETTE REFERENCE ONLY: the user's editorial cover "工位身体重置手册". Do not copy its text, layout, or shapes.
+Create ONE standalone premium app icon very closely preserving concept 03's geometry: black rounded square tile, metallic pocketknife with intact capsule-shaped handle diagonally rising lower-left to upper-right, one satin silver blade extending upper-left behind handle and one satin silver file extending lower-right, small steel circular pivot at handle's lower-left, small warm ivory X symbol inset in handle. Preserve the refined soft dimensionality and realistic brushed steel. Do not invent additional tools or change the composition.
+ONLY design change: recolor the RED handle to the user's subdued BURNT COPPER ORANGE brand palette from image 2. Primary enamel color approximately #AA563B, softly illuminated copper-orange across most of the handle's center, subtly blending into midnight navy #101924 at the lower-left end and muted dark wine-plum #572B46 at the upper-right end. The copper orange is dominant and recognizable, not bright orange, yellow, red, or green. Sophisticated restrained gradient, fine satin enamel surface, soft highlights rather than neon gloss. Closely echo image 2's copper glow and dark edges. Small X warm ivory, steel neutral silver, tile remains near-black.
+Output ONLY ONE high-resolution square icon, centered front-on. Black rounded square tile fills approximately 96% of canvas. Transparent alpha outside tile's rounded corners, no white outer background. Tools fully contained within tile with comfortable inner margins. No labels, no comparison board, no text except the small X on the handle, no duplicate tiny icons, no device mockup. Preserve concept 03's premium app-icon visual identity, using the reference cover ONLY for handle palette.

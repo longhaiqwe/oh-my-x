@@ -123,7 +123,7 @@ export async function migrateSpamStorage(): Promise<MigrationResult> {
     if (err?.message?.includes('Extension context invalidated')) {
       return { migrated: false, addedKeywords: [], addedRules: [] }
     }
-    console.error('[x-focus] migrateSpamStorage error:', err)
+    console.error('[oh-my-x] migrateSpamStorage error:', err)
     return { migrated: false, addedKeywords: [], addedRules: [] }
   }
 }

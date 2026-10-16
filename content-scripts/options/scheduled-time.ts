@@ -313,7 +313,7 @@ export function listenForScheduledTweetsApi() {
       }>
       if (!Array.isArray(raw)) return
 
-      if (debug()) console.log('[X Focus 排期持久化] 收到广播', raw.length, '条', raw)
+      if (debug()) console.log('[oh-my-x 排期持久化] 收到广播', raw.length, '条', raw)
 
       // 允许空数组：接口返回空列表时同样持久化，清掉已删除排期的旧缓存
       const items: PersistedScheduledItem[] = raw
@@ -327,10 +327,10 @@ export function listenForScheduledTweetsApi() {
         .sort((a, b) => a.timestamp - b.timestamp)
 
       void persistScheduledPosts(items).then(() => {
-        if (debug()) console.log('[X Focus 排期持久化] 已写入 storage', items.length, '条')
+        if (debug()) console.log('[oh-my-x 排期持久化] 已写入 storage', items.length, '条')
       })
     } catch (e) {
-      if (debug()) console.warn('[X Focus 排期持久化] 处理失败', e)
+      if (debug()) console.warn('[oh-my-x 排期持久化] 处理失败', e)
     }
   })
 }

@@ -1,5 +1,6 @@
 import { extractHeadingsFromArticle, type TocHeadingItem } from '../../shared/toc-parser'
-import { KeyArticleToc } from '../../storage-keys'
+import { KeyArticleToc, KeyJumpToReplies } from '../../storage-keys'
+import { ReplyAssistant } from './reply-assistant'
 import { getStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
 import debounce from '../utilities/debounce'
@@ -508,6 +509,26 @@ class ArticleTocManager {
         this.scrollToHeader(index)
       })
     })
+
+    // 3. 追加「直达回复区」入口
+    const replyItem = document.createElement('a')
+    replyItem.className = 'xf-toc-item xf-toc-reply-jump'
+    replyItem.setAttribute('title', '跳转到评论与回复区')
+    replyItem.href = 'javascript:void(0)'
+    replyItem.style.marginTop = '4px'
+    replyItem.style.borderTop = '1px dashed rgba(128, 128, 128, 0.2)'
+    replyItem.style.paddingTop = '6px'
+    replyItem.style.color = '#1d9bf0'
+    replyItem.innerHTML = `
+      <span class="xf-toc-level-tag" style="background: rgba(29, 155, 240, 0.15); color: #1d9bf0;">💬</span>
+      <span class="xf-toc-item-text" style="font-weight: 600;">直达回复区</span>
+    `
+    replyItem.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      ReplyAssistant.getInstance().scrollToReplies()
+    })
+    this.itemsContainer!.appendChild(replyItem)
 
     // 更新数量角标
     const countBadge = this.container?.querySelector('.xf-toc-count')

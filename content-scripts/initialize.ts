@@ -8,6 +8,10 @@ import isMutationSkippable from './utilities/isMutationSkippable'
 import { getSettings } from './utilities/storage'
 import { attachPrecomposeUrlCapture, savePrecomposeUrl } from './options/precompose'
 import { listenForScheduledTweetsApi } from './options/scheduled-time'
+import { listenForBookmarkMetricsApi } from './features/bookmark-counter'
+import { initAutoLikeOnReply } from './features/auto-like-reply'
+import { listenForUserFollowerMetricsApi } from './features/user-followers'
+import { listenForCreatorRewardsApi } from './features/creator-rewards'
 
 function addStylesheets() {
   addStyleSheet('main', browser.runtime.getURL('css/main.css' as any))
@@ -35,7 +39,7 @@ export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<Dynami
     const el = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
     if (!el) return
     const contains = (selector: string) => includeDescendants && Boolean(el.querySelector(selector))
-    if (el.closest('article[data-testid="tweet"], [data-testid="UserCell"]') || contains('article[data-testid="tweet"], [data-testid="UserCell"]')) {
+    if (el.closest('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]') || contains('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]')) {
       scopes.add('tweet')
     }
     if (
@@ -45,6 +49,8 @@ export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<Dynami
       scopes.add('composer')
       scopes.add('scheduled')
     }
+    const inlineComposerSelector = '[data-xf-inline-composer], [data-testid^="tweetTextarea"], [data-testid="toolBar"], [data-testid="tweetButtonInline"]'
+    if (el.closest(inlineComposerSelector) || contains(inlineComposerSelector)) scopes.add('composer')
     if (el.closest('nav[role="navigation"]') || contains('nav[role="navigation"]')) {
       scopes.add('navigation')
     }
@@ -77,6 +83,10 @@ export async function initializeExtension() {
   // 数据监听必须最先注册：排期数据不依赖任何 DOM 操作，
   // 后续静态/动态特性即使抛错也不能影响数据持久化链路。
   listenForScheduledTweetsApi()
+  listenForBookmarkMetricsApi()
+  initAutoLikeOnReply()
+  listenForUserFollowerMetricsApi()
+  listenForCreatorRewardsApi()
 
   const settings = await getSettings()
 
@@ -85,12 +95,12 @@ export async function initializeExtension() {
   try {
     applyStaticFeatures(settings)
   } catch (e) {
-    console.warn('[X Focus] applyStaticFeatures 初始化失败', e)
+    console.warn('[oh-my-x] applyStaticFeatures 初始化失败', e)
   }
   try {
     runDynamicFeatures(settings)
   } catch (e) {
-    console.warn('[X Focus] runDynamicFeatures 初始化失败', e)
+    console.warn('[oh-my-x] runDynamicFeatures 初始化失败', e)
   }
 
   // Capture pre-compose page URL so the compose modal can insert the URL of the page

@@ -199,5 +199,78 @@ describe('composer and precompose URL handling', () => {
       // Editor should NOT contain 'https://x.com/'
       expect(editor.innerText || '').not.toContain('https://x.com/')
     })
+
+    it('injects markdown format button and reformats editor content on click', () => {
+      const modal = document.createElement('div')
+      modal.setAttribute('aria-labelledby', 'modal-header')
+      modal.setAttribute('role', 'dialog')
+
+      const draftContainer = document.createElement('div')
+      draftContainer.className = 'DraftEditor-editorContainer'
+      const editor = document.createElement('div')
+      editor.setAttribute('contenteditable', 'true')
+      editor.setAttribute('data-testid', 'tweetTextarea_0')
+      editor.innerText = '* **例子**: 这是一个测试。\n### 标题'
+      draftContainer.appendChild(editor)
+      modal.appendChild(draftContainer)
+
+      const tablist = document.createElement('div')
+      tablist.setAttribute('role', 'tablist')
+      modal.appendChild(tablist)
+      document.body.appendChild(modal)
+
+      addComposerInsertLinkButton()
+
+      const formatBtn = modal.querySelector<HTMLButtonElement>('[data-testid="xf-format-markdown-button"]')
+      expect(formatBtn).not.toBeNull()
+
+      // 模拟点击格式化按钮
+      formatBtn!.click()
+
+      // 内容应该被规范为无 ** 和无 ### 的格式
+      const text = editor.innerText || editor.textContent || ''
+      expect(text).not.toContain('###')
+      expect(text).not.toContain('**')
+      expect(text).toContain('• 例子：这是一个测试。')
+    })
+
+    it('intercepts paste event with markdown content and converts automatically', () => {
+      const modal = document.createElement('div')
+      modal.setAttribute('aria-labelledby', 'modal-header')
+      modal.setAttribute('role', 'dialog')
+
+      const draftContainer = document.createElement('div')
+      draftContainer.className = 'DraftEditor-editorContainer'
+      const editor = document.createElement('div')
+      editor.setAttribute('contenteditable', 'true')
+      editor.setAttribute('data-testid', 'tweetTextarea_0')
+      draftContainer.appendChild(editor)
+      modal.appendChild(draftContainer)
+
+      const tablist = document.createElement('div')
+      tablist.setAttribute('role', 'tablist')
+      modal.appendChild(tablist)
+      document.body.appendChild(modal)
+
+      addComposerInsertLinkButton()
+
+      // 模拟向编辑器粘贴含有 Markdown 的文本
+      const rawMarkdown = '### 核心观点\n* **重点**: 说明内容'
+      const pasteEvent = new Event('paste', {
+        bubbles: true,
+        cancelable: true,
+      }) as any
+      pasteEvent.clipboardData = {
+        getData: (type: string) => (type === 'text/plain' ? rawMarkdown : ''),
+      }
+
+      editor.dispatchEvent(pasteEvent)
+
+      const text = editor.innerText || editor.textContent || ''
+      expect(text).not.toContain('###')
+      expect(text).not.toContain('**')
+      expect(text).toContain('核心观点')
+      expect(text).toContain('• 重点：说明内容')
+    })
   })
 })

@@ -6,6 +6,13 @@ import {
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyOwnPostAutoSync,
+  KeyRadarWidth,
+  KeyJumpToReplies,
+  KeyAutoLikeOnReply,
+  KeyQuickInteraction,
+  KeyQuickInteractionDock,
+  KeyUserFollowerCount,
 } from '../../../../storage-keys'
 import { STATIC_NAV_ITEMS } from '../../../../shared/staticNavIcons'
 import TimelineWidthSlider from '../controls/TimelineWidthSlider.vue'
@@ -14,6 +21,9 @@ import SectionLabel from '../ui/SectionLabel.vue'
 import Separator from '../ui/Separator.vue'
 import IconButton from '../ui/IconButton.vue'
 import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
+import TweetFilterCard from './TweetFilterCard.vue'
+import QuickListCard from './QuickListCard.vue'
+import AiRepostCard from './AiRepostCard.vue'
 
 const displayControls = [
   {
@@ -41,6 +51,15 @@ const displayControls = [
     ],
   },
   {
+    label: '用户粉丝数',
+    key: KeyUserFollowerCount,
+    options: [
+      { value: 'all', label: '全部' },
+      { value: 'list', label: '仅列表' },
+      { value: 'off', label: '隐藏' },
+    ],
+  },
+  {
     label: '文章目录',
     key: KeyArticleToc,
     options: [
@@ -51,6 +70,38 @@ const displayControls = [
   {
     label: '排期全景',
     key: KeyScheduledPanorama,
+    options: [
+      { value: 'on', label: '显示' },
+      { value: 'off', label: '隐藏' },
+    ],
+  },
+  {
+    label: '一键直达回复',
+    key: KeyJumpToReplies,
+    options: [
+      { value: 'on', label: '显示' },
+      { value: 'off', label: '隐藏' },
+    ],
+  },
+  {
+    label: '回复自动点赞',
+    key: KeyAutoLikeOnReply,
+    options: [
+      { value: 'on', label: '开启' },
+      { value: 'off', label: '关闭' },
+    ],
+  },
+  {
+    label: '快捷互动按键 (1-4)',
+    key: KeyQuickInteraction,
+    options: [
+      { value: 'on', label: '开启' },
+      { value: 'off', label: '关闭' },
+    ],
+  },
+  {
+    label: '快捷互动悬浮条',
+    key: KeyQuickInteractionDock,
     options: [
       { value: 'on', label: '显示' },
       { value: 'off', label: '隐藏' },
@@ -76,6 +127,26 @@ const displayControls = [
     </div>
    </div>
   </ControlsWrapper>
+
+  <ControlsWrapper id="user-control-own-posts">
+   <SectionLabel>引用我的帖子</SectionLabel>
+   <div class="flex items-center justify-between w-full gap-3">
+    <span class="text-[12px] font-semibold text-color-text">自动同步我的帖子</span>
+    <ToggleGroupControl
+     :storage-key="KeyOwnPostAutoSync"
+     :options="[{ value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]"
+    />
+   </div>
+   <p class="text-xs leading-5 text-secondary-text">
+    默认开启，打开已登录的 X 后自动缓存，并定期更新。关闭后保留已有缓存，仍可搜索和手动同步。
+   </p>
+  </ControlsWrapper>
+
+  <AiRepostCard />
+
+  <TweetFilterCard />
+
+  <QuickListCard />
 
   <ControlsWrapper id="user-control-navigation" class="!rounded-xl">
    <SectionLabel>导航栏按钮</SectionLabel>

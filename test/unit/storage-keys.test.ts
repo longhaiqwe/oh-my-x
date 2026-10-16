@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   KeyNavigationButtonsLabels,
   KeySpamThreshold,
+  KeyRadarWidth,
+  KeyQuickListNavPosition,
+  KeyRepliesSortOrder,
+  KeyUserFollowerCount,
   SPAM_RELEVANT_KEYS,
   allSettingsKeys,
   defaultPreferences,
@@ -26,17 +30,32 @@ describe('storage defaults', () => {
     for (const [key, value] of Object.entries(defaultPreferences)) {
       if (key === KeyNavigationButtonsLabels) {
         expect(['never', 'hover', 'always']).toContain(value)
+      } else if (key === KeyRadarWidth) {
+        expect(['off', 'wide', 'full']).toContain(value)
+      } else if (key === KeyQuickListNavPosition) {
+        expect(['top', 'sidebar']).toContain(value)
+      } else if (key === KeyRepliesSortOrder) {
+        expect(['default', 'newest', 'oldest']).toContain(value)
+      } else if (key === 'tweetFilterAction') {
+        expect(['collapse', 'hide']).toContain(value)
       } else if (key === 'viralHighlightStyle') {
         expect(['border', 'background', 'both', 'none']).toContain(value)
       } else if (key === 'viralShowLevels') {
         expect(String(value).split(',')).toEqual(['potential', 'viral'])
+      } else if (key === KeyUserFollowerCount) {
+        expect(['all', 'list', 'off']).toContain(value)
       } else if (
         typeof value === 'string' &&
         key !== 'spamKeywordList' &&
         key !== 'spamWhitelist' &&
         key !== 'spamBlacklist' &&
         key !== 'spamRulesEnabled' &&
-        key !== 'statRatioTargetHandle'
+        key !== 'statRatioTargetHandle' &&
+        key !== 'tweetFilterKeywords' &&
+        key !== 'aiRepostBaseUrl' &&
+        key !== 'aiRepostApiKey' &&
+        key !== 'aiRepostModel' &&
+        key !== 'aiRepostCustomPrompt'
       ) {
         expect(['on', 'off']).toContain(value)
       } else {

@@ -3,7 +3,7 @@ import {
   KeyExploreButton, KeyGrokButton,
   KeyJobsButton, KeyListsButton, KeyMessagesButton,
   KeyNavigationButtonsLabels, KeyNotificationsButton,
-  KeyCreatorStudioButton, KeyMoreMenuButton, KeyProfileButton,
+  KeyCreatorStudioButton, KeyChatMoneyButton, KeyMoreMenuButton, KeyProfileButton,
   KeySidebarColumn,
   KeyTimelineWidth,
   KeyTopicsButton, KeyTweetButton,
@@ -11,6 +11,7 @@ import {
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyRadarWidth,
 } from '../../storage-keys'
 import {
   changeTweetButton,
@@ -24,13 +25,16 @@ import {
   changeCommunitiesButton, changeExploreButton, changeGrokButton,
   changeJobsButton, changeListsButton,
   changeMessagesButton, changeNavigationButtonsLabels,
-  changeCreatorStudioButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
+  changeCreatorStudioButton, changeChatMoneyButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
   changeTopicsButton, changeVerifiedOrgsButton,
   changeXPremiumButton,
 } from '../options/navigation'
 import {
   changeTimelineWidth,
 } from '../options/timeline'
+import {
+  changeRadarWidth,
+} from '../options/radar'
 import type { ExtensionSettings } from '../../shared/settings'
 import type { SettingKey } from '../../storage-keys'
 
@@ -44,6 +48,7 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
     changeHighlightNonFollowers(data[KeyHighlightNonFollowers])
     changeArticleToc(data[KeyArticleToc])
     changeScheduledPanorama(data[KeyScheduledPanorama])
+    changeRadarWidth(data[KeyRadarWidth])
   },
   navigation: (data) => {
     changeNavigationButtonsLabels(data[KeyNavigationButtonsLabels])
@@ -60,6 +65,7 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
     changeListsButton(data[KeyListsButton])
     changeProfileButton(data[KeyProfileButton])
     changeCreatorStudioButton(data[KeyCreatorStudioButton])
+    changeChatMoneyButton(data[KeyChatMoneyButton])
     changeMoreMenuButton(data[KeyMoreMenuButton])
     changeXPremiumButton(data[KeyXPremiumButton])
     changeGrokButton(data[KeyGrokButton])
@@ -79,6 +85,7 @@ const TIMELINE_KEYS = new Set<SettingKey>([
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyRadarWidth,
 ])
 
 const NAVIGATION_KEYS = new Set<SettingKey>([KeyNavigationButtonsLabels])
@@ -95,6 +102,7 @@ const SIDEBAR_KEYS = new Set<SettingKey>([
   KeyListsButton,
   KeyProfileButton,
   KeyCreatorStudioButton,
+  KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeyXPremiumButton,
   KeyGrokButton,
