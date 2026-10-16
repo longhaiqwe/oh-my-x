@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   applyBookmarkCountToButton,
   getContextTweetOrArticleId,
+  setBookmarkCountEnabled,
   updateBookmarkCounters,
 } from '../../content-scripts/features/bookmark-counter'
 
 describe('bookmark-counter feature', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
+    setBookmarkCountEnabled(true)
     vi.useFakeTimers()
   })
 
@@ -239,5 +241,57 @@ describe('bookmark-counter feature', () => {
     const counter = tweetArticle.querySelector('.xf-bookmark-counter')
     expect(counter).not.toBeNull()
     expect(counter?.textContent?.trim()).toBe('447')
+  })
+  it('关闭收藏量后移除已显示的数字和样式，并恢复按钮原有的内联样式', () => {
+    const btn = document.createElement('button')
+    btn.setAttribute('data-testid', 'bookmark')
+    btn.style.width = '34px'
+    btn.innerHTML = `
+      <div>
+        <div>
+          <svg><path></path></svg>
+        </div>
+      </div>
+    `
+    document.body.appendChild(btn)
+
+    applyBookmarkCountToButton(btn, 42)
+    expect(btn.querySelector('.xf-bookmark-counter')).not.toBeNull()
+    expect(btn.style.width).toBe('auto')
+    expect(document.getElementById('xf-bookmark-counter-styles')).not.toBeNull()
+
+    setBookmarkCountEnabled(false)
+    expect(btn.querySelector('.xf-bookmark-counter')).toBeNull()
+    expect(document.getElementById('xf-bookmark-counter-styles')).toBeNull()
+    expect(btn.style.width).toBe('34px')
+    expect(btn.style.display).toBe('')
+    expect(btn.hasAttribute('data-xf-bookmark-styled')).toBe(false)
+  })
+
+  it('关闭期间不显示数字，点击书签也不会补画，重新打开后恢复显示', () => {
+    const btn = document.createElement('button')
+    btn.setAttribute('data-testid', 'bookmark')
+    btn.setAttribute('aria-label', '32 个书签。将帖子添加到书签')
+    btn.innerHTML = `
+      <div>
+        <div>
+          <svg><path></path></svg>
+        </div>
+      </div>
+    `
+    document.body.appendChild(btn)
+
+    updateBookmarkCounters()
+    expect(btn.querySelector('.xf-bookmark-counter')).not.toBeNull()
+
+    setBookmarkCountEnabled(false)
+    updateBookmarkCounters()
+    btn.click()
+    vi.advanceTimersByTime(100)
+    expect(btn.querySelector('.xf-bookmark-counter')).toBeNull()
+
+    setBookmarkCountEnabled(true)
+    updateBookmarkCounters()
+    expect(btn.querySelector('.xf-bookmark-counter')?.textContent?.trim()).toBe('32')
   })
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { KeyTweetButton, KeySidebarColumn, KeyArticleToc } from '../../../../storage-keys'
+import { KeyTweetButton, KeySidebarColumn, KeyArticleToc, KeyMediaDownload } from '../../../../storage-keys'
 import TimelineWidthSlider from '../controls/TimelineWidthSlider.vue'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import GroupLabel from '../ui/GroupLabel.vue'
@@ -39,6 +39,11 @@ import NavigationCard from '../sections/NavigationCard.vue'
    <FeatureCard feature-id="articleToc" variant="row">
     <template #control>
      <FeatureSwitch :storage-key="KeyArticleToc" label="长文目录" />
+    </template>
+   </FeatureCard>
+   <FeatureCard feature-id="mediaDownload" variant="row">
+    <template #control>
+     <FeatureSwitch :storage-key="KeyMediaDownload" label="媒体下载" />
     </template>
    </FeatureCard>
   </FeatureList>

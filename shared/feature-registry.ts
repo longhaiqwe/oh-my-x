@@ -9,6 +9,7 @@ import {
   KeyArticleToc,
   KeyArticlesButton,
   KeyAutoLikeOnReply,
+  KeyBookmarkCount,
   KeyBookmarksButton,
   KeyChatMoneyButton,
   KeyCommunitiesButton,
@@ -22,6 +23,7 @@ import {
   KeyJobsButton,
   KeyJumpToReplies,
   KeyListsButton,
+  KeyMediaDownload,
   KeyMessagesButton,
   KeyMoreMenuButton,
   KeyNavigationButtonsLabels,
@@ -174,8 +176,8 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'mediaDownload',
     module: 'layout',
     label: '媒体下载',
-    description: '在推文分享菜单中加入下载图片和视频的选项',
-    storageKeys: [],
+    description: '在推文分享菜单中加入下载图片、GIF 和视频的选项',
+    storageKeys: [KeyMediaDownload],
     where: '推文的分享菜单',
   },
 
@@ -277,7 +279,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     module: 'insight',
     label: '收藏量',
     description: '在推文的书签按钮旁显示收藏数',
-    storageKeys: [],
+    storageKeys: [KeyBookmarkCount],
   },
 
   // 创作与发布

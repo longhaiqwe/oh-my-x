@@ -33,6 +33,8 @@ import {
   KeyAutoLikeOnReply,
   KeyQuickInteraction,
   KeyQuickInteractionDock,
+  KeyBookmarkCount,
+  KeyMediaDownload,
   KeyAiRepostEnabled,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
@@ -120,7 +122,9 @@ export default defineContentScript({
               k === KeySortRepliesByTime ||
               k === KeyRepliesSortOrder ||
               k === KeyQuickInteraction ||
-              k === KeyQuickInteractionDock,
+              k === KeyQuickInteractionDock ||
+              k === KeyBookmarkCount ||
+              k === KeyMediaDownload,
           )
         ) {
           void dynamicFeatures.general(['tweet'])

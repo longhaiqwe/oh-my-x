@@ -1,4 +1,6 @@
 import { BOOKMARK_METRICS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
+import { KeyBookmarkCount } from '../../storage-keys'
+import { getStorage } from '../utilities/storage'
 import {
   extractBookmarkFromAriaLabel,
   formatBookmarkCount,
@@ -28,10 +30,26 @@ function restoreMetricsFromStorage() {
 
 restoreMetricsFromStorage()
 
+/** 弹窗「收藏量」开关；关闭时不显示数字，并移除已显示的数字 */
+let bookmarkCountEnabled = true
+
+export function isBookmarkCountEnabled() {
+  return bookmarkCountEnabled
+}
+
+export function setBookmarkCountEnabled(enabled: boolean) {
+  if (bookmarkCountEnabled === enabled) return
+  bookmarkCountEnabled = enabled
+  if (!enabled) removeBookmarkCounters()
+}
+
 /**
  * 监听来自 MAIN world 拦截器的广播，接收推文/长文书签指标
  */
 export function listenForBookmarkMetricsApi() {
+  // 尽早读取开关，避免关闭状态下数据先到时短暂显示数字
+  void getStorage(KeyBookmarkCount).then((value) => setBookmarkCountEnabled(value !== 'off'))
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return
     if (!event.data || event.data.type !== BOOKMARK_METRICS_TYPE) return
@@ -66,6 +84,41 @@ export function listenForBookmarkMetricsApi() {
 const COUNTER_CLASS = 'xf-bookmark-counter'
 const BOUND_CLICK_ATTR = 'data-xf-bookmark-bound'
 const STYLES_INJECTED_ID = 'xf-bookmark-counter-styles'
+const STYLED_ATTR = 'data-xf-bookmark-styled'
+
+// 记录被改过的内联样式原值，关闭功能时恢复
+const originalInlineStyles = new WeakMap<HTMLElement, Map<string, string>>()
+
+function setTrackedStyle(el: HTMLElement, prop: string, value: string) {
+  let saved = originalInlineStyles.get(el)
+  if (!saved) {
+    saved = new Map()
+    originalInlineStyles.set(el, saved)
+    el.setAttribute(STYLED_ATTR, '1')
+  }
+  if (!saved.has(prop)) saved.set(prop, el.style.getPropertyValue(prop))
+  el.style.setProperty(prop, value)
+}
+
+function restoreTrackedStyles() {
+  document.querySelectorAll<HTMLElement>(`[${STYLED_ATTR}]`).forEach((el) => {
+    originalInlineStyles.get(el)?.forEach((value, prop) => {
+      if (value) el.style.setProperty(prop, value)
+      else el.style.removeProperty(prop)
+    })
+    originalInlineStyles.delete(el)
+    el.removeAttribute(STYLED_ATTR)
+  })
+}
+
+/**
+ * 移除已显示的收藏数、注入的样式，并恢复按钮原有的内联样式
+ */
+export function removeBookmarkCounters() {
+  document.querySelectorAll(`.${COUNTER_CLASS}`).forEach((el) => el.remove())
+  document.getElementById(STYLES_INJECTED_ID)?.remove()
+  restoreTrackedStyles()
+}
 
 /**
  * 注入书签数字的交互与过渡样式
@@ -233,21 +286,22 @@ export function getReferenceStyle(btn: HTMLElement) {
  * 为书签按钮注入或更新数字显示
  */
 export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
+  if (!bookmarkCountEnabled) return
   if (count < 0 || isNaN(count)) return
   ensureBookmarkCounterStyles()
 
   // 保证按钮本身自适应宽度与横向居中排列
-  btn.style.width = 'auto'
-  btn.style.maxWidth = 'none'
-  btn.style.display = 'inline-flex'
-  btn.style.flexDirection = 'row'
-  btn.style.alignItems = 'center'
+  setTrackedStyle(btn, 'width', 'auto')
+  setTrackedStyle(btn, 'max-width', 'none')
+  setTrackedStyle(btn, 'display', 'inline-flex')
+  setTrackedStyle(btn, 'flex-direction', 'row')
+  setTrackedStyle(btn, 'align-items', 'center')
 
   let p = btn.parentElement
   let pDepth = 0
   while (p && pDepth < 3 && p.getAttribute('role') !== 'group') {
-    p.style.width = 'auto'
-    p.style.maxWidth = 'none'
+    setTrackedStyle(p, 'width', 'auto')
+    setTrackedStyle(p, 'max-width', 'none')
     p = p.parentElement
     pDepth++
   }
@@ -257,9 +311,9 @@ export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
   if (!iconWrapper || !iconWrapper.parentElement) return
 
   const containerParent = iconWrapper.parentElement
-  containerParent.style.display = 'inline-flex'
-  containerParent.style.flexDirection = 'row'
-  containerParent.style.alignItems = 'center'
+  setTrackedStyle(containerParent, 'display', 'inline-flex')
+  setTrackedStyle(containerParent, 'flex-direction', 'row')
+  setTrackedStyle(containerParent, 'align-items', 'center')
 
   let counterEl = btn.querySelector<HTMLElement>(`.${COUNTER_CLASS}`)
   const displayStr = formatBookmarkCount(count)
@@ -379,6 +433,7 @@ function extractBookmarkFromDetailStats(articleOrContainer: Element | null): num
  * 扫描并更新页面上所有书签按钮的计数
  */
 export function updateBookmarkCounters() {
+  if (!bookmarkCountEnabled) return
   const bookmarkButtons = document.querySelectorAll<HTMLElement>(
     'button[data-testid="bookmark"], button[data-testid="removeBookmark"], [role="button"][data-testid="bookmark"], [role="button"][data-testid="removeBookmark"]',
   )

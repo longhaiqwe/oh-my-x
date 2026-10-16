@@ -7,6 +7,8 @@ import {
   KeyStatRatioEnabled,
   KeyHighlightNonFollowers,
   KeyScheduledPanorama,
+  KeyBookmarkCount,
+  KeyMediaDownload,
 } from '../../storage-keys'
 import {
   addCommunitiesButton, addListsButton,
@@ -15,6 +17,7 @@ import {
 } from '../options/navigation'
 import {
   addMediaDownloadButtons,
+  setMediaDownloadEnabled,
   syncAccountAnalyticsPageMarker,
 } from '../options/timeline'
 import { syncRadarPageMarker } from '../options/radar'
@@ -32,7 +35,7 @@ import { injectKeywordButton } from '../spam/keyword-picker'
 import { updateArticleToc } from './article-toc'
 import { runQuickListFeature } from './quick-list'
 import { updateReplyAssistant } from './reply-assistant'
-import { updateBookmarkCounters } from './bookmark-counter'
+import { setBookmarkCountEnabled, updateBookmarkCounters } from './bookmark-counter'
 import { updateQuickInteraction } from './quick-interaction'
 import { updateUserFollowerBadges } from './user-followers'
 import { updateAiRepostComposerButton } from './ai-repost'
@@ -52,6 +55,8 @@ let cachedTweetSettings: {
   targetHandle: string
   ratioEnabled: boolean
   highlightNonFollowers: string
+  bookmarkCount: boolean
+  mediaDownload: boolean
 } | null = null
 
 export function invalidateDynamicSettingsCache() {
@@ -64,13 +69,17 @@ async function getCachedTweetSettings() {
       KeyStatRatioTargetHandle,
       KeyStatRatioEnabled,
       KeyHighlightNonFollowers,
+      KeyBookmarkCount,
+      KeyMediaDownload,
     ])
     const ratioEnabled = !data || data[KeyStatRatioEnabled] !== 'off'
     const targetHandle = (data && typeof data[KeyStatRatioTargetHandle] === 'string' && (data[KeyStatRatioTargetHandle] as string).trim())
       ? (data[KeyStatRatioTargetHandle] as string).trim()
       : '*'
     const highlightNonFollowers = String(data?.[KeyHighlightNonFollowers] ?? 'on')
-    cachedTweetSettings = { targetHandle, ratioEnabled, highlightNonFollowers }
+    const bookmarkCount = data?.[KeyBookmarkCount] !== 'off'
+    const mediaDownload = data?.[KeyMediaDownload] !== 'off'
+    cachedTweetSettings = { targetHandle, ratioEnabled, highlightNonFollowers, bookmarkCount, mediaDownload }
   }
   return cachedTweetSettings
 }
@@ -87,6 +96,10 @@ export const dynamicFeatures = {
         pendingScopes.clear()
 
         if (includesScope(scopes, 'tweet')) {
+          // 先读开关再注入，关闭状态下不会先画出来再移除
+          const s = await getCachedTweetSettings()
+          setMediaDownloadEnabled(s.mediaDownload)
+          setBookmarkCountEnabled(s.bookmarkCount)
           addMediaDownloadButtons()
           // 推文操作按钮（选词/名单）独立于 spam 过滤器生命周期注入：
           // dynamic observer 总是运行，即使用户关闭净化，新推文上仍会出现这些按钮。
@@ -101,7 +114,6 @@ export const dynamicFeatures = {
           updateBookmarkCounters()
           updateQuickInteraction()
           void updateUserFollowerBadges()
-          const s = await getCachedTweetSettings()
           if (s.ratioEnabled) {
             addStatRatioBadges(s.targetHandle)
           } else {

@@ -137,7 +137,15 @@ function findShareButton(tweet: HTMLElement): HTMLElement | null {
   return null
 }
 
+/** 弹窗「媒体下载」开关；关闭时分享菜单不再加入下载选项 */
+let mediaDownloadEnabled = true
+
+export function setMediaDownloadEnabled(enabled: boolean) {
+  mediaDownloadEnabled = enabled
+}
+
 export const addMediaDownloadButtons = () => {
+  if (!mediaDownloadEnabled) return
   const tweets = document.querySelectorAll<HTMLElement>('article[data-testid="tweet"]')
 
   tweets.forEach((tweet) => {
@@ -148,6 +156,8 @@ export const addMediaDownloadButtons = () => {
     shareBtn.addEventListener(
       'click',
       () => {
+        // 监听在开关打开时挂上，点击时再检查一次，关闭后不再插入选项
+        if (!mediaDownloadEnabled) return
         lastActiveTweetContext = extractTweetInfoFromDom(tweet)
 
         // 等待下拉菜单 Dropdown 渲染
@@ -164,6 +174,7 @@ export const addMediaDownloadButtons = () => {
 }
 
 function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null) {
+  if (!mediaDownloadEnabled) return
   // 如果当前上下文缺失，尝试从页面主推文兜底
   if (!info && window.location.pathname.includes('/status/')) {
     const mainTweet = document.querySelector<HTMLElement>('article[data-testid="tweet"]')

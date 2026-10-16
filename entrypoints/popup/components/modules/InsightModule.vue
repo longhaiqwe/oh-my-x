@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { KeyUserFollowerCount } from '../../../../storage-keys'
+import { KeyUserFollowerCount, KeyBookmarkCount } from '../../../../storage-keys'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import GroupLabel from '../ui/GroupLabel.vue'
 import FeatureCard from '../ui/FeatureCard.vue'
 import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
+import FeatureSwitch from '../ui/FeatureSwitch.vue'
 import CreatorRewardsCard from '../sections/CreatorRewardsCard.vue'
 import ProfileActivityCard from '../sections/ProfileActivityCard.vue'
 import ViralRadarSection from '../sections/ViralRadarSection.vue'
@@ -29,6 +30,11 @@ const followerCountOptions = [
   <StatRatioCard />
   <FeatureCard feature-id="followerCount">
    <ToggleGroupControl :storage-key="KeyUserFollowerCount" :options="followerCountOptions" class="self-start" />
+  </FeatureCard>
+  <FeatureCard feature-id="bookmarkCount">
+   <template #control>
+    <FeatureSwitch :storage-key="KeyBookmarkCount" label="收藏量" />
+   </template>
   </FeatureCard>
  </section>
 </template>

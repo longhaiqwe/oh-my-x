@@ -29,6 +29,8 @@ export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyScheduledPanorama = 'scheduledPanorama'
 export const KeyRadarWidth = 'radarWidth'
 export const KeyUserFollowerCount = 'userFollowerCount' // 'all' | 'list' | 'off'
+export const KeyBookmarkCount = 'bookmarkCount' // 书签按钮旁显示收藏数
+export const KeyMediaDownload = 'mediaDownload' // 分享菜单中的媒体下载选项
 
 // Reply assistant storage keys
 export const KeyJumpToReplies = 'jumpToReplies'
@@ -145,6 +147,8 @@ export const allSettingsKeys = [
   KeyQuickInteraction,
   KeyQuickInteractionDock,
   KeyUserFollowerCount,
+  KeyBookmarkCount,
+  KeyMediaDownload,
   KeyAiRepostEnabled,
   KeyAiRepostBaseUrl,
   KeyAiRepostApiKey,
@@ -310,6 +314,8 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyQuickInteraction]: 'on',
   [KeyQuickInteractionDock]: 'on',
   [KeyUserFollowerCount]: 'all',
+  [KeyBookmarkCount]: 'on',
+  [KeyMediaDownload]: 'on',
   [KeyAiRepostEnabled]: 'on',
   [KeyAiRepostBaseUrl]: 'https://api.openai.com/v1',
   [KeyAiRepostApiKey]: '',

@@ -53,6 +53,8 @@ import {
   KeyQuickInteraction,
   KeyQuickInteractionDock,
   KeyUserFollowerCount,
+  KeyBookmarkCount,
+  KeyMediaDownload,
   KeyAiRepostEnabled,
   KeyAiRepostBaseUrl,
   KeyAiRepostApiKey,
@@ -124,6 +126,8 @@ export interface ExtensionSettings {
   [KeyAutoLikeOnReply]: ToggleValue
   [KeyQuickInteraction]: ToggleValue
   [KeyQuickInteractionDock]: ToggleValue
+  [KeyBookmarkCount]: ToggleValue
+  [KeyMediaDownload]: ToggleValue
   [KeyUserFollowerCount]: UserFollowerCountMode
   [KeyAiRepostEnabled]: ToggleValue
   [KeyAiRepostBaseUrl]: string
@@ -172,6 +176,8 @@ const TOGGLE_KEYS = new Set<string>([
   KeyAutoLikeOnReply,
   KeyQuickInteraction,
   KeyQuickInteractionDock,
+  KeyBookmarkCount,
+  KeyMediaDownload,
   KeyAiRepostEnabled,
 ])
 
