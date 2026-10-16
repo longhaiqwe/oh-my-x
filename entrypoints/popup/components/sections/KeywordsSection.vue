@@ -11,6 +11,7 @@ import {
   mergeDefaultKeywords,
 } from '../../../../shared/spam-migration'
 import { getFeature } from '../../../../shared/feature-registry'
+import WhereLine from '../ui/WhereLine.vue'
 
 const feature = getFeature('spamKeywords')
 
@@ -178,6 +179,7 @@ function clearAll() {
       </div>
     </div>
     <p class="text-[11px] text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
+    <WhereLine v-if="feature.where" :where="feature.where" />
     <div class="flex items-center justify-end gap-2">
       <button type="button"
         class="text-[10px] text-accent hover:underline rounded py-0.5 transition-colors cursor-pointer"
@@ -216,11 +218,11 @@ function clearAll() {
     </div>
 
     <p class="text-[10px] text-secondary-text leading-relaxed">
-      在推文右上角点击
+      选词按钮的样式是
       <span class="inline-flex items-center justify-center bg-body-bg border border-border rounded p-0.5 align-middle mx-0.5">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h8q.425 0 .713.288T14 4t-.288.713T13 5H5v14h14v-8q0-.425.288-.712T20 10t.713.288T21 11v8q0 .825-.587 1.413T19 21zm4-4q-.425 0-.712-.288T8 16t.288-.712T9 15h6q.425 0 .713.288T16 16t-.288.713T15 17zm0-3q-.425 0-.712-.288T8 13t.288-.712T9 12h6q.425 0 .713.288T16 13t-.288.713T15 14zm0-3q-.425 0-.712-.288T8 10t.288-.712T9 9h6q.425 0 .713.288T16 10t-.288.713T15 11zm9-2q-.425 0-.712-.288T17 8V7h-1q-.425 0-.712-.288T15 6t.288-.712T16 5h1V4q0-.425.288-.712T18 3t.713.288T19 4v1h1q.425 0 .713.288T21 6t-.288.713T20 7h-1v1q0 .425-.288.713T18 9"/></svg>
       </span>
-      按钮，可以从昵称或回复中选词加入词库。
+      ，点击后可以从昵称或回复中选词加入词库。
     </p>
   </div>
 </template>

@@ -203,6 +203,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     label: '垃圾词库',
     description: '回复命中词库中的词时加分。和正文屏蔽词分开管理',
     storageKeys: [KeySpamKeywordList],
+    where: '推文右上角「更多」按钮旁的选词按钮',
     parent: 'spamFilter',
   },
   {
@@ -211,6 +212,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     label: '账号例外',
     description: '白名单作者的回复不隐藏，黑名单作者的回复全部隐藏',
     storageKeys: [KeySpamWhitelist, KeySpamBlacklist],
+    where: '推文右上角「更多」按钮旁的名单按钮',
   },
   {
     id: 'spamLog',

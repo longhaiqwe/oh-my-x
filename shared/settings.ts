@@ -190,7 +190,7 @@ function normalizeToggle(value: unknown, fallback: ToggleValue): ToggleValue {
 /** 数值类设置的业务范围，用于 clamp 损坏/越界的 storage 值（对齐各 UI 滑块边界） */
 const NUMERIC_RANGES: Partial<Record<string, { min: number; max: number }>> = {
   [KeyTimelineWidth]: { min: 600, max: 800 },
-  [KeySpamThreshold]: { min: 0, max: 100 },
+  [KeySpamThreshold]: { min: 20, max: 150 },
   [KeyViralPotentialThreshold]: { min: 0, max: 50000 },
   [KeyViralViralThreshold]: { min: 0, max: 50000 },
 }

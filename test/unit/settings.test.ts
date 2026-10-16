@@ -62,9 +62,10 @@ describe('normalizeSettings numeric constraints', () => {
     expect(normalizeSettings({ [KeyTimelineWidth]: 700 })[KeyTimelineWidth]).toBe(700)
   })
 
-  it('clamps spamThreshold to [0, 100]', () => {
-    expect(normalizeSettings({ [KeySpamThreshold]: 200 })[KeySpamThreshold]).toBe(100)
-    expect(normalizeSettings({ [KeySpamThreshold]: -10 })[KeySpamThreshold]).toBe(0)
+  it('clamps spamThreshold to the popup slider range [20, 150]', () => {
+    expect(normalizeSettings({ [KeySpamThreshold]: 200 })[KeySpamThreshold]).toBe(150)
+    expect(normalizeSettings({ [KeySpamThreshold]: 120 })[KeySpamThreshold]).toBe(120)
+    expect(normalizeSettings({ [KeySpamThreshold]: -10 })[KeySpamThreshold]).toBe(20)
   })
 
   it('clamps viral thresholds to [0, 50000] without tripping the cross-field guard', () => {
