@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   KeySpamKeywordList,
   defaultSpamKeywords,
@@ -12,7 +12,6 @@ import {
 } from '../../../../shared/spam-migration'
 import { getFeature } from '../../../../shared/feature-registry'
 
-const emit = defineEmits<{ count: [total: number] }>()
 const feature = getFeature('spamKeywords')
 
 let migrationChecked = false
@@ -32,7 +31,6 @@ const syncMessage = ref('')
 
 const parsedKeywords = computed(() => parseKeywordList(keywords.value))
 const keywordCount = computed(() => parsedKeywords.value.length)
-watch(keywordCount, (n) => emit('count', n), { immediate: true })
 
 const placeholderText = computed(() => {
   return parsedKeywords.value.length === 0
@@ -72,9 +70,18 @@ async function updateKeywords(value: string) {
   } catch {}
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
+    saveTimer = null
     void setStorage({ [KeySpamKeywordList]: keywords.value })
   }, 350)
 }
+
+// 离开页面时立即写入尚未保存的修改，返回第一层后状态行能读到最新词数
+onBeforeUnmount(() => {
+  if (!saveTimer) return
+  clearTimeout(saveTimer)
+  saveTimer = null
+  void setStorage({ [KeySpamKeywordList]: keywords.value })
+})
 
 function syncOfficialKeywords() {
   const currentList = [...parsedKeywords.value]
@@ -164,13 +171,13 @@ function clearAll() {
 <template>
   <div class="flex flex-col gap-1.5">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-[12px] font-medium text-text">{{ feature.label }}</p>
+      <p class="text-[13px] font-semibold text-text">{{ feature.label }}</p>
       <div class="flex items-center gap-2">
         <span v-if="syncMessage" class="text-[10px] text-accent font-medium">{{ syncMessage }}</span>
         <span class="text-[11px] font-semibold text-accent">{{ keywordCount }} 个词</span>
       </div>
     </div>
-    <p class="text-[10px] text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
+    <p class="text-[11px] text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
     <div class="flex items-center justify-end gap-2">
       <button type="button"
         class="text-[10px] text-accent hover:underline rounded py-0.5 transition-colors cursor-pointer"

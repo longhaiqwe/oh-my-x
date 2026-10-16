@@ -182,6 +182,8 @@ oh-my-x/
 - 多个简单功能共用一张卡片时，用 `FeatureList` 包住若干 `FeatureCard variant="row"`；从属设置用 `SubRow` 缩进；分组标题用 `GroupLabel`。
 - 开关一律正向命名（打开 = 开启或显示）。直接绑定存储的开关用 `FeatureSwitch`；存储值与开关含义相反时传 `invert`（如 `sidebarColumn` 存 'on' 表示隐藏）。自己管理状态的卡片用 `SwitchToggle`，多选项用 `SegmentedControl` / `ToggleGroupControl`。
 - 界面文案用白描：写动作和结果，不拟人、不比喻、不用夸张的形容词和副词。
+- 过滤页分两层（`modules/FilterModule.vue`）：第一层四张卡片用 `FeatureCard details-as="page"`，点击后切到第二层；第二层用 `ui/SubPage.vue`（返回按钮 + 「内容过滤 / 功能名」）。进入时记录 `#app` 的滚动位置并回到顶部，返回时恢复位置并把焦点放回入口按钮（`data-details-for`）。
+- 第一层状态行不挂载第二层组件，直接用 `composables/useStorageSnapshot.ts` 读取相关存储项并监听 `storage.onChanged`；第二层的防抖保存在卸载时立即写入，保证返回后数字是新的。
 - 新增设置项时，必须在功能清单里归到一个功能（或列入 `GLOBAL_STORAGE_KEYS` / `UNLISTED_STORAGE_KEYS`），`test/unit/feature-registry.test.ts` 会检查每个设置项恰好有一个归属。
 - 上次打开的模块存在 `popupActiveTab`；旧版标签 id（view/overview/viral/rules/keywords/lists/log）由 `resolvePopupModule` 映射到新模块。
 

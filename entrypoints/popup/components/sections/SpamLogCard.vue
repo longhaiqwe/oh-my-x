@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
+import { KeySpamLog } from '../../../../storage-keys'
 import { SPAM_CATEGORY_LABEL } from '../../../../shared/spam-types'
 import type { SpamLogEntry } from '../../../../shared/spam-types'
 import { readLog } from '../../../../shared/spam-logger'
+import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
 import FeatureCard from '../ui/FeatureCard.vue'
-import LogSection from './LogSection.vue'
+
+defineEmits<{ open: [] }>()
 
 const recent = ref<SpamLogEntry[]>([])
+const snapshot = useStorageSnapshot([KeySpamLog])
 
 function fmtTime(ts: number) {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -17,10 +21,12 @@ async function loadRecent() {
 }
 
 onMounted(loadRecent)
+// 弹窗打开期间页面继续拦截时，最近记录随之更新
+watch(() => snapshot[KeySpamLog], () => void loadRecent())
 </script>
 
 <template>
- <FeatureCard feature-id="spamLog" details-label="全部记录">
+ <FeatureCard feature-id="spamLog" details-label="全部记录" details-as="page" @open-details="$emit('open')">
   <ul v-if="recent.length" class="flex flex-col gap-1">
    <li
     v-for="entry in recent"
@@ -36,9 +42,5 @@ onMounted(loadRecent)
    </li>
   </ul>
   <p v-else class="text-[11px] text-secondary-text">还没有拦截记录</p>
-
-  <template #details>
-   <LogSection @changed="loadRecent" />
-  </template>
  </FeatureCard>
 </template>

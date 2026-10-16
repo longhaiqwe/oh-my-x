@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { KeySpamRulesEnabled } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseEnabledRules, serializeEnabledRules } from '../../../../shared/spam-rules'
@@ -8,7 +8,6 @@ import type { SpamRuleId } from '../../../../shared/spam-types'
 import { getFeature } from '../../../../shared/feature-registry'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 
-const emit = defineEmits<{ count: [enabled: number] }>()
 const feature = getFeature('spamRules')
 
 const enabledRules = ref<Record<SpamRuleId, boolean>>(
@@ -16,7 +15,6 @@ const enabledRules = ref<Record<SpamRuleId, boolean>>(
 )
 
 const enabledCount = computed(() => SPAM_RULES.filter((r) => enabledRules.value[r.id] !== false).length)
-watch(enabledCount, (n) => emit('count', n), { immediate: true })
 
 onMounted(async () => {
   const raw = await getStorage(KeySpamRulesEnabled)
@@ -38,10 +36,10 @@ async function toggleRule(id: SpamRuleId, value: boolean) {
 <template>
  <div class="flex flex-col gap-1">
   <div class="flex items-baseline justify-between">
-   <p class="text-[12px] font-medium text-text">{{ feature.label }}</p>
-   <span class="text-[10px] text-secondary-text">已开启 {{ enabledCount }}/{{ SPAM_RULES.length }}</span>
+   <p class="text-[13px] font-semibold text-text">{{ feature.label }}</p>
+   <span class="text-[11px] text-secondary-text">已开启 {{ enabledCount }}/{{ SPAM_RULES.length }}</span>
   </div>
-  <p class="text-[10px] text-secondary-text">{{ feature.description }}</p>
+  <p class="text-[11px] text-secondary-text">{{ feature.description }}</p>
   <div class="flex flex-col rounded-lg border border-border bg-body-bg px-2.5">
    <div
     v-for="rule in SPAM_RULES"

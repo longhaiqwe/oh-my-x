@@ -1,25 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
-import { KeySpamFilterEnabled, KeySpamThreshold, KeySpamDebugMode } from '../../../../storage-keys'
-import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+import { ref, computed, watch, onMounted } from 'vue'
+import {
+  KeySpamFilterEnabled,
+  KeySpamThreshold,
+  KeySpamRulesEnabled,
+  KeySpamKeywordList,
+  KeySpamStats,
+} from '../../../../storage-keys'
 import { SPAM_CATEGORY_LABEL, SPAM_RULES } from '../../../../shared/spam-types'
 import type { SpamCategory } from '../../../../shared/spam-types'
+import { parseEnabledRules, parseKeywordList } from '../../../../shared/spam-rules'
 import { getTodayStats } from '../../../../shared/spam-logger'
+import { useStorageKey } from '../../composables/useStorageKey'
+import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
 import FeatureCard from '../ui/FeatureCard.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
-import SubRow from '../ui/SubRow.vue'
-import RulesSection from './RulesSection.vue'
-import KeywordsSection from './KeywordsSection.vue'
 
-const enabled = ref(true)
-const debug = ref(false)
-const threshold = ref(55)
-const detailsOpen = ref(false)
+defineEmits<{ open: [] }>()
 
-// 状态行数字由子组件上报，编辑详细设置时同步更新
-const enabledRuleCount = ref(SPAM_RULES.length)
-const keywordCount = ref(0)
+const { value: enabled, setValue: setEnabled } = useStorageKey(KeySpamFilterEnabled)
+
+// 状态行只读展示；在详细设置页修改后，这里随存储变化更新
+const snapshot = useStorageSnapshot([KeySpamThreshold, KeySpamRulesEnabled, KeySpamKeywordList, KeySpamStats])
+const threshold = computed(() => Number(snapshot[KeySpamThreshold]) || 55)
+const enabledRuleCount = computed(() => parseEnabledRules(String(snapshot[KeySpamRulesEnabled] ?? '')).size)
+const keywordCount = computed(() => parseKeywordList(String(snapshot[KeySpamKeywordList] ?? '')).length)
 
 const todayTotal = ref(0)
 const todayByCategory = ref<Record<SpamCategory, number>>({
@@ -36,38 +41,27 @@ const categoryRows = computed(() =>
     .filter((r) => r.count > 0),
 )
 
-async function toggleEnabled(v: boolean) {
-  enabled.value = v
-  await setStorage({ [KeySpamFilterEnabled]: v ? 'on' : 'off' })
-}
-
-async function toggleDebug(v: boolean) {
-  debug.value = v
-  await setStorage({ [KeySpamDebugMode]: v ? 'on' : 'off' })
-}
-
-async function setThreshold(v: number) {
-  threshold.value = v
-  await setStorage({ [KeySpamThreshold]: v })
-}
-
-onMounted(async () => {
-  const [storageMap, today] = await Promise.all([
-    getStorage([KeySpamFilterEnabled, KeySpamThreshold, KeySpamDebugMode]),
-    getTodayStats(),
-  ])
-  enabled.value = storageMap[KeySpamFilterEnabled] === 'on'
-  threshold.value = Number(storageMap[KeySpamThreshold]) || 55
-  debug.value = storageMap[KeySpamDebugMode] === 'on'
+async function loadToday() {
+  const today = await getTodayStats()
   todayTotal.value = today.total
   todayByCategory.value = today.byCategory
-})
+}
+
+onMounted(loadToday)
+// 弹窗打开期间页面继续拦截时，统计随之更新
+watch(() => snapshot[KeySpamStats], () => void loadToday())
 </script>
 
 <template>
- <FeatureCard v-model:open="detailsOpen" feature-id="spamFilter" :enabled="enabled" details-label="详细设置">
+ <FeatureCard
+  feature-id="spamFilter"
+  :enabled="enabled"
+  details-label="详细设置"
+  details-as="page"
+  @open-details="$emit('open')"
+ >
   <template #control>
-   <SwitchToggle :model-value="enabled" label="垃圾回复过滤" @update:model-value="toggleEnabled" />
+   <SwitchToggle :model-value="enabled" label="垃圾回复过滤" @update:model-value="setEnabled" />
   </template>
 
   <!-- 今日拦截 -->
@@ -87,35 +81,6 @@ onMounted(async () => {
 
   <template #status>
    阈值 {{ threshold }} · 规则 {{ enabledRuleCount }}/{{ SPAM_RULES.length }} · 垃圾词库 {{ keywordCount }} 个
-  </template>
-
-  <template #details>
-   <div class="flex flex-col gap-1.5">
-    <div class="flex items-center justify-between">
-     <p class="text-[12px] font-medium text-text">隐藏阈值</p>
-     <span class="text-[12px] font-mono text-accent">{{ threshold }}</span>
-    </div>
-    <p class="text-[10px] text-secondary-text -mt-0.5">得分达到这个值的回复会被隐藏。数值越低，隐藏的回复越多</p>
-    <SliderRoot
-     :model-value="[threshold]"
-     @update:model-value="(v: number[] | undefined) => { if (v) { const val = v[0]; if (val !== undefined) setThreshold(val) } }"
-     :min="20" :max="150" :step="5"
-     aria-label="隐藏阈值"
-     class="relative flex items-center select-none touch-none w-full h-4"
-    >
-     <SliderTrack class="bg-accent/30 relative flex-grow rounded-full h-1">
-      <SliderRange class="absolute bg-accent rounded-full h-full" />
-     </SliderTrack>
-     <SliderThumb class="block w-3.5 h-3.5 bg-accent rounded-full" />
-    </SliderRoot>
-   </div>
-
-   <SubRow title="调试模式" description="在每条回复下显示得分和命中的规则，不隐藏回复">
-    <SwitchToggle :model-value="debug" label="调试模式" @update:model-value="toggleDebug" />
-   </SubRow>
-
-   <RulesSection @count="(n) => (enabledRuleCount = n)" />
-   <KeywordsSection @count="(n) => (keywordCount = n)" />
   </template>
  </FeatureCard>
 </template>

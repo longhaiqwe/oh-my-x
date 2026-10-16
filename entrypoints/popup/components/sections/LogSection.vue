@@ -4,7 +4,6 @@ import { clearLog, clearStats, readLog } from '../../../../shared/spam-logger'
 import { SPAM_CATEGORY_LABEL } from '../../../../shared/spam-types'
 import type { SpamCategory, SpamLogEntry } from '../../../../shared/spam-types'
 
-const emit = defineEmits<{ changed: [] }>()
 const log = ref<SpamLogEntry[]>([])
 
 // log 本身在存储时已按时间逆序插入（最新在前），无需在前端额外做 O(N log N) 排序
@@ -19,14 +18,12 @@ async function handleClearLog() {
   if (!confirm('清空全部拦截记录？')) return
   await clearLog()
   await refresh()
-  emit('changed')
 }
 
 async function handleClearStats() {
   if (!confirm('清空每天的拦截统计？')) return
   await clearStats()
   await refresh()
-  emit('changed')
 }
 
 function fmtTime(ts: number) {

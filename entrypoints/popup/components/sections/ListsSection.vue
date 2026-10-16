@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { KeySpamWhitelist, KeySpamBlacklist } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseHandleList } from '../../../../shared/spam-rules'
@@ -17,13 +17,6 @@ const blacklist = ref(getInitialList(KeySpamBlacklist))
 
 const parsedWhitelist = computed(() => parseHandleList(whitelist.value))
 const parsedBlacklist = computed(() => parseHandleList(blacklist.value))
-
-const emit = defineEmits<{ counts: [counts: { whitelist: number; blacklist: number }] }>()
-watch(
-  () => ({ whitelist: parsedWhitelist.value.length, blacklist: parsedBlacklist.value.length }),
-  (counts) => emit('counts', counts),
-  { immediate: true },
-)
 
 type ListKey = typeof KeySpamWhitelist | typeof KeySpamBlacklist
 const SAVE_DELAY_MS = 350
@@ -85,11 +78,11 @@ onBeforeUnmount(() => {
 <template>
  <div class="flex flex-col gap-2">
   <div>
-   <p class="text-[12px] font-medium text-text flex justify-between">
+   <p class="text-[13px] font-semibold text-text flex justify-between">
     白名单
     <span class="text-accent">{{ parsedWhitelist.length }} 个</span>
    </p>
-   <p class="text-[10px] text-secondary-text mt-0.5">这些作者的回复不会被隐藏。每行一个用户名</p>
+   <p class="text-[11px] text-secondary-text mt-0.5">这些作者的回复不会被隐藏。每行一个用户名</p>
   </div>
   <textarea
    class="w-full min-h-[80px] rounded-md border border-border bg-body-bg p-2 text-[12px] font-mono focus:border-accent outline-none resize-y"
@@ -108,11 +101,11 @@ onBeforeUnmount(() => {
   </div>
 
   <div class="pt-2 border-t border-border/60">
-   <p class="text-[12px] font-medium text-text flex justify-between">
+   <p class="text-[13px] font-semibold text-text flex justify-between">
     黑名单
     <span class="text-red-500">{{ parsedBlacklist.length }} 个</span>
    </p>
-   <p class="text-[10px] text-secondary-text mt-0.5">这些作者的回复全部隐藏。每行一个用户名</p>
+   <p class="text-[11px] text-secondary-text mt-0.5">这些作者的回复全部隐藏。每行一个用户名</p>
   </div>
   <textarea
    class="w-full min-h-[80px] rounded-md border border-border bg-body-bg p-2 text-[12px] font-mono focus:border-accent outline-none resize-y"
