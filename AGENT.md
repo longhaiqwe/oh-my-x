@@ -98,7 +98,8 @@ oh-my-x/
 │   ├── content.ts               # isolated content script 入口（storage.onChanged、总开关）
 │   ├── interceptor.content.ts   # MAIN world 脚本：hook fetch/XHR 拦截排期 API
 │   ├── background.ts            # Service Worker：版本化默认词库同步
-│   └── popup/                   # 设置面板（Vue 3 SPA，5 个模块标签，只挂载当前模块）
+│   ├── popup/                   # 设置面板（Vue 3 SPA，5 个模块标签，只挂载当前模块）
+│   └── options/                 # 完整设置页（新标签页整页打开，复用 popup 的模块页）
 │       ├── App.vue / main.ts / style.css / index.html
 │       ├── composables/         # useStorageKey
 │       └── components/           # sections / ui / controls
@@ -184,6 +185,8 @@ oh-my-x/
 - 界面文案用白描：写动作和结果，不拟人、不比喻、不用夸张的形容词和副词。
 - 过滤页分两层（`modules/FilterModule.vue`）：第一层四张卡片用 `FeatureCard details-as="page"`，点击后切到第二层；第二层用 `ui/SubPage.vue`（返回按钮 + 「内容过滤 / 功能名」）。进入时记录 `#app` 的滚动位置并回到顶部，返回时恢复位置并把焦点放回入口按钮（`data-details-for`）。
 - 第一层状态行不挂载第二层组件，直接用 `composables/useStorageSnapshot.ts` 读取相关存储项并监听 `storage.onChanged`；第二层的防抖保存在卸载时立即写入，保证返回后数字是新的。
+- 完整设置页（`entrypoints/options/`）与弹窗共用 `popup/modules.ts` 的模块对照表和 `popup/theme.css` 的配色；左侧导航切换模块，地址 `#模块 id` 与当前模块同步（旧版标签 id 同样经 `resolvePopupModule` 映射）。页面通过 `SettingsSurfaceKey` 注入 `'options'`，依赖“当前标签页”的功能（博主活动度扫描）据此只显示提示。滚动容器用 `getScrollContainer()`：弹窗是 `#app`，设置页是整个页面。
+- 新增扩展页面后若 `vue-tsc` 报 `PublicPath` 类型错误，先运行 `npx wxt prepare` 重新生成路径类型（`npm ci` 的 postinstall 会自动执行）。
 - 新增设置项时，必须在功能清单里归到一个功能（或列入 `GLOBAL_STORAGE_KEYS` / `UNLISTED_STORAGE_KEYS`），`test/unit/feature-registry.test.ts` 会检查每个设置项恰好有一个归属。
 - 上次打开的模块存在 `popupActiveTab`；旧版标签 id（view/overview/viral/rules/keywords/lists/log）由 `resolvePopupModule` 映射到新模块。
 

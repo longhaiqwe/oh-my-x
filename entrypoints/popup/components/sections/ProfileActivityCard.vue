@@ -4,6 +4,10 @@ import { KeyProfileActivityStats } from '../../../../storage-keys'
 import { getStorage } from '../../../../content-scripts/utilities/storage'
 import type { ProfileActivitySummary } from '../../../../shared/profile-activity'
 import FeatureCard from '../ui/FeatureCard.vue'
+import { useSettingsSurface } from '../../modules'
+
+// 扫描依赖“当前标签页是博主主页”，只能在弹窗里使用
+const inPopup = useSettingsSurface() === 'popup'
 
 const profileActivity = ref<ProfileActivitySummary | null>(null)
 const scanning = ref(false)
@@ -103,7 +107,7 @@ function parseProfileActivity(raw: unknown): ProfileActivitySummary | null {
 }
 
 onMounted(async () => {
-  void detectCurrentTabHandle()
+  if (inPopup) void detectCurrentTabHandle()
   profileActivity.value = parseProfileActivity(await getStorage(KeyProfileActivityStats))
 })
 </script>
@@ -123,7 +127,9 @@ onMounted(async () => {
    </button>
   </template>
 
-  <div class="flex items-center justify-between gap-3">
+  <p v-if="!inPopup" class="text-[11px] text-secondary-text">在博主主页打开插件弹窗，就可以扫描这位博主近 7 天的活动。</p>
+
+  <div v-else class="flex items-center justify-between gap-3">
    <p class="text-[11px] text-secondary-text">
     <template v-if="currentTabHandle">@{{ currentTabHandle }} · {{ isCurrentProfileActive ? '近 7 天' : '未扫描' }}</template>
     <template v-else>当前页面不是博主主页</template>
@@ -134,8 +140,9 @@ onMounted(async () => {
    </div>
   </div>
 
-  <p v-if="scanFeedback" class="text-[10px] text-accent leading-tight">{{ scanFeedback }}</p>
+  <p v-if="inPopup && scanFeedback" class="text-[10px] text-accent leading-tight">{{ scanFeedback }}</p>
 
+  <template v-if="inPopup">
   <div v-if="!scanning && isCurrentProfileActive && profileActivityDays.length" class="rounded-lg bg-body-bg border border-border overflow-hidden">
    <div class="grid grid-cols-[1fr_48px_48px] gap-1 px-2 py-1 text-[10px] text-secondary-text border-b border-border">
     <span>日期</span><span class="text-right">帖子</span><span class="text-right">回复</span>
@@ -147,5 +154,6 @@ onMounted(async () => {
   <p v-else-if="scanning" class="text-[11px] text-secondary-text">正在读取近 7 天的帖子和回复…</p>
   <p v-else-if="currentTabHandle" class="text-[11px] text-secondary-text">点击「扫描近 7 天」统计这位博主的帖子数和回复数。</p>
   <p v-else class="text-[11px] text-secondary-text">打开一位博主的主页后可以扫描。</p>
+  </template>
  </FeatureCard>
 </template>

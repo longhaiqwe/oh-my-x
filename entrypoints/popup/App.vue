@@ -1,16 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, type Component } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from 'reka-ui'
 import Header from './components/sections/Header.vue'
-
-// 同步导入各模块页：本地扩展没有网络下载延迟（打包总体积仅百余 KB），
-// 同步导入消除 defineAsyncComponent 导致的异步挂载空白间隙与二次渲染瀑布流。
-// 下方配合 v-if="activeTab === ..." 确保只有当前激活的模块才会实例化与挂载。
-import LayoutModule from './components/modules/LayoutModule.vue'
-import FilterModule from './components/modules/FilterModule.vue'
-import InsightModule from './components/modules/InsightModule.vue'
-import CreateModule from './components/modules/CreateModule.vue'
-import EngageModule from './components/modules/EngageModule.vue'
+import { moduleComponents } from './modules'
 
 import { KeyPopupActiveTab } from '../../storage-keys'
 import { getStorage, setStorage } from '../../content-scripts/utilities/storage'
@@ -20,14 +12,6 @@ import {
   resolvePopupModule,
   type FeatureModuleId,
 } from '../../shared/feature-registry'
-
-const moduleComponents: Record<FeatureModuleId, Component> = {
-  layout: LayoutModule,
-  filter: FilterModule,
-  insight: InsightModule,
-  create: CreateModule,
-  engage: EngageModule,
-}
 
 function readCachedTab(): FeatureModuleId | null {
   try {
@@ -63,7 +47,7 @@ watch(
 <template>
  <div class="relative flex flex-col p-4 font-sans font-normal max-w-full w-100 bg-body-bg">
   <div class="flex flex-col gap-y-3">
-   <Header />
+   <Header :current-module="activeTab" />
    <main class="flex flex-col gap-y-3">
     <TabsRoot :model-value="activeTab" @update:model-value="(v) => activeTab = v as FeatureModuleId" class="flex flex-col gap-3">
      <TabsList

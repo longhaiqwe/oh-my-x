@@ -4,9 +4,19 @@ import { useStorageKey } from '../../composables/useStorageKey'
 import { KeyExtensionStatus } from '../../../../storage-keys'
 
 import pkg from '../../../../package.json'
+import type { FeatureModuleId } from '../../../../shared/feature-registry'
+
+const props = defineProps<{ currentModule?: FeatureModuleId }>()
 
 const { value, loaded, setValue } = useStorageKey(KeyExtensionStatus)
 const version = pkg.version
+
+// 在新标签页打开完整设置页，并定位到弹窗当前所在的模块
+async function openFullSettings() {
+ const hash = props.currentModule ? `#${props.currentModule}` : ''
+ await browser.tabs.create({ url: browser.runtime.getURL('/options.html') + hash })
+ window.close()
+}
 </script>
 
 <template>
@@ -39,12 +49,26 @@ const version = pkg.version
     </h1>
    </div>
 
-   <!-- Right: extension toggle (no label) -->
-   <div class="absolute right-0 flex items-center">
+   <!-- Right: full settings + extension toggle -->
+   <div class="absolute right-0 flex items-center gap-1.5">
+    <button
+     type="button"
+     class="flex items-center justify-center w-8 h-8 rounded-full text-secondary-text hover:text-accent hover:bg-card-bg transition-colors cursor-pointer"
+     aria-label="在新标签页打开完整设置"
+     title="完整设置"
+     @click="openFullSettings"
+    >
+     <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+     </svg>
+    </button>
     <SwitchRoot
      v-if="loaded"
      :id="KeyExtensionStatus"
      :model-value="value"
+     aria-label="启用插件"
      @update:model-value="setValue"
      class="w-8 h-[18px] rounded-full relative flex items-center cursor-pointer shrink-0"
      :class="value ? 'bg-accent' : 'bg-secondary-text/40'"

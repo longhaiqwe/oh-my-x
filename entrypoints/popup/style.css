@@ -1,24 +1,4 @@
-@import "tailwindcss";
-
-/* X.com theme — light-dark() resolves at runtime from color-scheme */
-@theme {
-  --color-accent: #10b981;
-  --color-accent-active: #059669;
-  --color-accent-bg: #0596691a;
-  --color-accent-hover: #047857;
-  --color-accent-ring: #05966933;
-  --color-accent-track: #0596694d;
-  --color-body-bg: light-dark(#ffffff, #000000);
-  --color-card-bg: light-dark(#f2f6f6, #16181c);
-  --color-border: light-dark(#e1e8ed, #2f3336);
-  --color-secondary-text: light-dark(#536471, #71767b);
-  --color-text: light-dark(#0f1419, #e7e9ea);
-  --color-glyphs: light-dark(#0f1419, #e7e9ea);
-}
-
-html {
-  color-scheme: light dark;
-}
+@import "./theme.css";
 
 html,
 body {
@@ -45,29 +25,4 @@ body {
   isolation: isolate;
   /* 为内部滚动条预留槽位，防止滚动条出现/消失时内容宽度变化（对 Windows/Linux 经典滚动条生效） */
   scrollbar-gutter: stable;
-}
-
-/* 方案四：极细悬浮滚动条 —— 平时透明，悬停/滚动时浮现为半透明细滑块，不占排版空间 */
-::-webkit-scrollbar {
-  width: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 9999px;
-  transition: background 0.2s;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.5);
-}
-
-/* 滚动条所在容器 hover 时显示滑块 */
-*:hover > ::-webkit-scrollbar-thumb,
-html:hover::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.35);
 }

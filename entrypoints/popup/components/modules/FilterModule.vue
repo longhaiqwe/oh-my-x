@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { getFeature, getModule } from '../../../../shared/feature-registry'
+import { getScrollContainer } from '../../modules'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import SubPage from '../ui/SubPage.vue'
 import SpamFilterCard from '../sections/SpamFilterCard.vue'
@@ -19,11 +20,8 @@ const filterModule = getModule('filter')
 const page = ref<FilterPage | null>(null)
 const pageFeature = computed(() => (page.value ? getFeature(page.value) : null))
 
-// 弹窗的滚动容器是 #app（见 style.css）
 let overviewScrollTop = 0
-function scroller() {
-  return document.getElementById('app')
-}
+const scroller = getScrollContainer
 
 async function openPage(next: FilterPage) {
   overviewScrollTop = scroller()?.scrollTop ?? 0
