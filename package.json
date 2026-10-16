@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "dayjs": "^1.11.23",
@@ -29,8 +30,9 @@
     "@vue/compiler-sfc": "^3.5.42",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
+    "typescript": "~6.0.3",
     "vitest": "^5.0.0",
+    "vue-tsc": "~3.3.13",
     "wxt": "^0.21.4"
   }
 }

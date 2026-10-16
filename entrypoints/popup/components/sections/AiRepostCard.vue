@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { requestAiPermission, sendAiRequest } from '../../../../shared/ai-request'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import {
   KeyAiRepostEnabled,
@@ -21,6 +22,8 @@ const isTesting = ref(false)
 const statusText = ref('')
 const statusIsError = ref(false)
 
+let disposed = false
+let activeTest: AbortController | undefined
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let noticeTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -41,6 +44,7 @@ onMounted(async () => {
     KeyAiRepostModel,
     KeyAiRepostCustomPrompt,
   ])
+  if (disposed) return
   enabled.value = stored[KeyAiRepostEnabled] !== 'off'
   if (typeof stored[KeyAiRepostBaseUrl] === 'string' && stored[KeyAiRepostBaseUrl]) {
     baseUrl.value = stored[KeyAiRepostBaseUrl] as string
@@ -57,21 +61,41 @@ onMounted(async () => {
 })
 
 async function toggleEnabled(val: boolean) {
+  if (!val) cancelTest()
   enabled.value = val
   await setStorage({ [KeyAiRepostEnabled]: val ? 'on' : 'off' })
 }
 
+function saveSettings() {
+  return setStorage({
+    [KeyAiRepostBaseUrl]: baseUrl.value.trim() || String(defaultPreferences[KeyAiRepostBaseUrl]),
+    [KeyAiRepostApiKey]: apiKey.value.trim(),
+    [KeyAiRepostModel]: model.value.trim() || String(defaultPreferences[KeyAiRepostModel]),
+    [KeyAiRepostCustomPrompt]: customPrompt.value.trim(),
+  })
+}
+
 function scheduleSave() {
+  cancelTest()
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    void setStorage({
-      [KeyAiRepostBaseUrl]: baseUrl.value.trim() || String(defaultPreferences[KeyAiRepostBaseUrl]),
-      [KeyAiRepostApiKey]: apiKey.value.trim(),
-      [KeyAiRepostModel]: model.value.trim() || String(defaultPreferences[KeyAiRepostModel]),
-      [KeyAiRepostCustomPrompt]: customPrompt.value.trim(),
-    })
+    saveTimer = null
+    void saveSettings()
   }, 250)
 }
+
+function cancelTest() {
+  activeTest?.abort()
+  activeTest = undefined
+  isTesting.value = false
+}
+
+onBeforeUnmount(() => {
+  disposed = true
+  cancelTest()
+  if (noticeTimer) clearTimeout(noticeTimer)
+  if (saveTimer) { clearTimeout(saveTimer); void saveSettings() }
+})
 
 async function testConnection() {
   if (isTesting.value) return
@@ -79,36 +103,34 @@ async function testConnection() {
     showNotice('请先填写 API Key', true)
     return
   }
+  const config = {
+    baseUrl: baseUrl.value.trim() || String(defaultPreferences[KeyAiRepostBaseUrl]),
+    apiKey: apiKey.value.trim(),
+    model: model.value.trim() || String(defaultPreferences[KeyAiRepostModel]),
+  }
+  const request = new AbortController()
+  activeTest = request
+  const isCurrent = () => !disposed && activeTest === request && !request.signal.aborted
   isTesting.value = true
-  statusText.value = '正在测试接口连接...'
+  if (noticeTimer) clearTimeout(noticeTimer)
+  statusText.value = '正在授权并测试接口连接...'
   statusIsError.value = false
 
   try {
-    await setStorage({
-      [KeyAiRepostBaseUrl]: baseUrl.value.trim() || String(defaultPreferences[KeyAiRepostBaseUrl]),
-      [KeyAiRepostApiKey]: apiKey.value.trim(),
-      [KeyAiRepostModel]: model.value.trim() || String(defaultPreferences[KeyAiRepostModel]),
-      [KeyAiRepostCustomPrompt]: customPrompt.value.trim(),
-    })
-
-    const res = await browser.runtime.sendMessage({
-      type: 'XF_TEST_AI_CONNECTION',
-      config: {
-        baseUrl: baseUrl.value.trim(),
-        apiKey: apiKey.value.trim(),
-        model: model.value.trim(),
-      },
-    })
-
-    if (res?.ok) {
-      showNotice(`连接可用 (${res.model || model.value})`, false)
-    } else {
-      showNotice(res?.error || '连接失败', true)
-    }
-  } catch (e: any) {
-    showNotice(e?.message || '连接失败', true)
+    // Must be the first asynchronous call from the click: preserve the user gesture.
+    const granted = await requestAiPermission(config.baseUrl)
+    if (!isCurrent()) return
+    if (!granted) throw new Error('未授权该 AI 服务地址，未发送测试请求')
+    if (!await saveSettings()) throw new Error('设置保存失败，请重试')
+    if (!isCurrent()) return
+    const res = await sendAiRequest({ type: 'XF_TEST_AI_CONNECTION', config }, request.signal)
+    if (!isCurrent()) return
+    if (res.ok) showNotice(`连接可用 (${res.model || config.model})`)
+    else showNotice(res.error || '连接失败', true)
+  } catch (error) {
+    if (isCurrent()) showNotice(error instanceof Error ? error.message : '连接失败', true)
   } finally {
-    isTesting.value = false
+    if (isCurrent()) { isTesting.value = false; activeTest = undefined }
   }
 }
 </script>
@@ -136,6 +158,10 @@ async function testConnection() {
     </div>
 
     <div v-if="enabled" class="flex flex-col gap-2 pt-2 border-t border-border/60">
+      <p class="text-[11px] text-secondary-text leading-relaxed">
+        生成会将原文、作者信息及补充要求发送到你配置的 AI 服务，API Key 用于该服务认证。
+        首次使用或更换地址请授权；连接测试只发送测试文本。
+      </p>
       <div class="flex flex-col gap-1">
         <label class="text-[11px] font-medium text-color-text">接口地址 (Base URL)</label>
         <input
@@ -196,8 +222,10 @@ async function testConnection() {
           class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-accent text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
           @click="testConnection"
         >
-          {{ isTesting ? '测试中...' : '测试连接' }}
+          {{ isTesting ? '测试中...' : '授权并测试连接' }}
         </button>
+        <button v-if="isTesting" type="button" class="text-[11px] text-secondary-text cursor-pointer"
+          @click="cancelTest(); statusText = '已取消测试'">取消</button>
         <span
           v-if="statusText"
           class="text-[11px] truncate max-w-[210px]"

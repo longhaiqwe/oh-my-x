@@ -1,3 +1,4 @@
+import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, aiPermissionOrigin, type AiRequest, type AiResponse } from '../shared/ai-request'
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
 import { migrateSpamStorage } from '../shared/spam-migration'
@@ -103,17 +104,17 @@ async function getBaseApiHeaders(): Promise<HeadersInit> {
   }
 }
 
-async function resolveTweetResultQueryId(): Promise<string> {
+async function resolveTweetResultQueryId(signal?: AbortSignal): Promise<string> {
   if (cachedTweetQueryId) return cachedTweetQueryId
   try {
-    const htmlRes = await fetch('https://x.com/home', { credentials: 'include' })
+    const htmlRes = await fetch('https://x.com/home', { credentials: 'include', signal })
     if (htmlRes.ok) {
       const html = await htmlRes.text()
       const mainMatch = html.match(
         /https:\/\/abs\.twimg\.com\/responsive-web\/client-web\/main\.[a-z0-9a]+\.js/,
       )
       if (mainMatch?.[0]) {
-        const jsRes = await fetch(mainMatch[0])
+        const jsRes = await fetch(mainMatch[0], { signal })
         if (jsRes.ok) {
           const jsText = await jsRes.text()
           const qMatch = jsText.match(
@@ -129,12 +130,13 @@ async function resolveTweetResultQueryId(): Promise<string> {
   } catch {
     // ignore and fallback
   }
+  signal?.throwIfAborted()
   return FALLBACK_TWEET_QUERY_ID
 }
 
-async function fetchTweetResultGraphqlJson(tweetId: string): Promise<any> {
+async function fetchTweetResultGraphqlJson(tweetId: string, signal?: AbortSignal): Promise<any> {
   if (!tweetId) return null
-  const queryId = await resolveTweetResultQueryId()
+  const queryId = await resolveTweetResultQueryId(signal)
   const headers = await getBaseApiHeaders()
   const url = new URL(`${X_API_BASE}/graphql/${queryId}/TweetResultByRestId`)
   url.searchParams.set(
@@ -149,7 +151,9 @@ async function fetchTweetResultGraphqlJson(tweetId: string): Promise<any> {
   url.searchParams.set('features', JSON.stringify(FALLBACK_TWEET_FEATURES))
   url.searchParams.set('fieldToggles', JSON.stringify(FALLBACK_TWEET_FIELD_TOGGLES))
 
+  signal?.throwIfAborted()
   const res = await fetch(url.toString(), {
+    signal,
     headers,
     credentials: 'include',
   })
@@ -157,8 +161,8 @@ async function fetchTweetResultGraphqlJson(tweetId: string): Promise<any> {
   return await res.json().catch(() => null)
 }
 
-async function fetchTweetFullContentById(tweetId: string): Promise<RepostSourceInput | null> {
-  const json = await fetchTweetResultGraphqlJson(tweetId)
+async function fetchTweetFullContentById(tweetId: string, signal?: AbortSignal): Promise<RepostSourceInput | null> {
+  const json = await fetchTweetResultGraphqlJson(tweetId, signal)
   if (!json) return null
   return extractTweetFullTextFromGraphql(json, tweetId)
 }
@@ -188,6 +192,7 @@ async function downloadMediaFile(
 
 async function callAiRepostApi(
   source: RepostSourceInput,
+  signal: AbortSignal,
   overrideConfig?: {
     baseUrl?: string
     apiKey?: string
@@ -227,10 +232,14 @@ async function callAiRepostApi(
   }
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
   const messages = buildRepostMessages(source, customPrompt)
 
   const res = await fetch(endpoint, {
     method: 'POST',
+    signal,
+    credentials: 'omit',
+    redirect: 'error',
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${apiKey}`,
@@ -268,7 +277,7 @@ async function testAiConnection(config: {
   baseUrl?: string
   apiKey?: string
   model?: string
-}): Promise<{ ok: boolean; model: string }> {
+}, signal: AbortSignal): Promise<{ ok: boolean; model: string }> {
   const baseUrl = String(
     config.baseUrl || defaultPreferences[KeyAiRepostBaseUrl],
   ).trim()
@@ -279,8 +288,12 @@ async function testAiConnection(config: {
   if (!model) throw new Error('请填写模型名称')
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
   const res = await fetch(endpoint, {
     method: 'POST',
+    signal,
+    credentials: 'omit',
+    redirect: 'error',
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${apiKey}`,
@@ -448,7 +461,68 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
   }
 }
 
+async function requireAiPermission(baseUrl: string, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
+  const granted = await browser.permissions.contains({ origins: [aiPermissionOrigin(baseUrl)] })
+  signal.throwIfAborted()
+  if (!granted) throw new Error('请打开扩展设置 → 视图 → AI 总结转发，点击“授权并测试连接”，授权当前 AI 服务地址后重试')
+}
+
+async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promise<AiResponse> {
+  signal.throwIfAborted()
+  switch (message.type) {
+    case 'XF_GENERATE_REPOST_OPTIONS':
+      return { ok: true, ...await callAiRepostApi(message.source, signal, message.overrideConfig) }
+    case 'XF_TEST_AI_CONNECTION':
+      return await testAiConnection(message.config || {}, signal)
+    case 'XF_FETCH_TWEET_FULL_TEXT': {
+      const source = await fetchTweetFullContentById(String(message.tweetId || ''), signal)
+      return { ok: Boolean(source), source }
+    }
+    default: throw new Error('不支持的 AI 请求')
+  }
+}
+
 export default defineBackground(() => {
+  browser.runtime.onConnect.addListener(port => {
+    if (port.name !== AI_REQUEST_PORT) return
+    const sender = port.sender
+    const url = sender?.url || ''
+    const validUrl = /^https:\/\/(x\.com|twitter\.com|mobile\.twitter\.com|pro\.x\.com)\//.test(url)
+      || url === `chrome-extension://${browser.runtime.id}/popup.html`
+    if (sender?.id !== browser.runtime.id || !validUrl) { port.disconnect(); return }
+    const controller = new AbortController()
+    let closed = false
+    let started = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onDisconnect = () => {
+      closed = true
+      clearTimeout(timer)
+      controller.abort(new Error('请求已取消'))
+    }
+    port.onDisconnect.addListener(onDisconnect)
+    port.onMessage.addListener((message: AiRequest) => {
+      if (started || closed) return
+      started = true
+      const aborted = new Promise<never>((_, reject) => {
+        controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
+      })
+      timer = setTimeout(() => controller.abort(new Error('AI 请求超时（25 秒），请检查网络或稍后重试')), AI_REQUEST_TIMEOUT_MS)
+      void Promise.race([executeAiRequest(message, controller.signal), aborted])
+        .catch(error => ({ ok: false, error: error instanceof Error ? error.message : 'AI 请求失败' }))
+        .then(response => {
+          clearTimeout(timer)
+          if (!closed) {
+            // Navigation may disconnect the port before the disconnect event arrives.
+            try { port.postMessage(response) } catch { /* requester has gone */ }
+            port.onDisconnect.removeListener(onDisconnect)
+            port.disconnect()
+            closed = true
+          }
+        })
+    })
+  })
+
   const library = createLibraryService(createLibraryRepository())
   void browser.alarms.create(LIBRARY_ALARM, { periodInMinutes: 1 })
   browser.alarms.onAlarm.addListener(alarm => {
@@ -547,44 +621,6 @@ export default defineBackground(() => {
           sendResponse(result)
         } catch (e: any) {
           sendResponse({ ok: false, error: e?.message || String(e) })
-        }
-      })()
-      return true
-    }
-
-    if (msg?.type === 'XF_GENERATE_REPOST_OPTIONS') {
-      void (async () => {
-        try {
-          console.info('[oh-my-x AI] 收到转发总结请求:', {
-            hasSource: Boolean(msg.source),
-            overrideConfig: msg.overrideConfig ? { ...msg.overrideConfig, apiKey: '***' } : undefined,
-          })
-          const result = await callAiRepostApi(msg.source, msg.overrideConfig)
-          console.info('[oh-my-x AI] 转发总结生成成功')
-          sendResponse({ ok: true, ...result })
-        } catch (e: any) {
-          const errMsg = e?.message || String(e)
-          console.error('[oh-my-x AI] 转发总结生成失败:', errMsg)
-          sendResponse({ ok: false, error: errMsg })
-        }
-      })()
-      return true
-    }
-
-    if (msg?.type === 'XF_TEST_AI_CONNECTION') {
-      void (async () => {
-        try {
-          console.info('[oh-my-x AI] 收到接口连通性测试请求:', {
-            baseUrl: msg.config?.baseUrl,
-            model: msg.config?.model,
-          })
-          const result = await testAiConnection(msg.config || {})
-          console.info('[oh-my-x AI] 接口连通性测试成功:', result.model)
-          sendResponse({ ok: true, model: result.model })
-        } catch (e: any) {
-          const errMsg = e?.message || String(e)
-          console.error('[oh-my-x AI] 接口连通性测试失败:', errMsg)
-          sendResponse({ ok: false, error: errMsg })
         }
       })()
       return true

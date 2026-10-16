@@ -13,7 +13,7 @@ X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览�
 | 框架 | [WXT](https://wxt.dev/) + Vite（版本见 `package.json`） |
 | UI | Vue 3 + reka-ui（无头组件）+ Tailwind CSS |
 | 构建 | `wxt build` → `.output/chrome-mv3/` |
-| 扩展 API | Chrome MV3（`storage`） |
+| 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads`） |
 | 类型 | TypeScript（严格模式；版本见 `package.json`） |
 | 测试 | Vitest + jsdom（见 `vitest.config.ts`） |
 
@@ -27,7 +27,8 @@ npm run clean         # 删除 .output/
 npm test              # 运行单元测试
 npm run test:watch    # 监听模式
 npm run test:coverage # 测试 + 覆盖率报告
-npm run typecheck     # tsc --noEmit 类型检查
+npm run typecheck     # vue-tsc --noEmit（含 Vue 模板）
+npm run check         # 类型检查 + 全量测试 + 生产构建
 ```
 
 Chrome 加载：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选 `.output/chrome-mv3/`
@@ -122,6 +123,7 @@ oh-my-x/
 
 ### 3. Background Worker（`entrypoints/background.ts`）
 - `onInstalled` 时做版本化默认词库同步。
+- 负责本地帖子库 RPC、同步唤醒、Lists/媒体请求、创作者奖励定时刷新，以及可取消的 AI 请求与权限检查。
 
 ### 4. Popup（`entrypoints/popup/`）
 - Vue 3 SPA，7 个 tab，非默认 tab 用 `defineAsyncComponent` 懒加载以加快首屏。
@@ -191,10 +193,12 @@ Vitest 覆盖纯逻辑（规则、解析、归一化、缓存、scope 分派）�
 
 ```bash
 npm test            # 运行
-npm run typecheck   # 类型检查（tsc --noEmit，含 Vue SFC 之外的全部 ts）
+npm run typecheck   # 类型检查（vue-tsc --noEmit，含 Vue SFC 脚本和模板）
 ```
 
-> `tsc` 不检查 Vue 模板；如需模板级检查请引入 `vue-tsc`（暂未安装）。
+> TypeScript 固定在 6.0.x，配合 `vue-tsc` 检查模板；升级至 7.x 前需确认 Vue 工具链支持（[上游兼容性记录](https://github.com/vuejs/language-tools/issues/6124)）。
+
+> GitHub Actions 在 push / pull request / workflow_dispatch 时运行 `npm ci` 和 `npm run check`，并保存生产构建产物。
 
 ## 构建 + 权限
 
@@ -203,4 +207,6 @@ npm run build     # → .output/chrome-mv3/
 npm run zip       # 构建 + 打包
 ```
 
-Manifest 权限（`wxt.config.ts`）：`storage`。
+Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
+
+AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；请求 25 秒超时，Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。

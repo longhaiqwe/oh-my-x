@@ -1,3 +1,4 @@
+import { sendAiRequest } from '../../shared/ai-request'
 import {
   KeyAiRepostApiKey,
   KeyAiRepostBaseUrl,
@@ -680,16 +681,16 @@ export function replaceComposeEditorText(modalEl: HTMLElement, text: string): bo
 /**
  * 解析最终用于 AI 总结的完整原文（本地 DOM + 后台 GraphQL 全文补全）
  */
-async function resolveFullRepostSource(modalEl: HTMLElement): Promise<RepostSourceInput> {
+async function resolveFullRepostSource(modalEl: HTMLElement, signal: AbortSignal): Promise<RepostSourceInput> {
   const { source: localSource, tweetId } = extractLocalRepostSource(modalEl)
 
   // 当有 tweetId 且本地文本不存在或较短（< 600 字符，可能是引用卡片截断预览）时，尝试从后台 GraphQL 获取全文
   if (tweetId && (!localSource || localSource.text.length < 600)) {
     try {
-      const res = (await browser.runtime.sendMessage({
+      const res = (await sendAiRequest({
         type: 'XF_FETCH_TWEET_FULL_TEXT',
         tweetId,
-      })) as { ok?: boolean; source?: RepostSourceInput } | undefined
+      }, signal)) as { ok?: boolean; source?: RepostSourceInput } | undefined
 
       if (res?.ok && res.source?.text) {
         if (!localSource || res.source.text.length >= localSource.text.length) {
@@ -706,6 +707,7 @@ async function resolveFullRepostSource(modalEl: HTMLElement): Promise<RepostSour
     }
   }
 
+  signal.throwIfAborted()
   if (localSource && localSource.text.trim()) {
     return localSource
   }
@@ -721,15 +723,36 @@ function openOrUpdateRepostPanel(
   anchorRow: HTMLElement,
   triggerBtn: HTMLButtonElement,
 ) {
-  let panel = modalEl.querySelector<HTMLElement>('.xf-ai-repost-panel')
-  if (!panel) {
-    panel = document.createElement('div')
-    panel.className = 'xf-ai-repost-panel'
-    panel.setAttribute('data-testid', 'xf-ai-repost-panel')
-    anchorRow.insertAdjacentElement('afterend', panel)
+  modalEl.querySelector('.xf-ai-repost-panel')?.dispatchEvent(new Event('xf-ai-close'))
+  const panel = document.createElement('div')
+  panel.className = 'xf-ai-repost-panel'
+  panel.setAttribute('data-testid', 'xf-ai-repost-panel')
+  anchorRow.insertAdjacentElement('afterend', panel)
+  let closed = false
+  let activeRequest: AbortController | undefined
+  const beginRequest = () => {
+    activeRequest?.abort()
+    activeRequest = new AbortController()
+    return activeRequest
   }
+  const isCurrent = (request: AbortController) => !closed && panel.isConnected && activeRequest === request && !request.signal.aborted
+  const closePanel = () => {
+    if (closed) return
+    closed = true
+    activeRequest?.abort()
+    triggerBtn.disabled = false
+    observer.disconnect()
+    window.removeEventListener('pagehide', closePanel)
+    panel.remove()
+  }
+  const observer = new MutationObserver(() => { if (!panel.isConnected) closePanel() })
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+  panel.addEventListener('xf-ai-close', closePanel)
+  window.addEventListener('pagehide', closePanel)
 
   const renderConfigView = async (errorNotice?: string) => {
+    activeRequest?.abort()
+    triggerBtn.disabled = false
     const stored = await getStorage([
       KeyAiRepostBaseUrl,
       KeyAiRepostApiKey,
@@ -743,7 +766,7 @@ function openOrUpdateRepostPanel(
       stored[KeyAiRepostModel] || defaultPreferences[KeyAiRepostModel],
     )
 
-    if (!panel) return
+    if (closed || !panel.isConnected) return
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
         <span class="xf-ai-repost-title">配置 AI 接口（OpenAI 兼容）</span>
@@ -752,6 +775,7 @@ function openOrUpdateRepostPanel(
         </div>
       </div>
       ${errorNotice ? `<div class="xf-ai-repost-status xf-ai-repost-error">${escapeHtml(errorNotice)}</div>` : ''}
+      <div class="xf-ai-repost-status">生成会将原文、作者信息和补充要求发送到你配置的 AI 服务。首次使用或更换地址，请先在扩展设置 → 视图中授权并测试连接。</div>
       <div class="xf-ai-repost-config">
         <div class="xf-ai-repost-config-row">
           <label>Base URL</label>
@@ -775,7 +799,7 @@ function openOrUpdateRepostPanel(
 
     panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      panel?.remove()
+      closePanel()
     })
 
     const feedbackEl = panel.querySelector<HTMLElement>('[data-field="test-feedback"]')
@@ -806,15 +830,17 @@ function openOrUpdateRepostPanel(
         feedbackEl.textContent = '正在测试连接...'
       }
 
+      const request = beginRequest()
       try {
-        const res = (await browser.runtime.sendMessage({
+        const res = (await sendAiRequest({
           type: 'XF_TEST_AI_CONNECTION',
           config: {
             baseUrl: testBaseUrl,
             apiKey: testApiKey,
             model: testModel,
           },
-        })) as { ok?: boolean; error?: string; model?: string } | undefined
+        }, request.signal)) as { ok?: boolean; error?: string; model?: string } | undefined
+        if (!isCurrent(request)) return
 
         if (res?.ok) {
           if (feedbackEl) {
@@ -828,12 +854,13 @@ function openOrUpdateRepostPanel(
           }
         }
       } catch (err: any) {
+        if (!isCurrent(request)) return
         if (feedbackEl) {
           feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
           feedbackEl.textContent = `✕ 异常：${err?.message || String(err)}`
         }
       } finally {
-        if (testBtn) testBtn.disabled = false
+        if (isCurrent(request) && testBtn) testBtn.disabled = false
       }
     })
 
@@ -859,6 +886,7 @@ function openOrUpdateRepostPanel(
         [KeyAiRepostModel]: newModel,
       })
 
+      if (closed || !panel.isConnected) return
       void runGeneration({
         baseUrl: newBaseUrl,
         apiKey: newApiKey,
@@ -868,7 +896,7 @@ function openOrUpdateRepostPanel(
   }
 
   const renderOptionsView = (options: AiRepostOptionsResult) => {
-    if (!panel) return
+    if (closed || !panel.isConnected) return
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
         <span class="xf-ai-repost-title">点击任一选项填入编辑框（可随时切换）</span>
@@ -924,7 +952,7 @@ function openOrUpdateRepostPanel(
     })
     panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      panel?.remove()
+      closePanel()
     })
   }
 
@@ -933,9 +961,12 @@ function openOrUpdateRepostPanel(
     apiKey?: string
     model?: string
   }) => {
-    if (!panel) return
+    if (closed || !panel.isConnected) return
 
+    const request = beginRequest()
+    triggerBtn.disabled = true
     const stored = await getStorage([KeyAiRepostApiKey])
+    if (!isCurrent(request)) return
     const currentKey = overrideConfig?.apiKey ?? String(stored[KeyAiRepostApiKey] || '').trim()
     if (!currentKey) {
       await renderConfigView('首次使用请先配置 OpenAI 兼容接口与 API Key')
@@ -954,22 +985,24 @@ function openOrUpdateRepostPanel(
     `
     panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      panel?.remove()
+      closePanel()
     })
 
     try {
-      const source = await resolveFullRepostSource(modalEl)
+      const source = await resolveFullRepostSource(modalEl, request.signal)
+      if (!isCurrent(request)) return
       console.info('[oh-my-x AI Repost] 准备调用接口生成总结:', {
         textLength: source.text?.length,
         hasTitle: Boolean(source.title),
         author: source.authorHandle || source.authorName,
       })
 
-      const response = (await browser.runtime.sendMessage({
+      const response = (await sendAiRequest({
         type: 'XF_GENERATE_REPOST_OPTIONS',
         source,
         overrideConfig,
-      })) as ({ ok?: boolean; error?: string } & Partial<AiRepostOptionsResult>) | undefined
+      }, request.signal)) as ({ ok?: boolean; error?: string } & Partial<AiRepostOptionsResult>) | undefined
+      if (!isCurrent(request)) return
 
       if (response === undefined) {
         throw new Error(
@@ -990,9 +1023,10 @@ function openOrUpdateRepostPanel(
         optionB: response.optionB,
       })
     } catch (err: any) {
+      if (!isCurrent(request)) return
       const errMsg = err?.message || String(err)
       console.error('[oh-my-x AI Repost] 生成出错:', err)
-      if (!panel) return
+      if (closed || !panel.isConnected) return
       panel.innerHTML = `
         <div class="xf-ai-repost-header">
           <span class="xf-ai-repost-title">生成未完成</span>
@@ -1014,10 +1048,10 @@ function openOrUpdateRepostPanel(
       })
       panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
         e.stopPropagation()
-        panel?.remove()
+        closePanel()
       })
     } finally {
-      triggerBtn.disabled = false
+      if (isCurrent(request)) triggerBtn.disabled = false
     }
   }
 

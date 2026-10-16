@@ -18,7 +18,8 @@ const trackDots = [600, 650, 700, 750, 800]
 // 只读 computed，供 SliderRoot :model-value 绑定
 const sliderValue = computed(() => [userTrack.value])
 
-function onSliderUpdate(val: number[]) {
+function onSliderUpdate(val: number[] | undefined) {
+  if (!val) return
   if (val[0] !== undefined && val[0] !== userTrack.value) {
     userTrack.value = val[0]
     try {

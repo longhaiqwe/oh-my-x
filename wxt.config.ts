@@ -37,11 +37,9 @@ export default defineConfig({
       'https://mobile.twitter.com/*',
       'https://x.com/*',
       'https://pro.x.com/*',
-      'https://*/*',
-      'http://*/*',
-      'http://localhost/*',
-      'http://127.0.0.1/*',
+      'https://abs.twimg.com/*',
     ],
+    optional_host_permissions: ['https://*/*', 'http://*/*'],
     action: {
       default_title: 'oh-my-x',
       default_popup: 'popup.html',
