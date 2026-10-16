@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
 
 <template>
  <section class="flex flex-col gap-3">
-  <div class="p-3 bg-card-bg rounded-b-xl flex flex-col gap-2">
+  <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-2">
    <div>
     <p class="text-[12px] font-semibold flex justify-between">白名单
       <span class="text-accent!">{{ parsedWhitelist.length }}</span>

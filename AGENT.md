@@ -52,6 +52,7 @@ oh-my-x/
 │   ├── parse-tweet.ts           # 从 article DOM 提取文本/昵称/handle
 │   ├── detect-language.ts       # 独立语言识别 + 排除引用推文逻辑
 │   ├── navItems.ts              # 导航项注册表（id/storageKey/label/selector）
+│   ├── feature-registry.ts      # 功能清单：5 个模块、每个功能的归属/名称/说明/存储项
 │   └── viral-radar-parser.ts    # 流速数值解析 + 分类
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -97,7 +98,7 @@ oh-my-x/
 │   ├── content.ts               # isolated content script 入口（storage.onChanged、总开关）
 │   ├── interceptor.content.ts   # MAIN world 脚本：hook fetch/XHR 拦截排期 API
 │   ├── background.ts            # Service Worker：版本化默认词库同步
-│   └── popup/                   # 设置面板（Vue 3 SPA，7 tab，非默认 tab 懒加载）
+│   └── popup/                   # 设置面板（Vue 3 SPA，5 个模块标签，只挂载当前模块）
 │       ├── App.vue / main.ts / style.css / index.html
 │       ├── composables/         # useStorageKey
 │       └── components/           # sections / ui / controls
@@ -126,7 +127,7 @@ oh-my-x/
 - 负责本地帖子库 RPC、同步唤醒、Lists/媒体请求、创作者奖励定时刷新，以及可取消的 AI 请求与权限检查。
 
 ### 4. Popup（`entrypoints/popup/`）
-- Vue 3 SPA，7 个 tab，非默认 tab 用 `defineAsyncComponent` 懒加载以加快首屏。
+- Vue 3 SPA，5 个模块标签（界面 / 过滤 / 数据 / 创作 / 互动），只挂载当前模块页。
 
 ## 内容脚本编排
 
@@ -175,7 +176,11 @@ oh-my-x/
 
 ## Popup 布局
 
-7 个 tab（默认 `overview`，其余懒加载）：视图、概览、爆款、规则、词库、名单、日志。组件在 `components/sections`、`components/ui`、`components/controls`。
+- 标签来自 `shared/feature-registry.ts` 的 `FEATURE_MODULES`，顺序为 界面、过滤、数据、创作、互动，默认 `layout`。
+- 每个模块页在 `components/modules/*Module.vue`，页头 `ModuleHeader` 显示模块标题和说明；功能卡片在 `components/sections`，通用控件在 `components/ui`、`components/controls`。
+- 简单开关行用 `ToggleRows`，行名称取自功能清单的 `label`；选项常量在 `toggle-options.ts`。
+- 新增设置项时，必须在功能清单里归到一个功能（或列入 `GLOBAL_STORAGE_KEYS` / `UNLISTED_STORAGE_KEYS`），`test/unit/feature-registry.test.ts` 会检查每个设置项恰好有一个归属。
+- 上次打开的模块存在 `popupActiveTab`；旧版标签 id（view/overview/viral/rules/keywords/lists/log）由 `resolvePopupModule` 映射到新模块。
 
 ## 工具函数（`content-scripts/utilities/`）
 

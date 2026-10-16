@@ -33,7 +33,7 @@ onMounted(refresh)
 </script>
 
 <template>
- <section class="flex flex-col gap-2 bg-card-bg rounded-b-xl p-3">
+ <section class="flex flex-col gap-2 bg-card-bg rounded-xl p-3">
   <div class="flex items-center justify-between gap-2 ">
    <p class="text-[10px] text-color-glyphs">共拦截 {{ sorted.length }} 条 · 仅本地存储 · 最近 50 条</p>
    <div class="flex items-center gap-1">

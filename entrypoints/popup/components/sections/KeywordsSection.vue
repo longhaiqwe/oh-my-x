@@ -158,7 +158,7 @@ function clearAll() {
 
 <template>
   <section class="flex flex-col gap-3">
-    <div class="p-3 bg-card-bg rounded-b-xl flex flex-col gap-2">
+    <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-2">
       <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-3">
           <p class="text-[12px] font-semibold">自定义营销词库</p>

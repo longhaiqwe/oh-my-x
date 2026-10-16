@@ -35,7 +35,7 @@ async function toggleRule(id: SpamRuleId, value: boolean) {
 
 <template>
  <section class="flex flex-col gap-3">
-  <div class="p-3 bg-card-bg rounded-b-xl flex flex-col gap-2">
+  <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-2">
    <div>
     <p class="text-[12px] font-semibold">检测规则</p>
     <p class="text-[10px] text-secondary-text mt-0.5">关闭后规则引擎会跳过该检测</p>

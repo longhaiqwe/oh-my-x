@@ -162,7 +162,7 @@ onMounted(refresh)
 <template>
   <section class="flex flex-col gap-3">
     <!-- Card 1: 爆款雷达检测设置组 -->
-    <div class="p-3 bg-card-bg rounded-b-xl flex flex-col gap-3">
+    <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-3">
       <!-- 主开关：爆款推文检测 -->
       <div class="flex items-center justify-between">
         <div>
