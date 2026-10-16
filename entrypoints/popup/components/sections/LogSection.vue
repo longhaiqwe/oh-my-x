@@ -4,6 +4,7 @@ import { clearLog, clearStats, readLog } from '../../../../shared/spam-logger'
 import { SPAM_CATEGORY_LABEL } from '../../../../shared/spam-types'
 import type { SpamCategory, SpamLogEntry } from '../../../../shared/spam-types'
 
+const emit = defineEmits<{ changed: [] }>()
 const log = ref<SpamLogEntry[]>([])
 
 // log 本身在存储时已按时间逆序插入（最新在前），无需在前端额外做 O(N log N) 排序
@@ -13,16 +14,19 @@ async function refresh() {
   log.value = await readLog()
 }
 
+
 async function handleClearLog() {
-  if (!confirm('清空全部拦截日志？')) return
+  if (!confirm('清空全部拦截记录？')) return
   await clearLog()
   await refresh()
+  emit('changed')
 }
 
 async function handleClearStats() {
-  if (!confirm('清空统计数据？')) return
+  if (!confirm('清空每天的拦截统计？')) return
   await clearStats()
   await refresh()
+  emit('changed')
 }
 
 function fmtTime(ts: number) {
@@ -33,9 +37,9 @@ onMounted(refresh)
 </script>
 
 <template>
- <section class="flex flex-col gap-2 bg-card-bg rounded-xl p-3">
+ <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between gap-2 ">
-   <p class="text-[10px] text-color-glyphs">共拦截 {{ sorted.length }} 条 · 仅本地存储 · 最近 50 条</p>
+   <p class="text-[10px] text-secondary-text">共 {{ sorted.length }} 条，最多保留 50 条</p>
    <div class="flex items-center gap-1">
     <button
      type="button"
@@ -46,12 +50,12 @@ onMounted(refresh)
      type="button"
      class="px-2 py-1 text-[10px] font-semibold rounded   text-red-500 hover:bg-red-500/15"
      @click="handleClearLog"
-    >清日志</button>
+    >清空记录</button>
     <button
      type="button"
      class="px-2 py-1 text-[10px] font-semibold rounded  text-red-500 hover:bg-red-500/15"
      @click="handleClearStats"
-    >清统计</button>
+    >清空统计</button>
    </div>
   </div>
 

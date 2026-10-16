@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { ToggleGroupRoot, ToggleGroupItem } from 'reka-ui'
+import { ref, onMounted } from 'vue'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { defaultPreferences } from '../../../../storage-keys'
+import type { ToggleOption } from '../../toggle-options'
+import SegmentedControl from './SegmentedControl.vue'
 
 const props = defineProps<{
- options: { value: string; label: string }[]
+ options: ToggleOption[]
  storageKey: string
  defaultValue?: string
 }>()
@@ -25,35 +26,12 @@ onMounted(async () => {
  }
 })
 
-watch(model, async (newVal, oldVal) => {
- if (!newVal) {
-  if (oldVal) {
-   model.value = oldVal
-  }
-  return
- }
- await setStorage({ [props.storageKey]: newVal })
-})
+async function onChange(value: string) {
+ model.value = value
+ await setStorage({ [props.storageKey]: value })
+}
 </script>
 
 <template>
- <ToggleGroupRoot
-  v-if="options.length"
-  v-model="model"
-  type="single"
-  class="flex border border-secondary-text/30 rounded-lg overflow-hidden shrink-0"
- >
-  <ToggleGroupItem
-   v-for="opt in options"
-   :key="opt.value"
-   :value="opt.value"
-   class="flex-1 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-center transition-colors duration-150 outline-none
-    data-[state=on]:bg-accent data-[state=on]:text-white
-    data-[state=off]:text-gray-400 data-[state=off]:hover:text-text data-[state=off]:hover:bg-body-bg/50
-    border-r border-secondary-text/30 last:border-r-0
-    focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-inset cursor-pointer"
-  >
-   {{ opt.label }}
-  </ToggleGroupItem>
- </ToggleGroupRoot>
+ <SegmentedControl :model-value="model" :options="options" @update:model-value="onChange" />
 </template>

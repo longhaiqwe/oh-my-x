@@ -1,36 +1,34 @@
 <script setup lang="ts">
 import { KeyUserFollowerCount } from '../../../../storage-keys'
-import ControlsWrapper from '../ui/ControlsWrapper.vue'
 import ModuleHeader from '../ui/ModuleHeader.vue'
-import ToggleRows from '../ui/ToggleRows.vue'
+import GroupLabel from '../ui/GroupLabel.vue'
+import FeatureCard from '../ui/FeatureCard.vue'
+import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
 import CreatorRewardsCard from '../sections/CreatorRewardsCard.vue'
 import ProfileActivityCard from '../sections/ProfileActivityCard.vue'
 import ViralRadarSection from '../sections/ViralRadarSection.vue'
 import StatRatioCard from '../sections/StatRatioCard.vue'
-import type { ToggleRowItem } from '../../toggle-options'
 
-const annotationRows: ToggleRowItem[] = [
-  {
-    featureId: 'followerCount',
-    storageKey: KeyUserFollowerCount,
-    options: [
-      { value: 'all', label: '全部' },
-      { value: 'list', label: '仅列表' },
-      { value: 'off', label: '隐藏' },
-    ],
-  },
+const followerCountOptions = [
+  { value: 'all', label: '全部' },
+  { value: 'list', label: '仅列表' },
+  { value: 'off', label: '关闭' },
 ]
 </script>
 
 <template>
  <section class="flex flex-col gap-3">
   <ModuleHeader module-id="insight" />
+
+  <GroupLabel>看板</GroupLabel>
   <CreatorRewardsCard />
   <ProfileActivityCard />
+
+  <GroupLabel>页面标注</GroupLabel>
   <ViralRadarSection />
   <StatRatioCard />
-  <ControlsWrapper id="user-control-insight" class="rounded-xl">
-   <ToggleRows :items="annotationRows" />
-  </ControlsWrapper>
+  <FeatureCard feature-id="followerCount">
+   <ToggleGroupControl :storage-key="KeyUserFollowerCount" :options="followerCountOptions" class="self-start" />
+  </FeatureCard>
  </section>
 </template>

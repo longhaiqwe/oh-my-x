@@ -103,7 +103,7 @@ export function showPickerPanel(article: HTMLElement) {
 
   const panel = document.createElement('div')
   panel.setAttribute('role', 'dialog')
-  panel.setAttribute('aria-label', '添加到营销词库')
+  panel.setAttribute('aria-label', '添加到垃圾词库')
   panel.style.cssText = [
     `background:${c.bg}`,
     `color:${c.fg}`,
@@ -129,7 +129,7 @@ export function showPickerPanel(article: HTMLElement) {
   header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;'
   const title = document.createElement('span')
   title.style.cssText = 'font-size:16px;font-weight:700;'
-  title.textContent = '添加到营销词库'
+  title.textContent = '添加到垃圾词库'
   header.appendChild(title)
   const closeBtn = document.createElement('button')
   closeBtn.textContent = '✕'

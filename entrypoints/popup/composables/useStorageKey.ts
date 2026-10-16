@@ -46,19 +46,28 @@ function applyDefault(key: string, raw: string | number | boolean | undefined) {
   return raw ?? defaultPreferences[key as SettingKey]
 }
 
-export function useStorageKey(key: string) {
-  const value = ref(false)
+export interface StorageKeyOptions {
+  /** 存储值与界面含义相反时设为 true：例如存 'on' 表示隐藏，开关打开表示显示 */
+  invert?: boolean
+}
+
+export function useStorageKey(key: string, options: StorageKeyOptions = {}) {
+  const invert = Boolean(options.invert)
+  const toValue = (raw: string | number | boolean | undefined) => (applyDefault(key, raw) === 'on') !== invert
+
+  // 先用默认值渲染，避免读取完成前开关从关跳到开
+  const value = ref(toValue(undefined))
   const loaded = ref(false)
 
   onMounted(async () => {
     const raw = await batchedGetStorage(key)
-    value.value = applyDefault(key, raw) === 'on'
+    value.value = toValue(raw)
     loaded.value = true
   })
 
   async function setValue(v: boolean) {
     value.value = v
-    await setStorage({ [key]: v ? 'on' : 'off' })
+    await setStorage({ [key]: v !== invert ? 'on' : 'off' })
   }
 
   return { value, loaded, setValue }

@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { KeyNavigationButtonsLabels } from '../../../../storage-keys'
 import { STATIC_NAV_ITEMS } from '../../../../shared/staticNavIcons'
-import ControlsWrapper from '../ui/ControlsWrapper.vue'
-import SectionLabel from '../ui/SectionLabel.vue'
-import Separator from '../ui/Separator.vue'
+import FeatureCard from '../ui/FeatureCard.vue'
+import SubRow from '../ui/SubRow.vue'
 import IconButton from '../ui/IconButton.vue'
 import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
+
+const labelOptions = [
+ { value: 'never', label: '从不' },
+ { value: 'hover', label: '悬停' },
+ { value: 'always', label: '始终' },
+]
 </script>
 
 <template>
- <ControlsWrapper id="user-control-navigation" class="rounded-xl">
-  <SectionLabel>导航栏按钮</SectionLabel>
-
-  <div class="grid grid-cols-5 gap-y-2 gap-x-4 mx-auto flex-wrap">
+ <FeatureCard feature-id="navigationButtons">
+  <div class="grid grid-cols-4 gap-y-1.5 gap-x-2">
    <IconButton
     v-for="item in STATIC_NAV_ITEMS"
     :key="item.storageKey"
@@ -22,18 +25,8 @@ import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
     :view-box="item.viewBox"
    />
   </div>
-
-  <Separator />
-  <div class="flex items-center justify-between w-full">
-   <span class="text-[12px] font-semibold text-color-text whitespace-nowrap">显示导航文本</span>
-   <ToggleGroupControl
-    :storage-key="KeyNavigationButtonsLabels"
-    :options="[
-     { value: 'never', label: '从不' },
-     { value: 'hover', label: '悬停' },
-     { value: 'always', label: '始终' },
-    ]"
-   />
-  </div>
- </ControlsWrapper>
+  <SubRow feature-id="navigationLabels">
+   <ToggleGroupControl :storage-key="KeyNavigationButtonsLabels" :options="labelOptions" />
+  </SubRow>
+ </FeatureCard>
 </template>

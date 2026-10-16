@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { SwitchRoot, SwitchThumb } from 'reka-ui'
-import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
+import FeatureCard from '../ui/FeatureCard.vue'
+import SwitchToggle from '../ui/SwitchToggle.vue'
+import SegmentedControl from '../ui/SegmentedControl.vue'
+import SubRow from '../ui/SubRow.vue'
 import {
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -17,10 +19,12 @@ const newKeyword = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const noticeMessage = ref('')
 
+const action = ref<'collapse' | 'hide'>('collapse')
 const actionOptions = [
-  { value: 'collapse', label: '折叠占位' },
-  { value: 'hide', label: '直接隐藏' },
+  { value: 'collapse', label: '折叠' },
+  { value: 'hide', label: '隐藏' },
 ]
+const actionText = computed(() => (action.value === 'hide' ? '命中后隐藏' : '命中后折叠'))
 
 const parsedKeywords = computed(() => parseTweetFilterKeywords(keywords.value))
 const keywordCount = computed(() => parsedKeywords.value.length)
@@ -37,12 +41,18 @@ function showNotice(msg: string) {
 }
 
 onMounted(async () => {
-  const stored = await getStorage([KeyTweetFilterEnabled, KeyTweetFilterKeywords])
+  const stored = await getStorage([KeyTweetFilterEnabled, KeyTweetFilterKeywords, KeyTweetFilterAction])
   enabled.value = stored[KeyTweetFilterEnabled] !== 'off'
+  action.value = stored[KeyTweetFilterAction] === 'hide' ? 'hide' : 'collapse'
   if (typeof stored[KeyTweetFilterKeywords] === 'string') {
     keywords.value = stored[KeyTweetFilterKeywords] as string
   }
 })
+
+async function setAction(value: string) {
+  action.value = value === 'hide' ? 'hide' : 'collapse'
+  await setStorage({ [KeyTweetFilterAction]: action.value })
+}
 
 async function toggleEnabled(val: boolean) {
   enabled.value = val
@@ -114,14 +124,14 @@ function resetToDefaults() {
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
   updateKeywords(defaultTweetFilterKeywords.join('\n'))
-  showNotice('已恢复默认词库')
+  showNotice('已恢复默认屏蔽词')
 }
 
 function clearAll() {
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
   updateKeywords('')
-  showNotice('已清空词库')
+  showNotice('已清空屏蔽词')
 }
 
 function focusInput() {
@@ -130,57 +140,33 @@ function focusInput() {
 </script>
 
 <template>
-  <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-2.5">
-    <!-- 头部开关 -->
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-[12px] font-semibold text-color-text">推文内容过滤</p>
-        <p class="text-[10px] text-secondary-text mt-0.5">过滤信息流中包含“说个暴论”等噪音推文</p>
-      </div>
-      <SwitchRoot
-        :model-value="enabled"
-        @update:model-value="(v) => toggleEnabled(!!v)"
-        class="w-8 h-[18px] rounded-full relative flex items-center cursor-pointer shrink-0"
-        :class="enabled ? 'bg-accent' : 'bg-secondary-text/40'"
-      >
-        <SwitchThumb
-          class="block w-3.5 h-3.5 rounded-full shadow transition-transform duration-100 bg-white"
-          :class="enabled ? 'translate-x-[15px]' : 'translate-x-0.5'"
-        />
-      </SwitchRoot>
-    </div>
+  <FeatureCard feature-id="tweetFilter" :enabled="enabled" details-label="管理屏蔽词">
+    <template #control>
+      <SwitchToggle :model-value="enabled" label="正文关键词过滤" @update:model-value="toggleEnabled" />
+    </template>
 
-    <!-- 过滤配置子项（开关开启时展示） -->
-    <div v-if="enabled" class="flex flex-col gap-2.5 pt-2 border-t border-border/60">
-      <!-- 过滤展示动作 -->
-      <div class="flex items-center justify-between w-full">
-        <div>
-          <span class="text-[11px] font-medium text-color-text">过滤展示</span>
-          <p class="text-[9px] text-secondary-text">折叠占位可随时展开查看</p>
-        </div>
-        <ToggleGroupControl
-          :storage-key="KeyTweetFilterAction"
-          :options="actionOptions"
-          default-value="collapse"
-        />
-      </div>
+    <template #status>{{ actionText }} · 屏蔽词 {{ keywordCount }} 个</template>
 
-      <!-- 词库管理 -->
-      <div class="flex flex-col gap-1.5 pt-1">
+    <template #details>
+      <SubRow title="处理方式" description="折叠后显示一行提示，点击可以展开查看">
+        <SegmentedControl :model-value="action" :options="actionOptions" @update:model-value="setAction" />
+      </SubRow>
+
+      <div class="flex flex-col gap-1.5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-1.5">
-            <span class="text-[11px] font-medium text-color-text">推文过滤词库</span>
-            <span class="text-[10px] font-bold text-accent">({{ keywordCount }} 词)</span>
+            <span class="text-[12px] font-medium text-text">屏蔽词</span>
+            <span class="text-[11px] font-semibold text-accent">{{ keywordCount }} 个</span>
           </div>
           <div class="flex items-center gap-2">
-            <span v-if="noticeMessage" class="text-[10px] text-accent animate-pulse">{{ noticeMessage }}</span>
+            <span v-if="noticeMessage" class="text-[10px] text-accent">{{ noticeMessage }}</span>
             <button
               type="button"
               class="text-[10px] text-secondary-text hover:text-accent rounded transition-colors cursor-pointer"
-              title="恢复为默认暴论词库"
+              title="恢复为默认屏蔽词"
               @click="resetToDefaults"
             >
-              重置默认
+              恢复默认
             </button>
             <button
               v-if="keywordCount > 0"
@@ -208,6 +194,7 @@ function focusInput() {
               <button
                 type="button"
                 class="w-0 opacity-0 ml-0 group-hover:w-3.5 group-hover:opacity-100 group-hover:ml-1 h-3.5 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-700 dark:hover:text-red-300 font-bold focus:outline-none cursor-pointer text-[10px] transition-all duration-150 overflow-hidden"
+                :aria-label="`删除 ${word}`"
                 @click.stop="removeWord(idx)"
               >
                 ✕
@@ -220,7 +207,7 @@ function focusInput() {
             type="text"
             v-model="newKeyword"
             class="flex-1 min-w-[100px] bg-transparent border-none outline-none text-[11px] p-0.5 placeholder:text-secondary-text/50"
-            :placeholder="keywordCount === 0 ? '输入关键词按 Enter 添加...' : '添加关键词...'"
+            :placeholder="keywordCount === 0 ? '输入屏蔽词，按回车添加' : '添加屏蔽词'"
             @input="handleInput"
             @keydown="handleKeydown"
             @paste="handlePaste"
@@ -228,12 +215,12 @@ function focusInput() {
           />
         </div>
 
-        <p class="text-[9px] text-secondary-text leading-tight mt-0.5">
-          💡 支持按回车或逗号添加，默认已内置“说个暴论”系列词汇。
+        <p class="text-[10px] text-secondary-text leading-tight">
+          按回车或逗号添加。默认包含「说个暴论」等 {{ defaultTweetFilterKeywords.length }} 个词。和垃圾词库分开管理。
         </p>
       </div>
-    </div>
-  </div>
+    </template>
+  </FeatureCard>
 </template>
 
 <style scoped>

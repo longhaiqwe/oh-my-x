@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { requestAiPermission, sendAiRequest } from '../../../../shared/ai-request'
-import { SwitchRoot, SwitchThumb } from 'reka-ui'
+import FeatureCard from '../ui/FeatureCard.vue'
+import SwitchToggle from '../ui/SwitchToggle.vue'
 import {
   KeyAiRepostEnabled,
   KeyAiRepostBaseUrl,
@@ -21,6 +22,9 @@ const showApiKey = ref(false)
 const isTesting = ref(false)
 const statusText = ref('')
 const statusIsError = ref(false)
+const detailsOpen = ref(false)
+
+const configured = computed(() => Boolean(apiKey.value.trim()))
 
 let disposed = false
 let activeTest: AbortController | undefined
@@ -58,6 +62,8 @@ onMounted(async () => {
   if (typeof stored[KeyAiRepostCustomPrompt] === 'string') {
     customPrompt.value = stored[KeyAiRepostCustomPrompt] as string
   }
+  // 还没填 API Key 时直接展开配置
+  detailsOpen.value = !configured.value
 })
 
 async function toggleEnabled(val: boolean) {
@@ -113,7 +119,7 @@ async function testConnection() {
   const isCurrent = () => !disposed && activeTest === request && !request.signal.aborted
   isTesting.value = true
   if (noticeTimer) clearTimeout(noticeTimer)
-  statusText.value = '正在授权并测试接口连接...'
+  statusText.value = '正在授权并测试连接…'
   statusIsError.value = false
 
   try {
@@ -136,34 +142,31 @@ async function testConnection() {
 </script>
 
 <template>
-  <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-2.5">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-[12px] font-semibold">AI 总结转发</p>
-        <p class="text-[10px] text-secondary-text mt-0.5">
-          在发帖/引用弹窗「每个人」右侧注入按钮，生成两个转发总结选项
-        </p>
-      </div>
-      <SwitchRoot
-        :model-value="enabled"
-        @update:model-value="(v) => toggleEnabled(!!v)"
-        class="w-8 h-[18px] rounded-full relative flex items-center cursor-pointer shrink-0"
-        :class="enabled ? 'bg-accent' : 'bg-secondary-text/40'"
-      >
-        <SwitchThumb
-          class="block w-3.5 h-3.5 rounded-full shadow transition-transform duration-100 bg-white"
-          :class="enabled ? 'translate-x-[15px]' : 'translate-x-0.5'"
-        />
-      </SwitchRoot>
-    </div>
+  <FeatureCard
+    v-model:open="detailsOpen"
+    feature-id="aiRepost"
+    :enabled="enabled"
+    details-label="配置服务"
+  >
+    <template #control>
+      <SwitchToggle :model-value="enabled" label="AI 总结转发" @update:model-value="toggleEnabled" />
+    </template>
 
-    <div v-if="enabled" class="flex flex-col gap-2 pt-2 border-t border-border/60">
+    <template #status>
+      <span v-if="configured" class="flex items-center gap-1.5 min-w-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0" aria-hidden="true"></span>
+        <span class="truncate">已填写 API Key · 模型 {{ model }}</span>
+      </span>
+      <span v-else class="text-amber-500">还没有填写 API Key</span>
+    </template>
+
+    <template #details>
       <p class="text-[11px] text-secondary-text leading-relaxed">
-        生成会将原文、作者信息及补充要求发送到你配置的 AI 服务，API Key 用于该服务认证。
-        首次使用或更换地址请授权；连接测试只发送测试文本。
+        生成时会把原文、作者信息和补充要求发送到你配置的服务，API Key 只用于该服务的认证。
+        首次使用或更换地址时需要授权；测试连接只发送一段测试文本。
       </p>
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-color-text">接口地址 (Base URL)</label>
+        <label class="text-[11px] font-medium text-text">接口地址 (Base URL)</label>
         <input
           v-model="baseUrl"
           type="text"
@@ -175,7 +178,7 @@ async function testConnection() {
 
       <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between">
-          <label class="text-[11px] font-medium text-color-text">API Key</label>
+          <label class="text-[11px] font-medium text-text">API Key</label>
           <button
             type="button"
             class="text-[10px] text-secondary-text hover:text-accent cursor-pointer"
@@ -194,7 +197,7 @@ async function testConnection() {
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-color-text">模型名称 (Model)</label>
+        <label class="text-[11px] font-medium text-text">模型名称 (Model)</label>
         <input
           v-model="model"
           type="text"
@@ -205,7 +208,7 @@ async function testConnection() {
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-color-text">补充要求（可选）</label>
+        <label class="text-[11px] font-medium text-text">补充要求（可选）</label>
         <input
           v-model="customPrompt"
           type="text"
@@ -222,7 +225,7 @@ async function testConnection() {
           class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-accent text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
           @click="testConnection"
         >
-          {{ isTesting ? '测试中...' : '授权并测试连接' }}
+          {{ isTesting ? '测试中…' : '授权并测试连接' }}
         </button>
         <button v-if="isTesting" type="button" class="text-[11px] text-secondary-text cursor-pointer"
           @click="cancelTest(); statusText = '已取消测试'">取消</button>
@@ -234,6 +237,6 @@ async function testConnection() {
           {{ statusText }}
         </span>
       </div>
-    </div>
-  </div>
+    </template>
+  </FeatureCard>
 </template>

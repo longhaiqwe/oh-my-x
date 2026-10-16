@@ -88,10 +88,14 @@ export interface FeatureDefinition {
   module: FeatureModuleId
   label: string
   description: string
+  /** 说明下方的补充说明，用于限制条件或注意事项 */
+  note?: string
   /** 该功能读写的存储项（设置项和缓存数据都算） */
   storageKeys: readonly string[]
   /** 功能在 X 页面上的使用位置，只有页面内有入口的功能才填写 */
   where?: string
+  /** 从属的主功能 id；弹窗中缩进显示在主功能下面 */
+  parent?: string
 }
 
 export const FEATURE_MODULES: readonly FeatureModule[] = [
@@ -114,22 +118,22 @@ export const FEATURES: readonly FeatureDefinition[] = [
   {
     id: 'sidebarColumn',
     module: 'layout',
-    label: '右侧边栏',
-    description: '显示或隐藏右侧的搜索、推荐关注和趋势栏',
+    label: '显示右侧边栏',
+    description: '右侧的搜索、推荐关注和趋势栏',
     storageKeys: [KeySidebarColumn],
   },
   {
     id: 'tweetButton',
     module: 'layout',
-    label: '发帖按钮',
-    description: '显示或隐藏左侧导航栏里的发帖按钮',
+    label: '显示发帖按钮',
+    description: '左侧导航栏里的发帖按钮。隐藏后可以按 N 发帖',
     storageKeys: [KeyTweetButton],
   },
   {
     id: 'navigationButtons',
     module: 'layout',
     label: '导航栏按钮',
-    description: '选择左侧导航栏显示哪些按钮',
+    description: '点击图标切换是否显示，虚线框表示已隐藏',
     storageKeys: [
       KeyHomeButton,
       KeyExploreButton,
@@ -154,13 +158,14 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'navigationLabels',
     module: 'layout',
     label: '导航文字',
-    description: '设置导航栏按钮旁的文字何时显示',
+    description: '设置导航按钮旁的文字何时显示',
     storageKeys: [KeyNavigationButtonsLabels],
+    parent: 'navigationButtons',
   },
   {
     id: 'articleToc',
     module: 'layout',
-    label: '文章目录',
+    label: '长文目录',
     description: '提取长文的一级和二级标题生成目录，点击跳到对应位置',
     storageKeys: [KeyArticleToc],
     where: '长文页和长文编辑器侧边',
@@ -186,28 +191,30 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'spamRules',
     module: 'filter',
     label: '检测规则',
-    description: '单独开启或关闭每条打分规则',
+    description: '关闭的规则不参与打分',
     storageKeys: [KeySpamRulesEnabled],
+    parent: 'spamFilter',
   },
   {
     id: 'spamKeywords',
     module: 'filter',
     label: '垃圾词库',
-    description: '回复中出现这些词时加分，和正文屏蔽词分开管理',
+    description: '回复命中词库中的词时加分。和正文屏蔽词分开管理',
     storageKeys: [KeySpamKeywordList],
+    parent: 'spamFilter',
   },
   {
     id: 'spamAccountLists',
     module: 'filter',
     label: '账号例外',
-    description: '白名单作者的回复不隐藏，黑名单作者的回复直接隐藏',
+    description: '白名单作者的回复不隐藏，黑名单作者的回复全部隐藏',
     storageKeys: [KeySpamWhitelist, KeySpamBlacklist],
   },
   {
     id: 'spamLog',
     module: 'filter',
     label: '拦截记录',
-    description: '查看最近被隐藏的回复和每天的拦截数',
+    description: '最近被隐藏的回复，只保存在本机',
     storageKeys: [KeySpamLog, KeySpamStats],
   },
   {
@@ -230,7 +237,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'profileActivity',
     module: 'insight',
     label: '博主活动度',
-    description: '统计当前博主近 7 天的发帖数和回复数',
+    description: '统计当前博主近 7 天的帖子数和回复数',
     storageKeys: [KeyProfileActivityStats],
     where: '博主主页',
   },
@@ -254,7 +261,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'statRatio',
     module: 'insight',
     label: '数据比例徽章',
-    description: '在博主主页的推文下显示浏览量、互动量与粉丝数的比值',
+    description: '在推文下显示浏览量、互动量与作者粉丝数的比值',
     storageKeys: [KeyStatRatioEnabled, KeyStatRatioTargetHandle],
     where: '博主主页的推文下方',
   },
@@ -262,7 +269,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'followerCount',
     module: 'insight',
     label: '用户粉丝数',
-    description: '在用户昵称旁显示粉丝数',
+    description: '全部：推文作者和用户列表都显示；仅列表：只在关注、粉丝、搜索等用户列表中显示',
     storageKeys: [KeyUserFollowerCount],
   },
   {
@@ -286,7 +293,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'aiRepost',
     module: 'create',
     label: 'AI 总结转发',
-    description: '引用转发时读取原帖，调用你配置的模型生成转发草稿',
+    description: '引用转发时读取原帖，用你配置的模型生成两条转发草稿',
     storageKeys: [
       KeyAiRepostEnabled,
       KeyAiRepostBaseUrl,
@@ -294,7 +301,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
       KeyAiRepostModel,
       KeyAiRepostCustomPrompt,
     ],
-    where: '引用转发编辑器',
+    where: '发帖和引用编辑器，「每个人」右侧的按钮',
   },
   {
     id: 'scheduledPanorama',
@@ -309,24 +316,24 @@ export const FEATURES: readonly FeatureDefinition[] = [
   {
     id: 'quickInteraction',
     module: 'engage',
-    label: '快捷互动按键 (1-4)',
-    description: '在推文详情页按 1 回复、2 引用、3 点赞、4 收藏',
+    label: '快捷键',
+    description: '在推文详情页用数字键操作',
     storageKeys: [KeyQuickInteraction],
     where: '推文详情页',
   },
   {
     id: 'quickInteractionDock',
     module: 'engage',
-    label: '快捷互动悬浮条',
-    description: '在推文详情页底部显示回复、引用、点赞、收藏四个按钮',
+    label: '底部悬浮条',
+    description: '在推文详情页底部显示这四个操作的按钮',
     storageKeys: [KeyQuickInteractionDock],
-    where: '推文详情页底部',
+    parent: 'quickInteraction',
   },
   {
     id: 'jumpToReplies',
     module: 'engage',
     label: '直达回复区',
-    description: '在长文页右下角显示按钮，点击跳到评论区，再点一次回到正文',
+    description: '点击按钮跳到评论区，再点一次回到正文',
     storageKeys: [KeyJumpToReplies],
     where: '长文和长推文页右下角',
   },
@@ -334,24 +341,24 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'autoLikeOnReply',
     module: 'engage',
     label: '回复自动点赞',
-    description: '回复别人的推文后，给这条推文点赞；已赞过的和自己的推文不点',
+    description: '回复别人的推文后，给这条推文点赞',
+    note: '点赞前随机等待 0.3 到 0.7 秒；已赞过的推文和自己的推文不点',
     storageKeys: [KeyAutoLikeOnReply],
   },
   {
     id: 'nonFollowers',
     module: 'engage',
     label: '未互关标记',
-    description: '在你的「正在关注」列表中标出没有关注你的账号',
+    description: '把没有关注你的账号标红',
     storageKeys: [KeyHighlightNonFollowers],
-    where: '「正在关注」列表',
+    where: '你的「正在关注」列表',
   },
   {
     id: 'quickLists',
     module: 'engage',
-    label: 'X Lists 快捷助手',
-    description: '在资料卡和导航栏中加入 Lists 入口',
+    label: 'X Lists',
+    description: '在头像资料卡和左侧导航栏加入 Lists 入口',
     storageKeys: [KeyQuickListAdderEnabled, KeyQuickListNavEnabled, KeyQuickListNavPosition, KeyQuickLists],
-    where: '头像悬浮资料卡、左侧导航栏',
   },
 ]
 

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import {
-  SwitchRoot,
-  SwitchThumb,
   SliderRoot,
   SliderTrack,
   SliderThumb,
@@ -26,6 +24,8 @@ import {
   type ViralHighlightStyle,
 } from '../../../../shared/settings'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+import FeatureCard from '../ui/FeatureCard.vue'
+import SwitchToggle from '../ui/SwitchToggle.vue'
 
 type LevelKey = 'normal' | 'potential' | 'viral'
 
@@ -160,33 +160,21 @@ onMounted(refresh)
 </script>
 
 <template>
-  <section class="flex flex-col gap-3">
-    <!-- Card 1: 爆款雷达检测设置组 -->
-    <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-3">
-      <!-- 主开关：爆款推文检测 -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-sm font-semibold text-color-text">爆款推文检测</h2>
-          <p class="text-[11px] text-secondary-text mt-0.5">在浏览 X 时识别正在快速传播的推文。</p>
-        </div>
-        <SwitchRoot
-          :model-value="enabled"
-          @update:model-value="(v) => toggleEnabled(!!v)"
-          class="w-8 h-[18px] rounded-full relative flex items-center cursor-pointer shrink-0"
-          :class="enabled ? 'bg-accent' : 'bg-secondary-text/40'"
-        >
-          <SwitchThumb
-            class="block w-3.5 h-3.5 rounded-full shadow transition-transform duration-100 bg-white"
-            :class="enabled ? 'translate-x-[15px]' : 'translate-x-0.5'"
-          />
-        </SwitchRoot>
-      </div>
+  <FeatureCard feature-id="viralRadar" :enabled="enabled" details-label="阈值与样式">
+    <template #control>
+      <SwitchToggle :model-value="enabled" label="爆款雷达" @update:model-value="toggleEnabled" />
+    </template>
 
-      <!-- 高亮标识：标签 / 边框 / 背景（一行：左边文案，右边 3 个 checkbox，可多选） -->
-      <div class="flex items-center justify-between gap-3 border-t border-border/60 pt-2.5">
+    <template #status>
+      潜力 ≥ {{ formatK(potentialThreshold) }}/h · 爆款 ≥ {{ formatK(viralThreshold) }}/h
+    </template>
+
+    <template #details>
+      <!-- 标注方式：标签 / 边框 / 背景，可多选 -->
+      <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-[12px] font-semibold text-color-text whitespace-nowrap">流速高亮标识</p>
-          <p class="text-[10px] text-secondary-text mt-0.5 whitespace-nowrap">勾选要展示的标识</p>
+          <p class="text-[12px] font-medium text-text whitespace-nowrap">标注方式</p>
+          <p class="text-[10px] text-secondary-text mt-0.5 whitespace-nowrap">可多选</p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <label class="flex items-center gap-1 cursor-pointer select-none">
@@ -202,7 +190,7 @@ onMounted(refresh)
                 </svg>
               </CheckboxIndicator>
             </CheckboxRoot>
-            <span class="text-xs whitespace-nowrap" :class="showBadge ? 'text-color-text' : 'text-secondary-text'">标签</span>
+            <span class="text-xs whitespace-nowrap" :class="showBadge ? 'text-text' : 'text-secondary-text'">标签</span>
           </label>
           <label
             v-for="opt in styleOptions"
@@ -221,22 +209,16 @@ onMounted(refresh)
                 </svg>
               </CheckboxIndicator>
             </CheckboxRoot>
-            <span class="text-xs whitespace-nowrap" :class="isStyleChecked(opt.value) ? 'text-color-text' : 'text-secondary-text'">
+            <span class="text-xs whitespace-nowrap" :class="isStyleChecked(opt.value) ? 'text-text' : 'text-secondary-text'">
               {{ opt.label }}
             </span>
           </label>
         </div>
       </div>
 
-      <!-- 展示级别：普通 / 潜力 / 爆款（仅勾选「标签」后出现） -->
-      <div
-        v-if="showBadge"
-        class="flex items-center justify-between gap-3 border-t border-border/60 pt-2.5"
-      >
-        <div class="min-w-0">
-          <p class="text-[12px] font-semibold text-color-text whitespace-nowrap">展示标签级别</p>
-          <p class="text-[10px] text-secondary-text mt-0.5 whitespace-nowrap">勾选要展示标签的级别</p>
-        </div>
+      <!-- 显示标签的级别（勾选「标签」后出现） -->
+      <div v-if="showBadge" class="flex items-center justify-between gap-3 pl-3 border-l-2 border-border">
+        <p class="text-[12px] font-medium text-text whitespace-nowrap">显示标签的级别</p>
         <div class="flex items-center gap-2 shrink-0">
           <label
             v-for="opt in levelOptions"
@@ -255,132 +237,84 @@ onMounted(refresh)
                 </svg>
               </CheckboxIndicator>
             </CheckboxRoot>
-            <span class="text-xs whitespace-nowrap" :class="showLevels[opt.key] ? 'text-color-text' : 'text-secondary-text'">
+            <span class="text-xs whitespace-nowrap" :class="showLevels[opt.key] ? 'text-text' : 'text-secondary-text'">
               {{ opt.label }}
             </span>
           </label>
         </div>
       </div>
-    </div>
 
-    <!-- Card 2: 标签参数 -->
-    <div class="p-3 bg-card-bg rounded-xl flex flex-col gap-3">
-      <!-- 头部与重置按钮 -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-sm font-semibold text-color-text">流速阈值</h2>
-        </div>
-        <button
-          type="button"
-          @click="handleReset"
-          class="px-2.5 py-1 text-[10px] text-secondary-text hover:text-accent border border-secondary-text/20 hover:border-accent/40 rounded-md hover:bg-body-bg transition-colors cursor-pointer font-medium"
-        >
-          重置
-        </button>
-      </div>
-
-      <!-- 三级流速说明小卡片 -->
-      <div class="bg-body-bg border border-border rounded-lg p-2.5 flex flex-col gap-1.5 text-xs">
-        <div class="flex justify-between items-center">
-          <span class="flex items-center gap-1.5 font-medium">
-            <span>🌱</span> <span>普通推文</span>
-          </span>
-          <span class="font-mono text-secondary-text">&lt; {{ formatK(potentialThreshold) }}/h</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="flex items-center gap-1.5 font-medium">
-            <span>🚀</span> <span>潜力推文</span>
-          </span>
-          <span class="font-mono text-amber-600 font-semibold">
-            {{ formatK(potentialThreshold) }} ~ {{ formatK(viralThreshold) }}/h
-          </span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="flex items-center gap-1.5 font-medium">
-            <span>🔥</span> <span>爆款推文</span>
-          </span>
-          <span class="font-mono text-red-500 font-bold">
-            &ge; {{ formatK(viralThreshold) }}/h
-          </span>
-        </div>
-      </div>
-
-      <!-- 双滑块 Slider 区域 -->
-      <div class="flex flex-col gap-1.5 pt-2">
-        <div class="flex justify-between text-[10px] font-mono text-secondary-text px-0.5">
-          <span>0</span>
-          <span>50000</span>
-        </div>
-
-        <SliderRoot
-          :model-value="[potentialThreshold, viralThreshold]"
-          @update:model-value="handleSliderChange"
-          :min="0"
-          :max="50000"
-          :step="500"
-          class="relative flex items-center select-none touch-none w-full h-8 cursor-pointer"
-        >
-          <SliderTrack class="bg-border relative flex-grow rounded-full h-2 overflow-hidden flex">
-            <!-- 普通段 (绿) -->
-            <div class="h-full bg-emerald-500" :style="{ width: potentialPercent + '%' }" />
-            <!-- 潜力段 (橙) -->
-            <div
-              class="h-full bg-amber-500"
-              :style="{ width: Math.max(0, viralPercent - potentialPercent) + '%' }"
-            />
-            <!-- 爆款段 (红) -->
-            <div
-              class="h-full bg-red-500"
-              :style="{ width: Math.max(0, 100 - viralPercent) + '%' }"
-            />
-          </SliderTrack>
-
-          <!-- 潜力阈值 Thumb -->
-          <SliderThumb
-            class="block w-4 h-4 bg-white border-2 border-amber-500 rounded-full shadow-md outline-none relative"
+      <!-- 流速阈值 -->
+      <div class="flex flex-col gap-2 pt-2 border-t border-border/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-[12px] font-medium text-text">流速阈值</p>
+            <p class="text-[10px] text-secondary-text mt-0.5">流速 = 当前浏览量 ÷ 发布后的小时数</p>
+          </div>
+          <button
+            type="button"
+            @click="handleReset"
+            class="px-2.5 py-1 text-[10px] text-secondary-text hover:text-accent border border-secondary-text/20 hover:border-accent/40 rounded-md hover:bg-body-bg transition-colors cursor-pointer font-medium"
           >
-            <span
-              class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap shadow-xs"
-            >
-              🚀 {{ formatK(potentialThreshold) }}
-            </span>
-          </SliderThumb>
+            恢复默认
+          </button>
+        </div>
 
-          <!-- 爆款阈值 Thumb -->
-          <SliderThumb
-            class="block w-4 h-4 bg-white border-2 border-red-500 rounded-full shadow-md outline-none relative"
+        <div class="bg-body-bg border border-border rounded-lg p-2.5 flex flex-col gap-1.5 text-xs">
+          <div class="flex justify-between items-center">
+            <span class="flex items-center gap-1.5 font-medium">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 普通推文
+            </span>
+            <span class="font-mono text-secondary-text">&lt; {{ formatK(potentialThreshold) }}/h</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="flex items-center gap-1.5 font-medium">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> 潜力推文
+            </span>
+            <span class="font-mono text-amber-600 font-semibold">
+              {{ formatK(potentialThreshold) }} ~ {{ formatK(viralThreshold) }}/h
+            </span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="flex items-center gap-1.5 font-medium">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span> 爆款推文
+            </span>
+            <span class="font-mono text-red-500 font-bold">&ge; {{ formatK(viralThreshold) }}/h</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 pt-3">
+          <SliderRoot
+            :model-value="[potentialThreshold, viralThreshold]"
+            @update:model-value="handleSliderChange"
+            :min="0"
+            :max="50000"
+            :step="500"
+            aria-label="潜力和爆款流速阈值"
+            class="relative flex items-center select-none touch-none w-full h-8 cursor-pointer"
           >
-            <span
-              class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 text-red-700 border border-red-300 whitespace-nowrap shadow-xs"
-            >
-              🔥 {{ formatK(viralThreshold) }}
-            </span>
-          </SliderThumb>
-        </SliderRoot>
-
-        <!-- 图例说明 -->
-        <div class="flex justify-around items-center text-[10px] text-secondary-text pt-1">
-          <span class="flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            普通推文
-          </span>
-          <span class="flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
-            潜力推文
-          </span>
-          <span class="flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
-            爆款推文
-          </span>
+            <SliderTrack class="bg-border relative flex-grow rounded-full h-2 overflow-hidden flex">
+              <div class="h-full bg-emerald-500" :style="{ width: potentialPercent + '%' }" />
+              <div class="h-full bg-amber-500" :style="{ width: Math.max(0, viralPercent - potentialPercent) + '%' }" />
+              <div class="h-full bg-red-500" :style="{ width: Math.max(0, 100 - viralPercent) + '%' }" />
+            </SliderTrack>
+            <SliderThumb class="block w-4 h-4 bg-white border-2 border-amber-500 rounded-full shadow-md outline-none relative">
+              <span class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap">
+                潜力 {{ formatK(potentialThreshold) }}
+              </span>
+            </SliderThumb>
+            <SliderThumb class="block w-4 h-4 bg-white border-2 border-red-500 rounded-full shadow-md outline-none relative">
+              <span class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 text-red-700 border border-red-300 whitespace-nowrap">
+                爆款 {{ formatK(viralThreshold) }}
+              </span>
+            </SliderThumb>
+          </SliderRoot>
+          <div class="flex justify-between text-[10px] font-mono text-secondary-text px-0.5">
+            <span>0</span>
+            <span>50k/h</span>
+          </div>
         </div>
       </div>
-
-      <!-- 什么是流速 说明盒 -->
-      <div class="bg-body-bg border border-border/70 rounded-lg p-2.5 flex flex-col gap-1 text-[11px] mt-1">
-        <h3 class="font-semibold text-color-text">什么是流速？</h3>
-        <p class="text-secondary-text">流速表示推文平均每小时获得的浏览量。</p>
-        <p class="text-secondary-text">计算方式：当前浏览量 ÷ 发布时长（小时）。</p>
-      </div>
-    </div>
-  </section>
+    </template>
+  </FeatureCard>
 </template>

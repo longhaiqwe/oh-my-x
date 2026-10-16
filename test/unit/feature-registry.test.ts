@@ -66,6 +66,14 @@ describe('feature registry', () => {
     for (const item of STATIC_NAV_ITEMS) expect(navKeys.has(item.storageKey)).toBe(true)
   })
 
+  it('从属功能指向同一模块里已有的主功能', () => {
+    for (const f of FEATURES.filter((item) => item.parent)) {
+      const parent = getFeature(f.parent!)
+      expect(parent.module).toBe(f.module)
+      expect(parent.parent).toBeUndefined()
+    }
+  })
+
   it('getFeature 遇到未知 id 时报错', () => {
     expect(() => getFeature('nope')).toThrow('Unknown feature: nope')
   })

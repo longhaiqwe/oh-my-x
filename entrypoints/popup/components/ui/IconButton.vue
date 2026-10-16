@@ -13,27 +13,30 @@ const { value, setValue } = useStorageKey(props.storageKey)
 </script>
 
 <template>
- <div class="flex flex-col items-center gap-0.5">
+ <div class="flex flex-col items-center gap-0.5 min-w-0">
   <Toggle
    :model-value="value"
    @update:model-value="setValue"
-   :title="`切换 ${label}`"
-   :aria-label="`切换 ${label}`"
-   class="bg-card-bg p-2 m-1 w-fit rounded-full border-[3px] border-accent data-[state=off]:border-transparent data-[state=off]:opacity-50 data-[state=off]:hover:border-white/50"
+   :title="`${label}：${value ? '显示中，点击隐藏' : '已隐藏，点击显示'}`"
+   :aria-label="`显示${label}`"
+   class="bg-card-bg p-2 m-1 w-fit rounded-full border-2 border-accent cursor-pointer
+    data-[state=off]:border-dashed data-[state=off]:border-secondary-text/60 data-[state=off]:opacity-50
+    data-[state=off]:hover:opacity-80"
   >
    <svg
     v-if="iconHtml"
-    width="25"
-    height="25"
+    width="22"
+    height="22"
     aria-hidden="true"
     class="fill-current"
     :viewBox="viewBox ?? '0 0 24 24'"
     v-html="iconHtml"
    />
-   <span v-else class="block w-[25px] h-[25px] rounded-full bg-secondary-text/20" aria-hidden="true" />
+   <span v-else class="block w-[22px] h-[22px] rounded-full bg-secondary-text/20" aria-hidden="true" />
   </Toggle>
   <span
-   class="text-xs text-center tracking-tight text-gray-400 truncate"
+   class="w-full text-[11px] text-center tracking-tight truncate"
+   :class="value ? 'text-text' : 'text-secondary-text'"
   >
    {{ label }}
   </span>

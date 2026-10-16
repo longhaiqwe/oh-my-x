@@ -178,7 +178,10 @@ oh-my-x/
 
 - 标签来自 `shared/feature-registry.ts` 的 `FEATURE_MODULES`，顺序为 界面、过滤、数据、创作、互动，默认 `layout`。
 - 每个模块页在 `components/modules/*Module.vue`，页头 `ModuleHeader` 显示模块标题和说明；功能卡片在 `components/sections`，通用控件在 `components/ui`、`components/controls`。
-- 简单开关行用 `ToggleRows`，行名称取自功能清单的 `label`；选项常量在 `toggle-options.ts`。
+- 功能卡片统一用 `ui/FeatureCard.vue`：名称 + 右侧控件 / 说明、补充说明、「在哪用」（都取自功能清单）/ 分隔线下状态行 + 展开详细设置。详细设置用 `v-show` 收起，内容保持挂载。
+- 多个简单功能共用一张卡片时，用 `FeatureList` 包住若干 `FeatureCard variant="row"`；从属设置用 `SubRow` 缩进；分组标题用 `GroupLabel`。
+- 开关一律正向命名（打开 = 开启或显示）。直接绑定存储的开关用 `FeatureSwitch`；存储值与开关含义相反时传 `invert`（如 `sidebarColumn` 存 'on' 表示隐藏）。自己管理状态的卡片用 `SwitchToggle`，多选项用 `SegmentedControl` / `ToggleGroupControl`。
+- 界面文案用白描：写动作和结果，不拟人、不比喻、不用夸张的形容词和副词。
 - 新增设置项时，必须在功能清单里归到一个功能（或列入 `GLOBAL_STORAGE_KEYS` / `UNLISTED_STORAGE_KEYS`），`test/unit/feature-registry.test.ts` 会检查每个设置项恰好有一个归属。
 - 上次打开的模块存在 `popupActiveTab`；旧版标签 id（view/overview/viral/rules/keywords/lists/log）由 `resolvePopupModule` 映射到新模块。
 
