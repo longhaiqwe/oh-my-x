@@ -7,6 +7,7 @@ import WhereLine from './WhereLine.vue'
 // 1. 名称 + 右侧控件（开关、按钮或分段选择）
 // 2. 一句说明，可选补充说明和「在哪用」
 // 3. 分隔线下：当前状态 + 详细设置入口（页内展开，或进入第二层页面）
+// 层级：名称 14px/600/正文色；说明 12px/400/次要色；补充和位置 12px/400/弱化色
 const props = withDefaults(
  defineProps<{
   featureId?: string
@@ -42,34 +43,35 @@ function onDetailsClick() {
 
 <template>
  <div
-  class="flex flex-col gap-2"
-  :class="variant === 'card' ? 'p-3 bg-card-bg rounded-xl' : 'py-2.5'"
+  class="flex flex-col gap-3"
+  :class="variant === 'card' ? 'p-4 bg-card-bg rounded-card' : 'py-3'"
  >
-  <div class="flex items-start justify-between gap-3">
-   <div class="min-w-0 flex flex-col gap-0.5">
-    <div class="flex items-center gap-1.5 min-w-0">
-     <p class="text-[13px] font-semibold text-text">{{ title }}</p>
+  <div class="flex items-start justify-between gap-4">
+   <div class="min-w-0 flex flex-col gap-1">
+    <div class="flex items-center gap-2 min-w-0">
+     <p class="text-sm font-semibold leading-tight text-text">{{ title }}</p>
      <slot name="badge" />
     </div>
-    <p v-if="description" class="text-[11px] leading-relaxed text-secondary-text">{{ description }}</p>
-    <p v-if="feature?.note" class="text-[11px] leading-relaxed text-secondary-text/80">{{ feature.note }}</p>
+    <p v-if="description" class="text-xs leading-normal text-secondary-text">{{ description }}</p>
+    <p v-if="feature?.note" class="text-xs leading-normal text-muted-text">{{ feature.note }}</p>
     <WhereLine v-if="feature?.where" :where="feature.where" />
    </div>
-   <div v-if="$slots.control" class="shrink-0 pt-0.5">
+   <div v-if="$slots.control" class="shrink-0">
     <slot name="control" />
    </div>
   </div>
 
   <slot />
 
-  <div v-if="showFooter" class="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
-   <div class="min-w-0 text-[11px] text-secondary-text">
+  <div v-if="showFooter" class="flex items-center justify-between gap-2 pt-3 border-t border-border">
+   <div class="min-w-0 text-xs text-muted-text">
     <slot name="status" />
    </div>
    <button
     v-if="detailsLabel"
     type="button"
-    class="inline-flex items-center gap-0.5 shrink-0 text-[11px] font-medium text-accent hover:underline cursor-pointer"
+    class="inline-flex items-center gap-1 shrink-0 min-h-6 -my-1 -mr-1 px-1 rounded-control text-xs font-semibold text-accent-text hover:bg-accent-subtle cursor-pointer
+     outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
     :aria-expanded="isPage ? undefined : open"
     :data-details-for="featureId"
     @click="onDetailsClick"
@@ -93,7 +95,7 @@ function onDetailsClick() {
   </div>
 
   <!-- 用 v-show 收起：内容保持挂载，正在进行的操作（如连接测试）不会因收起中断 -->
-  <div v-if="detailsLabel && !isPage" v-show="open && enabled" class="flex flex-col gap-3 pt-1">
+  <div v-if="detailsLabel && !isPage" v-show="open && enabled" class="flex flex-col gap-4">
    <slot name="details" />
   </div>
  </div>

@@ -153,24 +153,25 @@ async function testConnection() {
     </template>
 
     <template #status>
-      <span v-if="configured" class="flex items-center gap-1.5 min-w-0">
-        <span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0" aria-hidden="true"></span>
+      <span v-if="configured" class="flex items-center gap-2 min-w-0">
+        <span class="w-2 h-2 rounded-full bg-success shrink-0" aria-hidden="true"></span>
         <span class="truncate">已填写 API Key · 模型 {{ model }}</span>
       </span>
-      <span v-else class="text-amber-500">还没有填写 API Key</span>
+      <span v-else class="text-warning">还没有填写 API Key</span>
     </template>
 
     <template #details>
-      <p class="text-[11px] text-secondary-text leading-relaxed">
+      <p class="text-xs text-muted-text leading-normal">
         生成时会把原文、作者信息和补充要求发送到你配置的服务，API Key 只用于该服务的认证。
         首次使用或更换地址时需要授权；测试连接只发送一段测试文本。
       </p>
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-text">接口地址 (Base URL)</label>
+        <label for="ai-base-url" class="text-xs font-semibold text-secondary-text">接口地址 (Base URL)</label>
         <input
+          id="ai-base-url"
           v-model="baseUrl"
           type="text"
-          class="w-full h-7 px-2 rounded-md border border-border bg-body-bg text-[11px] focus:border-accent outline-none font-mono"
+          class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none font-mono text-text"
           placeholder="https://api.openai.com/v1"
           @input="scheduleSave"
         />
@@ -178,61 +179,64 @@ async function testConnection() {
 
       <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between">
-          <label class="text-[11px] font-medium text-text">API Key</label>
+          <label for="ai-api-key" class="text-xs font-semibold text-secondary-text">API Key</label>
           <button
             type="button"
-            class="text-[10px] text-secondary-text hover:text-accent cursor-pointer"
+            class="min-h-6 px-1 rounded-control text-xs text-secondary-text hover:text-text hover:bg-sunken-bg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
             @click="showApiKey = !showApiKey"
           >
             {{ showApiKey ? '隐藏' : '显示' }}
           </button>
         </div>
         <input
+          id="ai-api-key"
           v-model="apiKey"
           :type="showApiKey ? 'text' : 'password'"
-          class="w-full h-7 px-2 rounded-md border border-border bg-body-bg text-[11px] focus:border-accent outline-none font-mono"
+          class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none font-mono text-text"
           placeholder="sk-..."
           @input="scheduleSave"
         />
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-text">模型名称 (Model)</label>
+        <label for="ai-model" class="text-xs font-semibold text-secondary-text">模型名称 (Model)</label>
         <input
+          id="ai-model"
           v-model="model"
           type="text"
-          class="w-full h-7 px-2 rounded-md border border-border bg-body-bg text-[11px] focus:border-accent outline-none font-mono"
+          class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none font-mono text-text"
           placeholder="gpt-4o-mini / deepseek-chat"
           @input="scheduleSave"
         />
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-medium text-text">补充要求（可选）</label>
+        <label for="ai-prompt" class="text-xs font-semibold text-secondary-text">补充要求（可选）</label>
         <input
+          id="ai-prompt"
           v-model="customPrompt"
           type="text"
-          class="w-full h-7 px-2 rounded-md border border-border bg-body-bg text-[11px] focus:border-accent outline-none"
+          class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none text-text"
           placeholder="例如：字数控制在 120 字以内"
           @input="scheduleSave"
         />
       </div>
 
-      <div class="flex items-center justify-between pt-0.5">
+      <div class="flex items-center gap-3 pt-1">
         <button
           type="button"
           :disabled="isTesting"
-          class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-accent text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+          class="h-8 px-3 rounded-control text-xs font-semibold bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           @click="testConnection"
         >
           {{ isTesting ? '测试中…' : '授权并测试连接' }}
         </button>
-        <button v-if="isTesting" type="button" class="text-[11px] text-secondary-text cursor-pointer"
+        <button v-if="isTesting" type="button" class="min-h-6 px-2 rounded-control text-xs text-secondary-text hover:text-text hover:bg-sunken-bg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           @click="cancelTest(); statusText = '已取消测试'">取消</button>
         <span
           v-if="statusText"
-          class="text-[11px] truncate max-w-[210px]"
-          :class="statusIsError ? 'text-red-500' : 'text-accent'"
+          class="text-xs truncate min-w-0"
+          :class="statusIsError ? 'text-danger' : 'text-success'"
         >
           {{ statusText }}
         </span>

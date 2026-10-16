@@ -47,6 +47,8 @@ beforeEach(() => {
     },
   })
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+  // jsdom 没有 scrollIntoView，真实浏览器都有
+  Element.prototype.scrollIntoView = vi.fn()
 })
 
 afterEach(() => {

@@ -13,15 +13,17 @@ const { value, setValue } = useStorageKey(props.storageKey)
 </script>
 
 <template>
- <div class="flex flex-col items-center gap-0.5 min-w-0">
+ <div class="flex flex-col items-center gap-1 min-w-0">
   <Toggle
    :model-value="value"
    @update:model-value="setValue"
    :title="`${label}：${value ? '显示中，点击隐藏' : '已隐藏，点击显示'}`"
    :aria-label="`显示${label}`"
-   class="bg-card-bg p-2 m-1 w-fit rounded-full border-2 border-accent cursor-pointer
-    data-[state=off]:border-dashed data-[state=off]:border-secondary-text/60 data-[state=off]:opacity-50
-    data-[state=off]:hover:opacity-80"
+   class="p-2 m-1 w-fit rounded-full border-2 cursor-pointer transition-colors duration-150
+    outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg
+    data-[state=on]:border-accent data-[state=on]:bg-accent-subtle data-[state=on]:text-accent-subtle-text
+    data-[state=off]:border-dashed data-[state=off]:border-border-strong data-[state=off]:text-muted-text
+    data-[state=off]:hover:border-accent data-[state=off]:hover:text-secondary-text"
   >
    <svg
     v-if="iconHtml"
@@ -32,11 +34,11 @@ const { value, setValue } = useStorageKey(props.storageKey)
     :viewBox="viewBox ?? '0 0 24 24'"
     v-html="iconHtml"
    />
-   <span v-else class="block w-[22px] h-[22px] rounded-full bg-secondary-text/20" aria-hidden="true" />
+   <span v-else class="block w-5.5 h-5.5 rounded-full bg-border" aria-hidden="true" />
   </Toggle>
   <span
-   class="w-full text-[11px] text-center tracking-tight truncate"
-   :class="value ? 'text-text' : 'text-secondary-text'"
+   class="w-full text-xs text-center tracking-tight truncate"
+   :class="value ? 'text-text' : 'text-muted-text'"
   >
    {{ label }}
   </span>

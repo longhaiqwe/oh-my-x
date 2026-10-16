@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, provide } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, provide, nextTick } from 'vue'
 import {
   DEFAULT_FEATURE_MODULE,
   FEATURE_MODULES,
@@ -23,6 +23,15 @@ function readHash(): FeatureModuleId | null {
 
 const active = ref<FeatureModuleId>(readHash() ?? DEFAULT_FEATURE_MODULE)
 
+const nav = ref<HTMLElement | null>(null)
+
+// 窄屏下导航是横向滚动的一行，切换后把当前项滚到可见位置
+function revealActiveNav() {
+  void nextTick(() => {
+    nav.value?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  })
+}
+
 function syncTitle(id: FeatureModuleId) {
   document.title = `${getModule(id).title} · oh-my-x 设置`
 }
@@ -30,6 +39,7 @@ function syncTitle(id: FeatureModuleId) {
 watch(active, (id) => {
   if (window.location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`)
   syncTitle(id)
+  revealActiveNav()
   window.scrollTo({ top: 0 })
 })
 
@@ -42,46 +52,47 @@ onMounted(() => {
   syncTitle(active.value)
   if (window.location.hash !== `#${active.value}`) history.replaceState(null, '', `#${active.value}`)
   window.addEventListener('hashchange', onHashChange)
+  revealActiveNav()
 })
 
 onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange))
 </script>
 
 <template>
- <div class="min-h-screen bg-body-bg text-text font-sans">
-  <div class="mx-auto max-w-[920px] px-4 py-6 sm:px-8 sm:py-10 flex flex-col md:flex-row gap-6 md:gap-10">
-   <aside class="w-full md:w-52 shrink-0 md:sticky md:top-10 self-start flex flex-col gap-5">
-    <div class="flex items-center gap-2.5">
+ <div class="app-glow min-h-screen bg-body-bg text-text font-sans">
+  <div class="mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10 flex flex-col md:flex-row gap-6 md:gap-12">
+   <aside class="w-full md:w-52 shrink-0 md:sticky md:top-10 self-start flex flex-col gap-6">
+    <div class="flex items-center gap-3">
      <img src="/icons/128.png" alt="" class="w-9 h-9" />
      <div>
-      <p class="text-lg font-extrabold tracking-tight leading-tight">oh-my-x</p>
-      <p class="text-[11px] text-secondary-text">完整设置 · v{{ version }}</p>
+      <p class="text-lg font-semibold tracking-tight leading-tight">oh-my-x</p>
+      <p class="text-xs text-muted-text">完整设置 · v{{ version }}</p>
      </div>
     </div>
 
-    <nav aria-label="功能模块" class="flex md:flex-col gap-1 overflow-x-auto -mx-1 px-1 pb-1 md:pb-0">
+    <nav ref="nav" aria-label="功能模块" class="flex md:flex-col gap-1 overflow-x-auto -mx-1 px-1 pb-1 md:pb-0">
      <button
       v-for="mod in FEATURE_MODULES"
       :key="mod.id"
       type="button"
       :aria-current="active === mod.id ? 'page' : undefined"
-      class="shrink-0 md:shrink text-left rounded-xl px-3 py-2 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-      :class="active === mod.id ? 'bg-card-bg text-accent' : 'text-text hover:bg-card-bg/60'"
+      class="shrink-0 md:shrink text-left rounded-control md:rounded-l-none md:border-l-2 px-3 py-2 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+      :class="active === mod.id ? 'bg-card-bg md:border-accent text-accent-text' : 'md:border-transparent text-text hover:bg-card-bg'"
       @click="active = mod.id"
      >
       <span class="block text-sm font-semibold whitespace-nowrap">{{ mod.title }}</span>
-      <span class="hidden md:block text-[11px] leading-snug text-secondary-text mt-0.5">{{ mod.description }}</span>
+      <span class="hidden md:block text-xs leading-normal text-muted-text mt-1">{{ mod.description }}</span>
      </button>
     </nav>
 
-    <div class="flex items-center justify-between rounded-xl bg-card-bg px-3 py-2.5">
-     <span class="text-[13px] font-semibold">启用插件</span>
+    <div class="flex items-center justify-between rounded-card bg-card-bg px-4 py-3">
+     <span class="text-sm font-semibold">启用插件</span>
      <FeatureSwitch :storage-key="KeyExtensionStatus" label="启用插件" />
     </div>
-    <p class="text-[11px] leading-relaxed text-secondary-text">修改后自动保存，和插件弹窗里的设置是同一份。</p>
+    <p class="hidden md:block text-xs leading-normal text-muted-text">修改后自动保存，和插件弹窗里的设置是同一份。</p>
    </aside>
 
-   <main class="flex-1 min-w-0 max-w-[600px]">
+   <main class="flex-1 min-w-0 max-w-xl">
     <component :is="moduleComponents[active]" :key="active" />
    </main>
   </div>

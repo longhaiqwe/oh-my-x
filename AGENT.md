@@ -183,6 +183,7 @@ oh-my-x/
 - 多个简单功能共用一张卡片时，用 `FeatureList` 包住若干 `FeatureCard variant="row"`；从属设置用 `SubRow` 缩进；分组标题用 `GroupLabel`。
 - 开关一律正向命名（打开 = 开启或显示）。直接绑定存储的开关用 `FeatureSwitch`；存储值与开关含义相反时传 `invert`（如 `sidebarColumn` 存 'on' 表示隐藏）。自己管理状态的卡片用 `SwitchToggle`，多选项用 `SegmentedControl` / `ToggleGroupControl`。
 - 界面文案用白描：写动作和结果，不拟人、不比喻、不用夸张的形容词和副词。
+- 视觉规范见 `docs/design/DESIGN.md`：配色来自 `docs/design/design-tokens.json`（refactoring-ui 色阶算法生成，参考图为深蓝 + 米白 + 橙色）。组件只用 `theme.css` 里的语义变量（`body-bg`、`card-bg`、`sunken-bg`、`text`、`secondary-text`、`muted-text`、`accent`、`accent-text` 等），字号只用 12/14/16/18/20，字重只用 400/600，间距用 4 的倍数；`test/unit/popup-design-tokens.test.ts` 会拦截不合规的写法。
 - 过滤页分两层（`modules/FilterModule.vue`）：第一层四张卡片用 `FeatureCard details-as="page"`，点击后切到第二层；第二层用 `ui/SubPage.vue`（返回按钮 + 「内容过滤 / 功能名」）。进入时记录 `#app` 的滚动位置并回到顶部，返回时恢复位置并把焦点放回入口按钮（`data-details-for`）。
 - 第一层状态行不挂载第二层组件，直接用 `composables/useStorageSnapshot.ts` 读取相关存储项并监听 `storage.onChanged`；第二层的防抖保存在卸载时立即写入，保证返回后数字是新的。
 - 完整设置页（`entrypoints/options/`）与弹窗共用 `popup/modules.ts` 的模块对照表和 `popup/theme.css` 的配色；左侧导航切换模块，地址 `#模块 id` 与当前模块同步（旧版标签 id 同样经 `resolvePopupModule` 映射）。页面通过 `SettingsSurfaceKey` 注入 `'options'`，依赖“当前标签页”的功能（博主活动度扫描）据此只显示提示。滚动容器用 `getScrollContainer()`：弹窗是 `#app`，设置页是整个页面。

@@ -65,18 +65,18 @@ watch(() => snapshot[KeySpamStats], () => void loadToday())
   </template>
 
   <!-- 今日拦截 -->
-  <div class="flex items-center justify-between gap-2 rounded-lg bg-body-bg border border-border px-2.5 py-2">
-   <p class="text-[11px] text-secondary-text">
-    今日拦截 <span class="text-base font-bold text-accent align-middle ml-0.5">{{ todayTotal }}</span>
+  <div class="flex items-center justify-between gap-2 rounded-control bg-sunken-bg px-3 py-2">
+   <p class="flex items-baseline gap-2 text-xs text-secondary-text">
+    今日拦截 <span class="text-base font-semibold leading-none text-text">{{ todayTotal }}</span>
    </p>
    <div v-if="categoryRows.length" class="flex flex-wrap justify-end gap-1">
     <span
      v-for="row in categoryRows"
      :key="row.category"
-     class="px-1.5 py-0.5 rounded border border-border text-[10px] text-secondary-text"
+     class="px-2 py-0.5 rounded-full bg-card-bg text-xs text-secondary-text"
     >{{ row.label }} {{ row.count }}</span>
    </div>
-   <p v-else class="text-[10px] text-secondary-text">今天还没有拦截</p>
+   <p v-else class="text-xs text-muted-text">今天还没有拦截</p>
   </div>
 
   <template #status>

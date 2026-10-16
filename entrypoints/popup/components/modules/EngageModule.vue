@@ -22,7 +22,7 @@ const shortcutKeys = [
 </script>
 
 <template>
- <section class="flex flex-col gap-3">
+ <section class="flex flex-col gap-4">
   <ModuleHeader module-id="engage" />
 
   <GroupLabel>互动</GroupLabel>
@@ -30,9 +30,9 @@ const shortcutKeys = [
    <template #control>
     <FeatureSwitch :storage-key="KeyQuickInteraction" label="快捷键" />
    </template>
-   <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-secondary-text">
+   <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-secondary-text">
     <span v-for="item in shortcutKeys" :key="item.key" class="inline-flex items-center gap-1">
-     <kbd class="min-w-4 px-1 rounded border border-border bg-body-bg font-mono text-[10px] text-center text-text">{{ item.key }}</kbd>
+     <kbd class="min-w-4 px-1 rounded-sm bg-sunken-bg font-mono text-xs text-center text-text">{{ item.key }}</kbd>
      {{ item.action }}
     </span>
    </div>

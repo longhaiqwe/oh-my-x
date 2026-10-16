@@ -16,13 +16,13 @@ onMounted(() => backButton.value?.focus({ preventScroll: true }))
 </script>
 
 <template>
- <section class="flex flex-col gap-3">
-  <div class="flex flex-col gap-0.5 px-1">
-   <div class="flex items-center gap-1.5 min-w-0">
+ <section class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1 px-1">
+   <div class="flex items-center gap-2 min-w-0">
     <button
      ref="backButton"
      type="button"
-     class="inline-flex items-center gap-0.5 -ml-1 px-1 py-0.5 rounded-md text-xs text-secondary-text hover:text-text hover:bg-card-bg transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring shrink-0"
+     class="inline-flex items-center gap-1 -ml-1 min-h-6 px-1 rounded-control text-xs text-secondary-text hover:text-text hover:bg-card-bg transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring shrink-0"
      :aria-label="`返回${parentTitle}`"
      @click="$emit('back')"
     >
@@ -31,10 +31,10 @@ onMounted(() => backButton.value?.focus({ preventScroll: true }))
      </svg>
      {{ parentTitle }}
     </button>
-    <span class="text-xs text-secondary-text" aria-hidden="true">/</span>
-    <h2 class="text-base font-bold text-text truncate">{{ title }}</h2>
+    <span class="text-xs text-muted-text" aria-hidden="true">/</span>
+    <h2 class="text-base font-semibold leading-tight text-text truncate">{{ title }}</h2>
    </div>
-   <p v-if="description" class="text-xs text-secondary-text">{{ description }}</p>
+   <p v-if="description" class="text-xs leading-normal text-secondary-text">{{ description }}</p>
   </div>
   <slot />
  </section>

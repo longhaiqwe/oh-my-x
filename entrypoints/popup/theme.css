@@ -1,27 +1,161 @@
-/* 弹窗与完整设置页共用：Tailwind、配色变量、滚动条样式。尺寸各自在 style.css 中定义 */
+/*
+ * 弹窗与完整设置页共用的主题。尺寸各自在 popup/style.css、options/style.css 中定义。
+ *
+ * 配色来源：docs/design/design-tokens.json，由 refactoring-ui 的色阶算法生成，参考图为
+ * 「工位身体重置手册」封面（深蓝底、米白字、橙色强调、赤陶到梅紫的光晕）。说明见 docs/design/DESIGN.md。
+ *
+ * 规则：组件只使用「语义变量」（body-bg、text、accent 等），不直接写原始色阶、Tailwind 调色板名或十六进制色值；
+ * test/unit/popup-design-tokens.test.ts 会检查这一点。
+ */
 @import "tailwindcss";
 
-/* X.com theme — light-dark() resolves at runtime from color-scheme */
 @theme {
-  --color-accent: #10b981;
-  --color-accent-active: #059669;
-  --color-accent-bg: #0596691a;
-  --color-accent-hover: #047857;
-  --color-accent-ring: #05966933;
-  --color-accent-track: #0596694d;
-  --color-body-bg: light-dark(#ffffff, #000000);
-  --color-card-bg: light-dark(#f2f6f6, #16181c);
-  --color-border: light-dark(#e1e8ed, #2f3336);
-  --color-secondary-text: light-dark(#536471, #71767b);
-  --color-text: light-dark(#0f1419, #e7e9ea);
-  --color-glyphs: light-dark(#0f1419, #e7e9ea);
+  /* ---------- 原始色阶（只供下方语义变量引用） ---------- */
+  --color-primary-100: #fff7eb;
+  --color-primary-200: #ffe2b9;
+  --color-primary-300: #f7cc90;
+  --color-primary-400: #e6b16e;
+  --color-primary-500: #d5874e;
+  --color-primary-600: #c26634;
+  --color-primary-700: #a44823;
+  --color-primary-800: #863013;
+  --color-primary-900: #661e05;
+  --color-ink-50: #f6f9fd;
+  --color-ink-100: #ecf1f8;
+  --color-ink-200: #c5d1e1;
+  --color-ink-300: #9fb0c8;
+  --color-ink-400: #7a90af;
+  --color-ink-500: #596f91;
+  --color-ink-600: #485979;
+  --color-ink-700: #374560;
+  --color-ink-800: #263147;
+  --color-ink-900: #161e2d;
+  --color-ink-950: #0b101a;
+  --color-paper-50: #fff9ef;
+  --color-paper-100: #fbf1df;
+  --color-paper-200: #ecdaba;
+  --color-paper-300: #dbc297;
+  --color-paper-400: #c9aa75;
+  --color-paper-500: #b68b54;
+  --color-paper-600: #a07143;
+  --color-paper-700: #885e35;
+  --color-paper-800: #6f4b28;
+  --color-paper-900: #56381b;
+  --color-paper-950: #331f0b;
+  --color-plum-100: #ffebfa;
+  --color-plum-200: #edb3df;
+  --color-plum-300: #d186ba;
+  --color-plum-400: #b35b8c;
+  --color-plum-500: #8a3a5c;
+  --color-plum-600: #7d314e;
+  --color-plum-700: #6f2840;
+  --color-plum-800: #621f32;
+  --color-plum-900: #541725;
+  --color-danger-100: #fff3eb;
+  --color-danger-200: #ffd2b3;
+  --color-danger-300: #f5b386;
+  --color-danger-400: #e38561;
+  --color-danger-500: #d0473d;
+  --color-danger-600: #ba332a;
+  --color-danger-700: #a0231c;
+  --color-danger-800: #85130f;
+  --color-danger-900: #690503;
+  --color-warning-100: #fffeeb;
+  --color-warning-200: #fff7b5;
+  --color-warning-300: #fbe583;
+  --color-warning-400: #ebc55e;
+  --color-warning-500: #d9a23b;
+  --color-warning-600: #c47d26;
+  --color-warning-700: #a85918;
+  --color-warning-800: #8b380a;
+  --color-warning-900: #6b2200;
+  --color-success-100: #ebfffb;
+  --color-success-200: #b4f1e6;
+  --color-success-300: #89d8c2;
+  --color-success-400: #60bd98;
+  --color-success-500: #3f9a6b;
+  --color-success-600: #348a58;
+  --color-success-700: #297946;
+  --color-success-800: #1f6835;
+  --color-success-900: #145724;
+
+  /* ---------- 语义变量：light-dark(亮色, 暗色) ---------- */
+  --color-body-bg: light-dark(var(--color-paper-100), var(--color-ink-950));
+  --color-card-bg: light-dark(var(--color-paper-50), var(--color-ink-900));
+  --color-sunken-bg: light-dark(var(--color-paper-100), var(--color-ink-950));
+  --color-text: light-dark(var(--color-ink-900), var(--color-paper-100));
+  --color-secondary-text: light-dark(var(--color-ink-700), var(--color-paper-300));
+  --color-muted-text: light-dark(var(--color-ink-600), var(--color-ink-400));
+  --color-border: light-dark(var(--color-paper-200), var(--color-ink-800));
+  --color-border-strong: light-dark(var(--color-paper-300), var(--color-ink-700));
+  --color-accent: light-dark(var(--color-primary-700), var(--color-primary-500));
+  --color-accent-hover: light-dark(var(--color-primary-800), var(--color-primary-400));
+  --color-accent-text: light-dark(var(--color-primary-700), var(--color-primary-400));
+  --color-on-accent: light-dark(#ffffff, #0b101a);
+  --color-accent-subtle: light-dark(var(--color-primary-200), var(--color-ink-800));
+  --color-accent-subtle-text: light-dark(var(--color-primary-800), var(--color-primary-300));
+  --color-accent-ring: light-dark(var(--color-primary-600), var(--color-primary-400));
+  --color-accent-track: light-dark(var(--color-paper-200), var(--color-ink-800));
+  --color-switch-off: light-dark(var(--color-ink-400), var(--color-ink-500));
+  --color-danger: light-dark(var(--color-danger-700), var(--color-danger-400));
+  --color-warning: light-dark(var(--color-warning-700), var(--color-warning-400));
+  --color-success: light-dark(var(--color-success-700), var(--color-success-400));
+  --color-icon-muted: light-dark(var(--color-ink-400), var(--color-ink-500));
+  --color-switch-thumb: #ffffff;
+  --color-glyphs: var(--color-text);
+
+  /* 数据编码色：与 x.com 页面上注入的徽章保持一致，不随主题变化 */
+  --color-level-normal: #00ba7c;
+  --color-level-potential: #f59e0b;
+  --color-level-viral: #ef4444;
+  --color-rating-poor: #71767b;
+  --color-rating-fair: #1d9bf0;
+  --color-rating-good: #00ba7c;
+  --color-rating-great: #ff7a00;
+  --color-rating-top: #f91880;
+
+  /* 装饰光晕：只用于页面背景，不承载信息 */
+  --color-glow-warm: light-dark(#ffe2b9b3, #a4482366);
+  --color-glow-plum: light-dark(#ffebfa99, #8a3a5c4d);
+
+  /* 圆角：卡片一档、控件一档、胶囊 */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+
+  /* 阴影：书中五级高度（§6.2.1）。暗色下高度主要靠更亮的表面表达 */
+  --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.2);
+  --shadow: 0 4px 6px hsla(0, 0%, 0%, 0.2);
+  --shadow-md: 0 5px 15px hsla(0, 0%, 0%, 0.2);
+  --shadow-lg: 0 10px 24px hsla(0, 0%, 0%, 0.2);
+  --shadow-xl: 0 15px 35px hsla(0, 0%, 0%, 0.2);
+
+  --font-sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 html {
   color-scheme: light dark;
 }
 
-/* 方案四：极细悬浮滚动条 —— 平时透明，悬停/滚动时浮现为半透明细滑块，不占排版空间 */
+/* 页面顶部右侧的光晕，对应参考图右上角的橙色到梅紫 */
+.app-glow {
+  background-image:
+    radial-gradient(90% 55% at 100% 0%, var(--color-glow-warm), transparent 70%),
+    radial-gradient(60% 45% at 100% 22%, var(--color-glow-plum), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* 系统设置了「减少动态效果」时，关闭过渡和动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* 极细悬浮滚动条：平时透明，悬停容器时显示 */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -36,12 +170,11 @@ html {
   transition: background 0.2s;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.5);
-}
-
-/* 滚动条所在容器 hover 时显示滑块 */
 *:hover > ::-webkit-scrollbar-thumb,
 html:hover::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.35);
+  background: var(--color-border-strong);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-text);
 }

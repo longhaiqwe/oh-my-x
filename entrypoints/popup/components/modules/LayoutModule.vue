@@ -10,7 +10,7 @@ import NavigationCard from '../sections/NavigationCard.vue'
 </script>
 
 <template>
- <section class="flex flex-col gap-3">
+ <section class="flex flex-col gap-4">
   <ModuleHeader module-id="layout" />
 
   <GroupLabel>布局</GroupLabel>
@@ -50,7 +50,7 @@ import NavigationCard from '../sections/NavigationCard.vue'
 
   <p class="text-xs text-center leading-5 text-secondary-text">
    字号、配色等设置在 X 自带的显示设置中。
-   <a href="https://twitter.com/i/display" target="_blank" rel="noreferrer" class="text-accent hover:underline">
+   <a href="https://twitter.com/i/display" target="_blank" rel="noreferrer" class="text-accent-text hover:underline">
     打开显示设置
    </a>
   </p>

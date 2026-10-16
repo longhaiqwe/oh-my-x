@@ -8,7 +8,7 @@ import AiRepostCard from '../sections/AiRepostCard.vue'
 </script>
 
 <template>
- <section class="flex flex-col gap-3">
+ <section class="flex flex-col gap-4">
   <ModuleHeader module-id="create" />
   <OwnPostsCard />
   <AiRepostCard />

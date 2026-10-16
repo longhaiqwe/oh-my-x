@@ -1,0 +1,351 @@
+{
+  "$meta": {
+    "name": "oh-my-x 设置界面",
+    "source": "refactoring-ui skill, Workflow A；参考图：龙海「工位身体重置手册」封面",
+    "personality": {
+      "formality": "serious",
+      "era": "modern",
+      "density": "comfortable",
+      "grey-temperature": "cool surfaces / warm text"
+    },
+    "note": "亮色模式用 semantic，暗色模式用 semantic-dark；运行时实现见 entrypoints/popup/theme.css"
+  },
+  "primitive": {
+    "color": {
+      "primary": {
+        "100": "#fff7eb",
+        "200": "#ffe2b9",
+        "300": "#f7cc90",
+        "400": "#e6b16e",
+        "500": "#d5874e",
+        "600": "#c26634",
+        "700": "#a44823",
+        "800": "#863013",
+        "900": "#661e05"
+      },
+      "ink": {
+        "50": "#f6f9fd",
+        "100": "#ecf1f8",
+        "200": "#c5d1e1",
+        "300": "#9fb0c8",
+        "400": "#7a90af",
+        "500": "#596f91",
+        "600": "#485979",
+        "700": "#374560",
+        "800": "#263147",
+        "900": "#161e2d",
+        "950": "#0b101a"
+      },
+      "paper": {
+        "50": "#fff9ef",
+        "100": "#fbf1df",
+        "200": "#ecdaba",
+        "300": "#dbc297",
+        "400": "#c9aa75",
+        "500": "#b68b54",
+        "600": "#a07143",
+        "700": "#885e35",
+        "800": "#6f4b28",
+        "900": "#56381b",
+        "950": "#331f0b"
+      },
+      "plum": {
+        "100": "#ffebfa",
+        "200": "#edb3df",
+        "300": "#d186ba",
+        "400": "#b35b8c",
+        "500": "#8a3a5c",
+        "600": "#7d314e",
+        "700": "#6f2840",
+        "800": "#621f32",
+        "900": "#541725"
+      },
+      "danger": {
+        "100": "#fff3eb",
+        "200": "#ffd2b3",
+        "300": "#f5b386",
+        "400": "#e38561",
+        "500": "#d0473d",
+        "600": "#ba332a",
+        "700": "#a0231c",
+        "800": "#85130f",
+        "900": "#690503"
+      },
+      "warning": {
+        "100": "#fffeeb",
+        "200": "#fff7b5",
+        "300": "#fbe583",
+        "400": "#ebc55e",
+        "500": "#d9a23b",
+        "600": "#c47d26",
+        "700": "#a85918",
+        "800": "#8b380a",
+        "900": "#6b2200"
+      },
+      "success": {
+        "100": "#ebfffb",
+        "200": "#b4f1e6",
+        "300": "#89d8c2",
+        "400": "#60bd98",
+        "500": "#3f9a6b",
+        "600": "#348a58",
+        "700": "#297946",
+        "800": "#1f6835",
+        "900": "#145724"
+      }
+    },
+    "font": {
+      "sans": "system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+      "mono": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    },
+    "text": {
+      "xs": "12px",
+      "sm": "14px",
+      "base": "16px",
+      "lg": "18px",
+      "xl": "20px",
+      "2xl": "24px"
+    },
+    "space": {
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "6": "24px",
+      "8": "32px",
+      "12": "48px"
+    },
+    "weight": {
+      "normal": "400",
+      "semibold": "600"
+    },
+    "leading": {
+      "none": "1",
+      "tight": "1.25",
+      "normal": "1.5",
+      "loose": "2"
+    },
+    "radius": {
+      "control": "0.5rem",
+      "card": "0.75rem",
+      "full": "9999px"
+    },
+    "shadow": {
+      "sm": "0 1px 3px hsla(0,0%,0%,.2)",
+      "DEFAULT": "0 4px 6px hsla(0,0%,0%,.2)",
+      "md": "0 5px 15px hsla(0,0%,0%,.2)",
+      "lg": "0 10px 24px hsla(0,0%,0%,.2)",
+      "xl": "0 15px 35px hsla(0,0%,0%,.2)"
+    }
+  },
+  "semantic": {
+    "color": {
+      "body-bg": "{color.paper.100}",
+      "card-bg": "{color.paper.50}",
+      "sunken-bg": "{color.paper.100}",
+      "text": "{color.ink.900}",
+      "secondary-text": "{color.ink.700}",
+      "muted-text": "{color.ink.600}",
+      "border": "{color.paper.200}",
+      "border-strong": "{color.paper.300}",
+      "accent": "{color.primary.700}",
+      "accent-hover": "{color.primary.800}",
+      "accent-text": "{color.primary.700}",
+      "accent-subtle": "{color.primary.200}",
+      "accent-subtle-text": "{color.primary.800}",
+      "accent-ring": "{color.primary.600}",
+      "accent-track": "{color.paper.200}",
+      "switch-off": "{color.ink.400}",
+      "danger": "{color.danger.700}",
+      "warning": "{color.warning.700}",
+      "success": "{color.success.700}",
+      "on-accent": "#ffffff"
+    }
+  },
+  "semantic-dark": {
+    "color": {
+      "body-bg": "{color.ink.950}",
+      "card-bg": "{color.ink.900}",
+      "sunken-bg": "{color.ink.950}",
+      "text": "{color.paper.100}",
+      "secondary-text": "{color.paper.300}",
+      "muted-text": "{color.ink.400}",
+      "border": "{color.ink.800}",
+      "border-strong": "{color.ink.700}",
+      "accent": "{color.primary.500}",
+      "accent-hover": "{color.primary.400}",
+      "accent-text": "{color.primary.400}",
+      "accent-subtle": "{color.ink.800}",
+      "accent-subtle-text": "{color.primary.300}",
+      "accent-ring": "{color.primary.400}",
+      "accent-track": "{color.ink.800}",
+      "switch-off": "{color.ink.500}",
+      "danger": "{color.danger.400}",
+      "warning": "{color.warning.400}",
+      "success": "{color.success.400}",
+      "on-accent": "#0b101a"
+    }
+  },
+  "pairs": [
+    {
+      "name": "亮色·正文/卡片",
+      "fg": "#161e2d",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·正文/页面",
+      "fg": "#161e2d",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·正文/凹槽",
+      "fg": "#161e2d",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·次要文字/卡片",
+      "fg": "#374560",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·次要文字/凹槽",
+      "fg": "#374560",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·弱化文字/卡片",
+      "fg": "#485979",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·弱化文字/凹槽",
+      "fg": "#485979",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·弱化文字/页面",
+      "fg": "#485979",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·强调文字/卡片",
+      "fg": "#a44823",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·强调文字/凹槽",
+      "fg": "#a44823",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "亮色·选中项文字/选中底",
+      "fg": "#863013",
+      "bg": "#ffe2b9"
+    },
+    {
+      "name": "亮色·危险/卡片",
+      "fg": "#a0231c",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·提醒/卡片",
+      "fg": "#a85918",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·成功/卡片",
+      "fg": "#297946",
+      "bg": "#fff9ef"
+    },
+    {
+      "name": "亮色·按钮文字/按钮",
+      "fg": "#ffffff",
+      "bg": "#a44823"
+    },
+    {
+      "name": "亮色·按钮文字/按钮悬停",
+      "fg": "#ffffff",
+      "bg": "#863013"
+    },
+    {
+      "name": "暗色·正文/卡片",
+      "fg": "#fbf1df",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·正文/页面",
+      "fg": "#fbf1df",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·正文/凹槽",
+      "fg": "#fbf1df",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·次要文字/卡片",
+      "fg": "#dbc297",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·次要文字/凹槽",
+      "fg": "#dbc297",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·弱化文字/卡片",
+      "fg": "#7a90af",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·弱化文字/凹槽",
+      "fg": "#7a90af",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·弱化文字/页面",
+      "fg": "#7a90af",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·强调文字/卡片",
+      "fg": "#e6b16e",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·强调文字/凹槽",
+      "fg": "#e6b16e",
+      "bg": "#0b101a"
+    },
+    {
+      "name": "暗色·选中项文字/选中底",
+      "fg": "#f7cc90",
+      "bg": "#263147"
+    },
+    {
+      "name": "暗色·危险/卡片",
+      "fg": "#e38561",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·提醒/卡片",
+      "fg": "#ebc55e",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·成功/卡片",
+      "fg": "#60bd98",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·按钮文字/按钮",
+      "fg": "#0b101a",
+      "bg": "#d5874e"
+    },
+    {
+      "name": "暗色·按钮文字/按钮悬停",
+      "fg": "#0b101a",
+      "bg": "#e6b16e"
+    }
+  ]
+}

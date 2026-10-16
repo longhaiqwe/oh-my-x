@@ -121,39 +121,39 @@ onMounted(async () => {
     type="button"
     @click="triggerProfileScan"
     :disabled="scanning"
-    class="px-2.5 py-1 text-[11px] rounded bg-accent text-white font-medium hover:opacity-90 disabled:opacity-40 transition cursor-pointer"
+    class="h-8 px-3 text-xs font-semibold rounded-control border border-border-strong text-accent-text hover:border-accent hover:bg-accent-subtle disabled:opacity-50 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
    >
     {{ scanning ? '扫描中…' : '扫描近 7 天' }}
    </button>
   </template>
 
-  <p v-if="!inPopup" class="text-[11px] text-secondary-text">在博主主页打开插件弹窗，就可以扫描这位博主近 7 天的活动。</p>
+  <p v-if="!inPopup" class="text-xs text-secondary-text">在博主主页打开插件弹窗，就可以扫描这位博主近 7 天的活动。</p>
 
   <div v-else class="flex items-center justify-between gap-3">
-   <p class="text-[11px] text-secondary-text">
+   <p class="text-xs text-secondary-text">
     <template v-if="currentTabHandle">@{{ currentTabHandle }} · {{ isCurrentProfileActive ? '近 7 天' : '未扫描' }}</template>
     <template v-else>当前页面不是博主主页</template>
    </p>
    <div v-if="!scanning && isCurrentProfileActive && profileActivity" class="flex gap-3 text-right">
-    <div><p class="text-base font-extrabold leading-none">{{ profileActivity.posts }}</p><p class="text-[10px] text-secondary-text mt-0.5">帖子</p></div>
-    <div><p class="text-base font-extrabold leading-none">{{ profileActivity.replies }}</p><p class="text-[10px] text-secondary-text mt-0.5">回复</p></div>
+    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.posts }}</p><p class="text-xs text-muted-text mt-1">帖子</p></div>
+    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.replies }}</p><p class="text-xs text-muted-text mt-1">回复</p></div>
    </div>
   </div>
 
-  <p v-if="inPopup && scanFeedback" class="text-[10px] text-accent leading-tight">{{ scanFeedback }}</p>
+  <p v-if="inPopup && scanFeedback" class="text-xs text-secondary-text leading-normal" role="status">{{ scanFeedback }}</p>
 
   <template v-if="inPopup">
-  <div v-if="!scanning && isCurrentProfileActive && profileActivityDays.length" class="rounded-lg bg-body-bg border border-border overflow-hidden">
-   <div class="grid grid-cols-[1fr_48px_48px] gap-1 px-2 py-1 text-[10px] text-secondary-text border-b border-border">
+  <div v-if="!scanning && isCurrentProfileActive && profileActivityDays.length" class="rounded-control bg-sunken-bg overflow-hidden">
+   <div class="grid grid-cols-[1fr_3rem_3rem] gap-1 px-3 py-1 text-xs text-muted-text border-b border-border">
     <span>日期</span><span class="text-right">帖子</span><span class="text-right">回复</span>
    </div>
-   <div v-for="day in profileActivityDays" :key="day.date" class="grid grid-cols-[1fr_48px_48px] gap-1 px-2 py-1 text-[11px] border-b border-border/50 last:border-0">
+   <div v-for="day in profileActivityDays" :key="day.date" class="grid grid-cols-[1fr_3rem_3rem] gap-1 px-3 py-1 text-xs text-text border-b border-border last:border-0">
     <span class="font-mono">{{ day.date }}</span><span class="text-right">{{ day.posts }}</span><span class="text-right">{{ day.replies }}</span>
    </div>
   </div>
-  <p v-else-if="scanning" class="text-[11px] text-secondary-text">正在读取近 7 天的帖子和回复…</p>
-  <p v-else-if="currentTabHandle" class="text-[11px] text-secondary-text">点击「扫描近 7 天」统计这位博主的帖子数和回复数。</p>
-  <p v-else class="text-[11px] text-secondary-text">打开一位博主的主页后可以扫描。</p>
+  <p v-else-if="scanning" class="text-xs text-secondary-text">正在读取近 7 天的帖子和回复…</p>
+  <p v-else-if="currentTabHandle" class="text-xs text-secondary-text">点击「扫描近 7 天」统计这位博主的帖子数和回复数。</p>
+  <p v-else class="text-xs text-secondary-text">打开一位博主的主页后可以扫描。</p>
   </template>
  </FeatureCard>
 </template>

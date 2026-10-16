@@ -195,32 +195,32 @@ const displayLists = computed(() => {
       <div
         v-if="noticeMessage"
         :class="[
-          'px-2 py-1 rounded text-[11px] font-medium',
-          noticeIsError ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent'
+          'px-3 py-2 rounded-control text-xs',
+          noticeIsError ? 'bg-sunken-bg text-danger' : 'bg-accent-subtle text-accent-subtle-text'
         ]"
       >
         {{ noticeMessage }}
       </div>
 
       <!-- 同步与手动添加 -->
-      <div class="flex gap-1.5">
+      <div class="flex gap-2">
         <input
           v-model="manualInput"
           @keydown.enter="addManualList"
           type="text"
           placeholder="粘贴 List 链接或数字 ID"
-          class="flex-1 min-w-0 px-2.5 py-1 text-[12px] rounded-lg border border-border bg-body-bg text-text placeholder:text-secondary-text/60 focus:border-accent outline-none"
+          class="flex-1 min-w-0 h-8 px-3 text-xs rounded-control border border-border-strong bg-sunken-bg text-text placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none"
         />
         <button
           @click="addManualList"
-          class="px-2.5 py-1 text-[12px] font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors cursor-pointer"
+          class="h-8 px-3 text-xs font-semibold rounded-control bg-accent text-on-accent hover:bg-accent-hover transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         >
           添加
         </button>
         <button
           @click="syncListsFromX"
           :disabled="isSyncing"
-          class="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent/10 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+          class="inline-flex items-center gap-1 h-8 px-3 text-xs font-semibold rounded-control border border-border-strong text-accent-text hover:border-accent hover:bg-accent-subtle transition-colors disabled:opacity-50 cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           title="读取当前登录账号创建和关注的 Lists"
         >
           <span v-if="isSyncing" class="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin"></span>
@@ -229,12 +229,12 @@ const displayLists = computed(() => {
       </div>
 
       <!-- 分类筛选 -->
-      <div v-if="lists.length && (pinnedCount > 0 || followedCount > 0)" class="flex gap-1 overflow-x-auto pb-0.5">
+      <div v-if="lists.length && (pinnedCount > 0 || followedCount > 0)" class="flex gap-1 overflow-x-auto pb-1">
         <button
           @click="filterTab = 'all'"
           :class="[
-            'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors cursor-pointer shrink-0',
-            filterTab === 'all' ? 'bg-accent text-white' : 'bg-body-bg text-secondary-text hover:text-text'
+            'min-h-6 px-3 rounded-full text-xs transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+            filterTab === 'all' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
           全部 ({{ lists.length }})
@@ -243,8 +243,8 @@ const displayLists = computed(() => {
           v-if="pinnedCount > 0"
           @click="filterTab = 'pinned'"
           :class="[
-            'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors cursor-pointer shrink-0',
-            filterTab === 'pinned' ? 'bg-accent text-white' : 'bg-body-bg text-secondary-text hover:text-text'
+            'min-h-6 px-3 rounded-full text-xs transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+            filterTab === 'pinned' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
           置顶 ({{ pinnedCount }})
@@ -252,8 +252,8 @@ const displayLists = computed(() => {
         <button
           @click="filterTab = 'owned'"
           :class="[
-            'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors cursor-pointer shrink-0',
-            filterTab === 'owned' ? 'bg-accent text-white' : 'bg-body-bg text-secondary-text hover:text-text'
+            'min-h-6 px-3 rounded-full text-xs transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+            filterTab === 'owned' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
           创建 ({{ ownedCount }})
@@ -262,8 +262,8 @@ const displayLists = computed(() => {
           v-if="followedCount > 0"
           @click="filterTab = 'followed'"
           :class="[
-            'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors cursor-pointer shrink-0',
-            filterTab === 'followed' ? 'bg-accent text-white' : 'bg-body-bg text-secondary-text hover:text-text'
+            'min-h-6 px-3 rounded-full text-xs transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+            filterTab === 'followed' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
           关注 ({{ followedCount }})
@@ -271,34 +271,34 @@ const displayLists = computed(() => {
       </div>
 
       <!-- Lists 列表 -->
-      <div v-if="displayLists.length" class="max-h-[170px] overflow-y-auto flex flex-col gap-1 pr-0.5">
+      <div v-if="displayLists.length" class="max-h-44 overflow-y-auto flex flex-col gap-1 pr-1">
         <div
           v-for="l in displayLists"
           :key="l.id"
-          class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-body-bg border border-border/50 text-[12px] hover:border-border transition-colors"
+          class="flex items-center justify-between gap-2 px-3 py-2 rounded-control bg-sunken-bg text-xs"
         >
           <div class="flex flex-col min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="font-medium text-text truncate" :title="l.name">{{ l.name }}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="font-normal text-text truncate" :title="l.name">{{ l.name }}</span>
               <span
                 v-if="l.isOwned === false"
-                class="px-1 py-0.2 rounded text-[9px] font-medium border border-border text-secondary-text shrink-0"
+                class="px-2 py-0.5 rounded-full text-xs bg-card-bg text-secondary-text shrink-0"
                 :title="l.ownerHandle ? '创建者: @' + l.ownerHandle : '关注的列表'"
               >
                 关注
               </span>
             </div>
-            <div class="flex items-center gap-1 text-[10px] text-secondary-text font-mono truncate">
+            <div class="flex items-center gap-1 text-xs text-muted-text font-mono truncate">
               <span>id: {{ l.id }}</span>
-              <span v-if="l.ownerHandle" class="text-secondary-text/80 truncate">· @{{ l.ownerHandle }}</span>
+              <span v-if="l.ownerHandle" class="text-muted-text truncate">· @{{ l.ownerHandle }}</span>
             </div>
           </div>
 
           <button
             @click="togglePin(l)"
             :class="[
-              'px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer shrink-0',
-              l.isPinned ? 'border-accent/50 text-accent bg-accent/10' : 'border-border text-secondary-text hover:text-text'
+              'min-h-6 px-2 rounded-control text-xs border transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+              l.isPinned ? 'border-accent text-accent-subtle-text bg-accent-subtle' : 'border-border-strong text-secondary-text hover:text-text'
             ]"
             :title="l.isPinned ? '取消置顶' : '置顶后排在列表最前面'"
           >
@@ -306,7 +306,7 @@ const displayLists = computed(() => {
           </button>
           <button
             @click="removeListById(l.id)"
-            class="text-secondary-text hover:text-red-500 transition-colors px-1 text-[14px] leading-none cursor-pointer shrink-0"
+            class="flex items-center justify-center w-6 h-6 rounded-control text-muted-text hover:text-danger hover:bg-card-bg transition-colors text-sm leading-none cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
             title="移除这个 List"
             :aria-label="`移除 ${l.name}`"
           >
@@ -316,7 +316,7 @@ const displayLists = computed(() => {
       </div>
       <div
         v-else
-        class="text-center py-3 text-[11px] text-secondary-text bg-body-bg/40 rounded-lg border border-border/30"
+        class="text-center px-3 py-4 text-xs text-muted-text bg-sunken-bg rounded-control"
       >
         {{ lists.length ? '这个分类下没有 List' : '还没有保存的 List。点击「从 X 同步」读取你创建和关注的 List' }}
       </div>

@@ -54,15 +54,15 @@ async function back() {
  >
   <SpamFilterDetail v-if="page === 'spamFilter'" />
   <TweetFilterDetail v-else-if="page === 'tweetFilter'" />
-  <div v-else-if="page === 'spamAccountLists'" class="p-3 bg-card-bg rounded-xl">
+  <div v-else-if="page === 'spamAccountLists'" class="p-4 bg-card-bg rounded-card">
    <ListsSection />
   </div>
-  <div v-else class="p-3 bg-card-bg rounded-xl">
+  <div v-else class="p-4 bg-card-bg rounded-card">
    <LogSection />
   </div>
  </SubPage>
 
- <section v-else class="flex flex-col gap-3">
+ <section v-else class="flex flex-col gap-4">
   <ModuleHeader module-id="filter" />
   <SpamFilterCard @open="openPage('spamFilter')" />
   <TweetFilterCard @open="openPage('tweetFilter')" />

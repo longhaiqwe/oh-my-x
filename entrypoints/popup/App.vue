@@ -45,23 +45,23 @@ watch(
 </script>
 
 <template>
- <div class="relative flex flex-col p-4 font-sans font-normal max-w-full w-100 bg-body-bg">
-  <div class="flex flex-col gap-y-3">
+ <div class="app-glow relative flex flex-col p-4 font-sans font-normal max-w-full w-100 bg-body-bg">
+  <div class="flex flex-col gap-4">
    <Header :current-module="activeTab" />
-   <main class="flex flex-col gap-y-3">
-    <TabsRoot :model-value="activeTab" @update:model-value="(v) => activeTab = v as FeatureModuleId" class="flex flex-col gap-3">
+   <main class="flex flex-col gap-4">
+    <TabsRoot :model-value="activeTab" @update:model-value="(v) => activeTab = v as FeatureModuleId" class="flex flex-col gap-4">
      <TabsList
-      class="flex gap-0.5 p-1.5 rounded-xl bg-card-bg"
+      class="flex gap-1 p-1 rounded-card bg-card-bg"
       aria-label="功能模块"
      >
       <TabsTrigger
        v-for="mod in FEATURE_MODULES"
        :key="mod.id"
        :value="mod.id"
-       class="flex-1 px-1.5 py-1 text-sm font-semibold rounded-lg transition-colors duration-150
-        data-[state=active]:bg-body-bg data-[state=active]:text-accent
-        data-[state=inactive]:text-color-text data-[state=inactive]:hover:text-text
-        data-[state=inactive]:hover:bg-body-bg/50
+       class="flex-1 min-h-8 px-2 text-sm font-semibold rounded-control transition-colors duration-150
+        data-[state=active]:bg-accent-subtle data-[state=active]:text-accent-subtle-text data-[state=active]:shadow-sm
+        data-[state=inactive]:text-secondary-text data-[state=inactive]:hover:text-text
+        data-[state=inactive]:hover:bg-sunken-bg
         outline-none focus-visible:ring-2 focus-visible:ring-accent-ring cursor-pointer"
       >
        {{ mod.tabLabel }}

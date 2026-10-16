@@ -55,12 +55,11 @@ onMounted(async () => {
      aria-label="时间线宽度滑块"
      class="relative flex items-center select-none touch-none w-full h-5 cursor-pointer"
     >
-     <SliderTrack class="bg-accent/30 relative flex-grow rounded-full h-1">
+     <SliderTrack class="bg-accent-track relative flex-grow rounded-full h-1">
       <SliderRange class="absolute bg-accent rounded-full h-full" />
      </SliderTrack>
      <SliderThumb
-      class="block w-4 h-4 bg-accent rounded-full focus:shadow-[0_0_0_5px_var(--color-accent-ring)] hover:shadow-[0_0_0_5px_var(--color-accent-ring)]"
-      :style="{ boxShadow: 'rgb(101 119 134 / 20%) 0px 0px 7px, rgb(101 119 134 / 15%) 0px 1px 3px 1px' }"
+      class="relative z-10 block w-4 h-4 rounded-full bg-accent shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg"
       />
       <span class="absolute left-0 right-0 flex items-center justify-center w-full pointer-events-none">
        <span
@@ -75,7 +74,7 @@ onMounted(async () => {
        />
       </span>
      </SliderRoot>
-    <span class="text-xs font-semibold text-accent whitespace-nowrap w-10 text-right">{{ userTrack }}px</span>
+    <span class="text-xs font-mono font-semibold text-text whitespace-nowrap w-12 text-right">{{ userTrack }}px</span>
    </div>
   </form>
 </template>

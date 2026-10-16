@@ -36,22 +36,22 @@ async function toggleRule(id: SpamRuleId, value: boolean) {
 <template>
  <div class="flex flex-col gap-1">
   <div class="flex items-baseline justify-between">
-   <p class="text-[13px] font-semibold text-text">{{ feature.label }}</p>
-   <span class="text-[11px] text-secondary-text">已开启 {{ enabledCount }}/{{ SPAM_RULES.length }}</span>
+   <p class="text-sm font-semibold text-text">{{ feature.label }}</p>
+   <span class="text-xs text-muted-text">已开启 {{ enabledCount }}/{{ SPAM_RULES.length }}</span>
   </div>
-  <p class="text-[11px] text-secondary-text">{{ feature.description }}</p>
-  <div class="flex flex-col rounded-lg border border-border bg-body-bg px-2.5">
+  <p class="text-xs text-secondary-text">{{ feature.description }}</p>
+  <div class="flex flex-col rounded-control bg-sunken-bg px-3">
    <div
     v-for="rule in SPAM_RULES"
     :key="rule.id"
-    class="flex items-center justify-between gap-2 py-2 border-t border-border first:border-t-0"
+    class="flex items-center justify-between gap-3 py-3 border-t border-border first:border-t-0"
    >
     <div class="flex-1 min-w-0">
-     <div class="text-[12px] font-medium leading-tight text-text">
+     <div class="text-sm leading-tight text-text">
       {{ rule.label }}
-      <span class="text-[10px] text-secondary-text ml-1">+{{ rule.defaultScore }}</span>
+      <span class="text-xs text-muted-text ml-1">+{{ rule.defaultScore }}</span>
      </div>
-     <div class="text-[10px] text-secondary-text leading-tight mt-0.5">{{ rule.description }}</div>
+     <div class="text-xs text-muted-text leading-normal mt-1">{{ rule.description }}</div>
     </div>
     <SwitchToggle
      :model-value="enabledRules[rule.id] !== false"

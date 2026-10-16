@@ -170,40 +170,40 @@ function clearAll() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5">
+  <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-[13px] font-semibold text-text">{{ feature.label }}</p>
+      <p class="text-sm font-semibold text-text">{{ feature.label }}</p>
       <div class="flex items-center gap-2">
-        <span v-if="syncMessage" class="text-[10px] text-accent font-medium">{{ syncMessage }}</span>
-        <span class="text-[11px] font-semibold text-accent">{{ keywordCount }} 个词</span>
+        <span v-if="syncMessage" class="text-xs text-success" role="status">{{ syncMessage }}</span>
+        <span class="text-xs text-muted-text">{{ keywordCount }} 个词</span>
       </div>
     </div>
-    <p class="text-[11px] text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
+    <p class="text-xs text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
     <WhereLine v-if="feature.where" :where="feature.where" />
-    <div class="flex items-center justify-end gap-2">
+    <div class="flex items-center justify-end gap-1">
       <button type="button"
-        class="text-[10px] text-accent hover:underline rounded py-0.5 transition-colors cursor-pointer"
+        class="text-xs text-accent-text hover:bg-accent-subtle min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         title="把新版本加入的默认词补进来，保留你添加的词"
         @click="syncOfficialKeywords">补充默认词</button>
       <button type="button"
-        class="text-[10px] text-secondary-text hover:text-text rounded py-0.5 transition-colors cursor-pointer"
+        class="text-xs text-secondary-text hover:text-text hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         title="把词库恢复为默认词"
         @click="resetToDefaults">恢复默认</button>
       <button v-if="keywordCount > 0" type="button"
-        class="text-[10px] text-red-400 hover:text-red-500 rounded py-0.5 transition-colors cursor-pointer"
+        class="text-xs text-danger hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         @click="clearAll">清空</button>
     </div>
 
     <!-- 标签编辑器 -->
     <div
-      class="w-full max-h-48 min-h-20 overflow-y-auto rounded-md border border-border bg-body-bg p-2.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent outline-none flex flex-wrap gap-1.5 content-start transition-all cursor-text"
+      class="w-full max-h-48 min-h-20 overflow-y-auto rounded-control border border-border-strong bg-sunken-bg p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-ring flex flex-wrap gap-1 content-start transition-colors cursor-text"
       @click="focusInput">
       <TransitionGroup name="list">
         <span v-for="(word, idx) in parsedKeywords" :key="word + '-' + idx"
-          class="group inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:bg-red-400/10 dark:text-red-400 border border-red-500/20 dark:border-red-400/20 transition-all hover:bg-red-500/15">
+          class="group inline-flex items-center text-xs leading-normal px-2 py-0.5 rounded-full bg-card-bg text-text transition-colors">
           <span>{{ word }}</span>
           <button type="button"
-            class="w-0 opacity-0 ml-0 group-hover:w-3.5 group-hover:opacity-100 group-hover:ml-1 h-3.5 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-700 dark:hover:text-red-300 font-bold focus:outline-none cursor-pointer text-[10px] transition-all duration-150 overflow-hidden"
+            class="w-0 opacity-0 ml-0 group-hover:w-4 group-hover:opacity-100 group-hover:ml-1 focus-visible:w-4 focus-visible:opacity-100 focus-visible:ml-1 h-4 flex items-center justify-center rounded-full text-muted-text hover:text-danger cursor-pointer text-xs transition-all duration-150 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
             :aria-label="`删除 ${word}`"
             @click.stop="removeWord(idx)">
             ✕
@@ -212,14 +212,14 @@ function clearAll() {
       </TransitionGroup>
 
       <input ref="inputRef" type="text" v-model="newKeyword"
-        class="flex-1 min-w-[120px] bg-transparent border-none outline-none text-[12px] p-0.5 placeholder:text-secondary-text/50"
+        class="flex-1 min-w-30 bg-transparent border-none outline-none text-xs text-text px-1 py-0.5 placeholder:text-muted-text"
         :placeholder="placeholderText" @input="handleInput" @keydown="handleKeydown" @paste="handlePaste"
         @blur="submitKeyword" />
     </div>
 
-    <p class="text-[10px] text-secondary-text leading-relaxed">
+    <p class="text-xs text-secondary-text leading-relaxed">
       选词按钮的样式是
-      <span class="inline-flex items-center justify-center bg-body-bg border border-border rounded p-0.5 align-middle mx-0.5">
+      <span class="inline-flex items-center justify-center bg-sunken-bg rounded-sm p-0.5 align-middle mx-1">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h8q.425 0 .713.288T14 4t-.288.713T13 5H5v14h14v-8q0-.425.288-.712T20 10t.713.288T21 11v8q0 .825-.587 1.413T19 21zm4-4q-.425 0-.712-.288T8 16t.288-.712T9 15h6q.425 0 .713.288T16 16t-.288.713T15 17zm0-3q-.425 0-.712-.288T8 13t.288-.712T9 12h6q.425 0 .713.288T16 13t-.288.713T15 14zm0-3q-.425 0-.712-.288T8 10t.288-.712T9 9h6q.425 0 .713.288T16 10t-.288.713T15 11zm9-2q-.425 0-.712-.288T17 8V7h-1q-.425 0-.712-.288T15 6t.288-.712T16 5h1V4q0-.425.288-.712T18 3t.713.288T19 4v1h1q.425 0 .713.288T21 6t-.288.713T20 7h-1v1q0 .425-.288.713T18 9"/></svg>
       </span>
       ，点击后可以从昵称或回复中选词加入词库。

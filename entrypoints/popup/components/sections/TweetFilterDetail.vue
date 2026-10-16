@@ -146,18 +146,18 @@ function focusInput() {
     </template>
   </FeatureCard>
 
-  <div class="p-3 bg-card-bg rounded-xl">
-      <div class="flex flex-col gap-1.5">
+  <div class="p-4 bg-card-bg rounded-card">
+      <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span class="text-[13px] font-semibold text-text">屏蔽词</span>
-            <span class="text-[11px] font-semibold text-accent">{{ keywordCount }} 个</span>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-text">屏蔽词</span>
+            <span class="text-xs text-muted-text">{{ keywordCount }} 个</span>
           </div>
           <div class="flex items-center gap-2">
-            <span v-if="noticeMessage" class="text-[10px] text-accent">{{ noticeMessage }}</span>
+            <span v-if="noticeMessage" class="text-xs text-success" role="status">{{ noticeMessage }}</span>
             <button
               type="button"
-              class="text-[10px] text-secondary-text hover:text-accent rounded transition-colors cursor-pointer"
+              class="text-xs text-secondary-text hover:text-text hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
               title="恢复为默认屏蔽词"
               @click="resetToDefaults"
             >
@@ -166,7 +166,7 @@ function focusInput() {
             <button
               v-if="keywordCount > 0"
               type="button"
-              class="text-[10px] text-red-400 hover:text-red-500 rounded transition-colors cursor-pointer"
+              class="text-xs text-danger hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
               @click="clearAll"
             >
               清空
@@ -176,19 +176,19 @@ function focusInput() {
 
         <!-- 标签编辑器 -->
         <div
-          class="w-full max-h-36 overflow-y-auto rounded-lg border border-border bg-body-bg p-2 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent outline-none flex flex-wrap gap-1.5 content-start transition-all cursor-text"
+          class="w-full max-h-36 overflow-y-auto rounded-control border border-border-strong bg-sunken-bg p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-ring flex flex-wrap gap-1 content-start transition-colors cursor-text"
           @click="focusInput"
         >
           <TransitionGroup name="tag-list">
             <span
               v-for="(word, idx) in parsedKeywords"
               :key="word + '-' + idx"
-              class="group inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:bg-red-400/10 dark:text-red-400 border border-red-500/20 dark:border-red-400/20 transition-all hover:bg-red-500/15"
+              class="group inline-flex items-center text-xs leading-normal px-2 py-0.5 rounded-full bg-card-bg text-text transition-colors"
             >
               <span>{{ word }}</span>
               <button
                 type="button"
-                class="w-0 opacity-0 ml-0 group-hover:w-3.5 group-hover:opacity-100 group-hover:ml-1 h-3.5 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-700 dark:hover:text-red-300 font-bold focus:outline-none cursor-pointer text-[10px] transition-all duration-150 overflow-hidden"
+                class="w-0 opacity-0 ml-0 group-hover:w-4 group-hover:opacity-100 group-hover:ml-1 focus-visible:w-4 focus-visible:opacity-100 focus-visible:ml-1 h-4 flex items-center justify-center rounded-full text-muted-text hover:text-danger cursor-pointer text-xs transition-all duration-150 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
                 :aria-label="`删除 ${word}`"
                 @click.stop="removeWord(idx)"
               >
@@ -201,7 +201,7 @@ function focusInput() {
             ref="inputRef"
             type="text"
             v-model="newKeyword"
-            class="flex-1 min-w-[100px] bg-transparent border-none outline-none text-[11px] p-0.5 placeholder:text-secondary-text/50"
+            class="flex-1 min-w-24 bg-transparent border-none outline-none text-xs text-text px-1 py-0.5 placeholder:text-muted-text"
             :placeholder="keywordCount === 0 ? '输入屏蔽词，按回车添加' : '添加屏蔽词'"
             @input="handleInput"
             @keydown="handleKeydown"
@@ -210,7 +210,7 @@ function focusInput() {
           />
         </div>
 
-        <p class="text-[10px] text-secondary-text leading-tight">
+        <p class="text-xs text-secondary-text leading-tight">
           按回车或逗号添加。默认包含「说个暴论」等 {{ defaultTweetFilterKeywords.length }} 个词。和垃圾词库分开管理。
         </p>
       </div>

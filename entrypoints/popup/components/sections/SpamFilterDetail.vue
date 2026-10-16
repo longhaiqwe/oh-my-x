@@ -24,7 +24,7 @@ onMounted(async () => {
 <template>
  <FeatureCard title="隐藏阈值" description="得分达到这个值的回复会被隐藏。数值越低，隐藏的回复越多">
   <template #control>
-   <span class="text-[13px] font-mono font-semibold text-accent">{{ threshold }}</span>
+   <span class="text-sm font-mono font-semibold text-text">{{ threshold }}</span>
   </template>
   <SliderRoot
    :model-value="[threshold]"
@@ -33,22 +33,22 @@ onMounted(async () => {
    aria-label="隐藏阈值"
    class="relative flex items-center select-none touch-none w-full h-4"
   >
-   <SliderTrack class="bg-accent/30 relative flex-grow rounded-full h-1">
+   <SliderTrack class="bg-accent-track relative flex-grow rounded-full h-1">
     <SliderRange class="absolute bg-accent rounded-full h-full" />
    </SliderTrack>
-   <SliderThumb class="block w-3.5 h-3.5 bg-accent rounded-full" />
+   <SliderThumb class="block w-4 h-4 rounded-full bg-accent shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg" />
   </SliderRoot>
-  <div class="flex justify-between text-[10px] font-mono text-secondary-text">
+  <div class="flex justify-between text-xs font-mono text-muted-text">
    <span>20</span>
    <span>150</span>
   </div>
  </FeatureCard>
 
- <div class="p-3 bg-card-bg rounded-xl">
+ <div class="p-4 bg-card-bg rounded-card">
   <RulesSection />
  </div>
 
- <div class="p-3 bg-card-bg rounded-xl">
+ <div class="p-4 bg-card-bg rounded-card">
   <KeywordsSection />
  </div>
 

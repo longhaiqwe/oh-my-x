@@ -78,14 +78,14 @@ onBeforeUnmount(() => {
 <template>
  <div class="flex flex-col gap-2">
   <div>
-   <p class="text-[13px] font-semibold text-text flex justify-between">
+   <p class="text-sm font-semibold text-text flex justify-between">
     白名单
-    <span class="text-accent">{{ parsedWhitelist.length }} 个</span>
+    <span class="font-normal text-secondary-text">{{ parsedWhitelist.length }} 个</span>
    </p>
-   <p class="text-[11px] text-secondary-text mt-0.5">这些作者的回复不会被隐藏。每行一个用户名</p>
+   <p class="text-xs text-muted-text mt-1">这些作者的回复不会被隐藏。每行一个用户名</p>
   </div>
   <textarea
-   class="w-full min-h-[80px] rounded-md border border-border bg-body-bg p-2 text-[12px] font-mono focus:border-accent outline-none resize-y"
+   class="w-full min-h-20 rounded-control border border-border-strong bg-sunken-bg p-2 text-xs font-mono focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none resize-y text-text"
    :value="whitelist"
    aria-label="白名单"
    @input="(e: Event) => updateWhitelist((e.target as HTMLTextAreaElement).value)"
@@ -96,19 +96,19 @@ onBeforeUnmount(() => {
    <span
     v-for="handle in parsedWhitelist"
     :key="handle"
-    class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-mono"
+    class="inline-flex items-center px-2 py-0.5 rounded-full bg-sunken-bg text-success text-xs font-mono"
    >@{{ handle }}</span>
   </div>
 
-  <div class="pt-2 border-t border-border/60">
-   <p class="text-[13px] font-semibold text-text flex justify-between">
+  <div class="pt-4 border-t border-border">
+   <p class="text-sm font-semibold text-text flex justify-between">
     黑名单
-    <span class="text-red-500">{{ parsedBlacklist.length }} 个</span>
+    <span class="font-normal text-secondary-text">{{ parsedBlacklist.length }} 个</span>
    </p>
-   <p class="text-[11px] text-secondary-text mt-0.5">这些作者的回复全部隐藏。每行一个用户名</p>
+   <p class="text-xs text-muted-text mt-1">这些作者的回复全部隐藏。每行一个用户名</p>
   </div>
   <textarea
-   class="w-full min-h-[80px] rounded-md border border-border bg-body-bg p-2 text-[12px] font-mono focus:border-accent outline-none resize-y"
+   class="w-full min-h-20 rounded-control border border-border-strong bg-sunken-bg p-2 text-xs font-mono focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none resize-y text-text"
    :value="blacklist"
    aria-label="黑名单"
    @input="(e: Event) => updateBlacklist((e.target as HTMLTextAreaElement).value)"
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
    <span
     v-for="handle in parsedBlacklist"
     :key="handle"
-    class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-mono"
+    class="inline-flex items-center px-2 py-0.5 rounded-full bg-sunken-bg text-danger text-xs font-mono"
    >@{{ handle }}</span>
   </div>
  </div>

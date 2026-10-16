@@ -31,16 +31,16 @@ watch(() => snapshot[KeySpamLog], () => void loadRecent())
    <li
     v-for="entry in recent"
     :key="entry.id"
-    class="flex items-center gap-1.5 text-[11px] min-w-0"
+    class="flex items-center gap-2 text-xs min-w-0"
    >
     <span class="font-mono text-secondary-text shrink-0 w-9">{{ fmtTime(entry.timestamp) }}</span>
-    <span class="px-1 py-0.5 rounded bg-body-bg border border-border shrink-0 text-[10px]">
+    <span class="px-2 py-0.5 rounded-full bg-sunken-bg text-secondary-text shrink-0 text-xs">
      {{ SPAM_CATEGORY_LABEL[entry.category] }}
     </span>
     <span class="font-mono shrink-0">@{{ entry.authorHandle || 'unknown' }}</span>
     <span class="truncate text-secondary-text">{{ entry.text || '(空)' }}</span>
    </li>
   </ul>
-  <p v-else class="text-[11px] text-secondary-text">还没有拦截记录</p>
+  <p v-else class="text-xs text-muted-text">还没有拦截记录</p>
  </FeatureCard>
 </template>

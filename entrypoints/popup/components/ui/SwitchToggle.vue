@@ -9,13 +9,14 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>()
  <SwitchRoot
   :model-value="modelValue"
   :aria-label="label"
-  class="w-8 h-[18px] rounded-full relative flex items-center cursor-pointer shrink-0"
-  :class="modelValue ? 'bg-accent' : 'bg-secondary-text/40'"
+  class="w-8 h-5 rounded-full relative flex items-center cursor-pointer shrink-0 transition-colors duration-150
+   outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg"
+  :class="modelValue ? 'bg-accent' : 'bg-switch-off'"
   @update:model-value="(v) => $emit('update:modelValue', !!v)"
  >
   <SwitchThumb
-   class="block w-3.5 h-3.5 rounded-full shadow transition-transform duration-100 bg-white"
-   :class="modelValue ? 'translate-x-[15px]' : 'translate-x-0.5'"
+   class="block w-4 h-4 rounded-full shadow-sm bg-switch-thumb transition-transform duration-150"
+   :class="modelValue ? 'translate-x-3.5' : 'translate-x-0.5'"
   />
  </SwitchRoot>
 </template>

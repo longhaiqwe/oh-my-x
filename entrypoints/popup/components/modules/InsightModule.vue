@@ -18,7 +18,7 @@ const followerCountOptions = [
 </script>
 
 <template>
- <section class="flex flex-col gap-3">
+ <section class="flex flex-col gap-4">
   <ModuleHeader module-id="insight" />
 
   <GroupLabel>看板</GroupLabel>

@@ -26,6 +26,8 @@ async function handleClearStats() {
   await refresh()
 }
 
+const ACTION_LABEL: Record<SpamLogEntry['action'], string> = { filter: '已隐藏', allow: '已放行' }
+
 function fmtTime(ts: number) {
   return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 }
@@ -35,53 +37,53 @@ onMounted(refresh)
 
 <template>
  <section class="flex flex-col gap-2">
-  <div class="flex items-center justify-between gap-2 ">
-   <p class="text-[10px] text-secondary-text">共 {{ sorted.length }} 条，最多保留 50 条</p>
+  <div class="flex items-center justify-between gap-2">
+   <p class="text-xs text-muted-text">共 {{ sorted.length }} 条，最多保留 50 条</p>
    <div class="flex items-center gap-1">
     <button
      type="button"
-     class="px-2 py-1 text-[10px] font-semibold  rounded  hover:bg-gray-400/15"
+     class="min-h-6 px-2 text-xs font-semibold rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring text-secondary-text hover:text-text hover:bg-sunken-bg"
      @click="refresh"
     >刷新</button>
     <button
      type="button"
-     class="px-2 py-1 text-[10px] font-semibold rounded   text-red-500 hover:bg-red-500/15"
+     class="min-h-6 px-2 text-xs font-semibold rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring text-danger hover:bg-sunken-bg"
      @click="handleClearLog"
     >清空记录</button>
     <button
      type="button"
-     class="px-2 py-1 text-[10px] font-semibold rounded  text-red-500 hover:bg-red-500/15"
+     class="min-h-6 px-2 text-xs font-semibold rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring text-danger hover:bg-sunken-bg"
      @click="handleClearStats"
     >清空统计</button>
    </div>
   </div>
 
-  <p v-if="!sorted.length" class="p-6 text-center text-[12px] text-secondary-text rounded-xl border border-dashed border-border">
+  <p v-if="!sorted.length" class="p-6 text-center text-xs text-muted-text rounded-card border border-dashed border-border-strong">
    还没有拦截记录。
   </p>
 
-  <ul v-else class="flex flex-col gap-1.5">
+  <ul v-else class="flex flex-col gap-2">
    <li
     v-for="entry in sorted"
     :key="entry.id"
-    class="rounded-lg border border-border bg-body-bg p-2 flex flex-col gap-1"
+    class="rounded-control bg-sunken-bg p-2 flex flex-col gap-1"
    >
-    <div class="flex items-center justify-between gap-2 text-[10px] text-secondary-text">
+    <div class="flex items-center justify-between gap-2 text-xs text-secondary-text">
      <div class="flex items-center gap-1 flex-wrap min-w-0">
       <span class="font-mono">@{{ entry.authorHandle || 'unknown' }}</span>
-      <span class="px-1 py-0.5 rounded-md bg-body-bg border border-border">{{ SPAM_CATEGORY_LABEL[entry.category] }}</span>
-      <span class="px-1 py-0.5 rounded-md bg-body-bg border border-border">分 {{ entry.score }}</span>
-      <span class="px-1 py-0.5 rounded-md bg-body-bg border border-border uppercase">{{ entry.action }}</span>
+      <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ SPAM_CATEGORY_LABEL[entry.category] }}</span>
+      <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ entry.score }} 分</span>
+      <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ ACTION_LABEL[entry.action] ?? entry.action }}</span>
      </div>
      <span class="shrink-0">{{ fmtTime(entry.timestamp) }}</span>
     </div>
-    <div class="text-xs whitespace-pre-wrap wrap-break-word leading-snug">{{ entry.text || '(空)' }}</div>
+    <div class="text-xs text-text whitespace-pre-wrap wrap-break-word leading-normal">{{ entry.text || '(空)' }}</div>
     <div v-if="entry.hits.length" class="flex flex-wrap gap-1">
      <span
       v-for="(hit, idx) in entry.hits"
       :key="idx"
-      class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-400/10 text-red-400"
-     >✓ {{ hit.label }}</span>
+      class="text-xs px-2 py-0.5 rounded-full bg-card-bg text-secondary-text"
+     >命中：{{ hit.label }}</span>
     </div>
    </li>
   </ul>
