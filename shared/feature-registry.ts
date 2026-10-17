@@ -107,7 +107,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   { id: 'filter', tabLabel: '过滤', title: '内容过滤', description: '隐藏垃圾回复和含屏蔽词的推文' },
   { id: 'insight', tabLabel: '数据', title: '数据洞察', description: '查看创作者奖励进度，在推文和用户旁标注数据' },
   { id: 'create', tabLabel: '创作', title: '创作与发布', description: '在编辑器中引用旧帖、生成转发草稿、查看排期' },
-  { id: 'engage', tabLabel: '互动', title: '互动与列表', description: '用快捷键互动，标记未回关账号，管理 Lists' },
+  { id: 'engage', tabLabel: '互动', title: '互动与列表', description: '用快捷键互动，下载推文里的媒体，标记未回关账号，管理 Lists' },
 ]
 
 export const FEATURES: readonly FeatureDefinition[] = [
@@ -173,14 +173,6 @@ export const FEATURES: readonly FeatureDefinition[] = [
     description: '提取长文的一级和二级标题生成目录，点击跳到对应位置',
     storageKeys: [KeyArticleToc],
     where: '长文页和长文编辑器侧边',
-  },
-  {
-    id: 'mediaDownload',
-    module: 'layout',
-    label: '媒体下载',
-    description: '在推文分享菜单中加入下载图片、GIF 和视频的选项',
-    storageKeys: [KeyMediaDownload],
-    where: '推文的分享菜单',
   },
 
   // 内容过滤
@@ -352,6 +344,14 @@ export const FEATURES: readonly FeatureDefinition[] = [
     description: '回复别人的推文后，给这条推文点赞',
     note: '点赞前随机等待 0.3 到 0.7 秒；已赞过的推文和自己的推文不点',
     storageKeys: [KeyAutoLikeOnReply],
+  },
+  {
+    id: 'mediaDownload',
+    module: 'engage',
+    label: '媒体下载',
+    description: '在推文分享菜单中加入下载图片、GIF 和视频的选项',
+    storageKeys: [KeyMediaDownload],
+    where: '推文的分享菜单',
   },
   {
     id: 'nonFollowers',

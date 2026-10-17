@@ -5,6 +5,7 @@ import {
   KeyJumpToReplies,
   KeyAutoLikeOnReply,
   KeyHighlightNonFollowers,
+  KeyMediaDownload,
 } from '../../../../storage-keys'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import GroupLabel from '../ui/GroupLabel.vue'
@@ -50,6 +51,12 @@ const shortcutKeys = [
   <FeatureCard feature-id="autoLikeOnReply">
    <template #control>
     <FeatureSwitch :storage-key="KeyAutoLikeOnReply" label="回复自动点赞" />
+   </template>
+  </FeatureCard>
+
+  <FeatureCard feature-id="mediaDownload">
+   <template #control>
+    <FeatureSwitch :storage-key="KeyMediaDownload" label="媒体下载" />
    </template>
   </FeatureCard>
 
