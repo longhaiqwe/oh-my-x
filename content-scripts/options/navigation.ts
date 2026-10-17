@@ -31,7 +31,6 @@ export const changeJobsButton = (state: string | number | boolean) => changeSide
 export const changeArticlesButton = (state: string | number | boolean) => changeSidebarSetting('articles', state)
 export const changeVerifiedOrgsButton = (state: string | number | boolean) => changeSidebarSetting('verifiedOrgs', state)
 export const changeProfileButton = (state: string | number | boolean) => changeSidebarSetting('profile', state)
-export const changeCreatorStudioButton = (state: string | number | boolean) => changeSidebarSetting('creatorStudio', state)
 export const changeChatMoneyButton = (state: string | number | boolean) => changeSidebarSetting('chatMoney', state)
 export const changeMoreMenuButton = (state: string | number | boolean) => changeSidebarSetting('moreMenu', state)
 export const changeXPremiumButton = (state: string | number | boolean) => changeSidebarSetting('xPremium', state, addXPremiumButton)

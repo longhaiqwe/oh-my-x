@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { changeBookmarksButton, changeCreatorStudioButton } from '../../content-scripts/options/navigation'
+import { changeBookmarksButton, changeListsButton } from '../../content-scripts/options/navigation'
+import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -31,26 +32,26 @@ function isHidden(el: Element | null) {
 describe('「更多」菜单里的导航入口', () => {
   beforeEach(() => mountNav())
   afterEach(() => {
-    changeCreatorStudioButton('on')
     changeBookmarksButton('on')
+    changeListsButton('on')
     document.body.innerHTML = ''
   })
 
-  it('关掉创作者工作室后，菜单里的这一项被隐藏，其他项不受影响', async () => {
-    changeCreatorStudioButton('off')
+  it('关掉 Lists 后，菜单里的这一项被隐藏，其他项不受影响', async () => {
+    changeListsButton('off')
     const menu = await openMoreMenu(`
-      <a role="menuitem" href="/i/jf/creators/studio"><span>创作者工作室</span></a>
+      <a role="menuitem" href="/alice/lists"><span>列表</span></a>
       <a role="menuitem" href="/settings"><span>设置和隐私</span></a>
     `)
-    expect(isHidden(menu.querySelector('a[href*="creators/studio"]'))).toBe(true)
+    expect(isHidden(menu.querySelector('a[href*="lists"]'))).toBe(true)
     expect(isHidden(menu.querySelector('a[href="/settings"]'))).toBe(false)
   })
 
   it('链接地址对不上时，按菜单文字也能找到', async () => {
-    changeCreatorStudioButton('off')
+    changeBookmarksButton('off')
     const menu = await openMoreMenu(`
-      <div role="menuitem" id="en"><span>Creator Studio</span></div>
-      <div role="menuitem" id="other"><span>Creator Studio Tips</span></div>
+      <div role="menuitem" id="en"><span>Bookmarks</span></div>
+      <div role="menuitem" id="other"><span>Bookmarks Folder</span></div>
     `)
     expect(isHidden(menu.querySelector('#en'))).toBe(true)
     // 只按完整文字匹配，避免误伤名字相近的项
@@ -68,12 +69,18 @@ describe('「更多」菜单里的导航入口', () => {
   })
 
   it('没有点「更多」时打开的其他菜单不受影响', async () => {
-    changeCreatorStudioButton('off')
+    changeBookmarksButton('off')
     const menu = document.createElement('div')
     menu.setAttribute('data-testid', 'Dropdown')
-    menu.innerHTML = `<a role="menuitem" href="/i/jf/creators/studio"><span>创作者工作室</span></a>`
+    menu.innerHTML = `<a role="menuitem" href="/i/bookmarks"><span>书签</span></a>`
     document.getElementById('layers')!.append(menu)
     await sleep(80)
     expect(isHidden(menu.querySelector('a'))).toBe(false)
   })
+})
+
+it('弹窗的导航栏按钮里不再提供创作者工作室', () => {
+  // X 已把它收进「更多」菜单，显隐开关没有意义
+  expect(STATIC_NAV_ITEMS.map((item) => item.label)).not.toContain('创作者工作室')
+  expect(STATIC_NAV_ITEMS).toHaveLength(10)
 })

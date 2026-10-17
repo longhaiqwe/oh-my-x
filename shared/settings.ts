@@ -2,7 +2,6 @@ import {
   KeyArticlesButton,
   KeyBookmarksButton,
   KeyCommunitiesButton,
-  KeyCreatorStudioButton,
   KeyChatMoneyButton,
   KeyExploreButton,
   KeyExtensionStatus,
@@ -91,7 +90,6 @@ export interface ExtensionSettings {
   [KeyTopicsButton]: ToggleValue
   [KeyVerifiedOrgsButton]: ToggleValue
   [KeyProfileButton]: ToggleValue
-  [KeyCreatorStudioButton]: ToggleValue
   [KeyChatMoneyButton]: ToggleValue
   [KeyMoreMenuButton]: ToggleValue
   [KeySpamFilterEnabled]: ToggleValue
@@ -155,7 +153,6 @@ const TOGGLE_KEYS = new Set<string>([
   KeyTopicsButton,
   KeyVerifiedOrgsButton,
   KeyProfileButton,
-  KeyCreatorStudioButton,
   KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeySpamFilterEnabled,

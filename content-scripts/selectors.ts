@@ -23,7 +23,6 @@ const selectors = {
     verifiedOrgs: `header[role="banner"] a[href*="verified-orgs"][role="link"][aria-label]`,
     analytics: `header[role="banner"] .xf-sidebar-button[aria-label="Analytics"]`,
     grok: `header[role="banner"] a[href*="grok"][role="link"][aria-label]`,
-    creatorStudio: `header[role="banner"] a[href*="creators/studio"]`,
     chatMoney: `header[role="banner"] a[href*="money"], header[role="banner"] a[href*="chatmoney"], header[role="banner"] [aria-label*="Money" i], header[role="banner"] [aria-label*="ChatMoney" i], header[role="banner"] [data-testid*="money" i]`,
     moreMenu: `header[role="banner"] [data-testid="AppTabBar_More_Menu"]`,
   },

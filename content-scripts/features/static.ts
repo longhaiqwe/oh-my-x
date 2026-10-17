@@ -3,7 +3,7 @@ import {
   KeyExploreButton, KeyGrokButton,
   KeyJobsButton, KeyListsButton, KeyMessagesButton,
   KeyNavigationButtonsLabels, KeyNotificationsButton,
-  KeyCreatorStudioButton, KeyChatMoneyButton, KeyMoreMenuButton, KeyProfileButton,
+  KeyChatMoneyButton, KeyMoreMenuButton, KeyProfileButton,
   KeySidebarColumn,
   KeyTimelineWidth,
   KeyTopicsButton, KeyTweetButton,
@@ -25,7 +25,7 @@ import {
   changeCommunitiesButton, changeExploreButton, changeGrokButton,
   changeJobsButton, changeListsButton,
   changeMessagesButton, changeNavigationButtonsLabels,
-  changeCreatorStudioButton, changeChatMoneyButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
+  changeChatMoneyButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
   changeTopicsButton, changeVerifiedOrgsButton,
   changeXPremiumButton,
 } from '../options/navigation'
@@ -64,7 +64,6 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
     changeTopicsButton(data[KeyTopicsButton])
     changeListsButton(data[KeyListsButton])
     changeProfileButton(data[KeyProfileButton])
-    changeCreatorStudioButton(data[KeyCreatorStudioButton])
     changeChatMoneyButton(data[KeyChatMoneyButton])
     changeMoreMenuButton(data[KeyMoreMenuButton])
     changeXPremiumButton(data[KeyXPremiumButton])
@@ -101,7 +100,6 @@ const SIDEBAR_KEYS = new Set<SettingKey>([
   KeyTopicsButton,
   KeyListsButton,
   KeyProfileButton,
-  KeyCreatorStudioButton,
   KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeyXPremiumButton,

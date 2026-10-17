@@ -17,6 +17,7 @@ export const KeyBookmarksButton = 'bookmarksButton'
 export const KeyJobsButton = 'jobsButton'
 export const KeyArticlesButton = 'articles'
 export const KeyProfileButton = 'profileButton'
+// 已停用：X 把创作者工作室收进了「更多」菜单，弹窗不再提供显隐开关。保留常量供导航图标识别（shared/navItems.ts）使用
 export const KeyCreatorStudioButton = 'creatorStudioButton'
 export const KeyChatMoneyButton = 'chatMoneyButton'
 export const KeyMoreMenuButton = 'moreMenuButton'
@@ -108,7 +109,6 @@ export const allSettingsKeys = [
   KeyTopicsButton,
   KeyVerifiedOrgsButton,
   KeyProfileButton,
-  KeyCreatorStudioButton,
   KeyChatMoneyButton,
   KeyMoreMenuButton,
   KeySpamFilterEnabled,
@@ -275,7 +275,6 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyTopicsButton]: 'on',
   [KeyVerifiedOrgsButton]: 'on',
   [KeyProfileButton]: 'on',
-  [KeyCreatorStudioButton]: 'on',
   [KeyChatMoneyButton]: 'on',
   [KeyMoreMenuButton]: 'on',
   [KeySpamFilterEnabled]: 'on',

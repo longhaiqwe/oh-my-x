@@ -142,15 +142,16 @@ describe('extractNavItems', () => {
 })
 
 describe('STATIC_NAV_ITEMS', () => {
-  it('contains exactly 11 navigation items', () => {
-    expect(STATIC_NAV_ITEMS.length).toBe(11)
+  it('contains exactly 10 navigation items', () => {
+    // 创作者工作室已被 X 收进「更多」菜单，不再提供开关
+    expect(STATIC_NAV_ITEMS.length).toBe(10)
   })
 
   it('contains valid and unique storage keys defined in allSettingsKeys', () => {
     const validKeys = new Set(allSettingsKeys)
     const storageKeys = STATIC_NAV_ITEMS.map((item) => item.storageKey)
 
-    expect(new Set(storageKeys).size).toBe(11)
+    expect(new Set(storageKeys).size).toBe(STATIC_NAV_ITEMS.length)
     for (const key of storageKeys) {
       expect(validKeys.has(key as any)).toBe(true)
     }

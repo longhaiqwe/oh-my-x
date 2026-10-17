@@ -18,15 +18,21 @@ function normalize(text: string) {
   return text.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
+// 导航栏选择器里的 [aria-label]、[role="link"] 只在左侧导航栏成立，菜单里的链接不一定有，匹配菜单时去掉
+function menuSelector(selector: string) {
+  return selector.replace(/\[aria-label\]|\[role="link"\]/g, '')
+}
+
 // 每个入口的匹配方式：链接选择器，或菜单项文字（英文名 / 中文名）完全相同
 function matcherFor(id: NavIconId) {
   const item = NAV_ITEMS.find((i) => i.id === id)
   if (!item) return null
+  const selector = menuSelector(item.selector)
   const zhLabel = STATIC_NAV_ITEMS.find((s) => s.storageKey === item.storageKey)?.label
   const labels = [item.label, zhLabel].filter((l): l is string => Boolean(l)).map(normalize)
   return (el: Element) => {
     try {
-      if (el.matches(item.selector)) return true
+      if (el.matches(selector)) return true
     } catch {
       // 选择器在当前环境不可用时只按文字匹配
     }
