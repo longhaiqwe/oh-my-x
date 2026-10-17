@@ -20,13 +20,14 @@ import NavigationCard from '../sections/NavigationCard.vue'
    </FeatureCard>
    <FeatureCard feature-id="sidebarColumn" variant="row">
     <template #control>
-     <!-- 该设置存的是“是否隐藏”：'on' 为隐藏，所以反向绑定 -->
-     <FeatureSwitch :storage-key="KeySidebarColumn" invert label="显示右侧边栏" />
+     <!-- X 默认显示的元素，开关写成「隐藏…」，打开 = 隐藏；该设置存的就是“是否隐藏”：'on' 为隐藏 -->
+     <FeatureSwitch :storage-key="KeySidebarColumn" label="隐藏右侧边栏" />
     </template>
    </FeatureCard>
    <FeatureCard feature-id="tweetButton" variant="row">
     <template #control>
-     <FeatureSwitch :storage-key="KeyTweetButton" label="显示发帖按钮" />
+     <!-- 该设置存的是“是否显示”：'off' 为隐藏，所以反向绑定 -->
+     <FeatureSwitch :storage-key="KeyTweetButton" invert label="隐藏发帖按钮" />
     </template>
    </FeatureCard>
   </FeatureList>

@@ -200,7 +200,7 @@ oh-my-x/
 - 每个模块页在 `components/modules/*Module.vue`，页头 `ModuleHeader` 显示模块标题和说明；功能卡片在 `components/sections`，通用控件在 `components/ui`、`components/controls`。
 - 功能卡片统一用 `ui/FeatureCard.vue`：名称 + 右侧控件 / 说明、补充说明、「在哪用」（都取自功能清单）/ 分隔线下状态行 + 展开详细设置。详细设置用 `v-show` 收起，内容保持挂载。
 - 多个简单功能共用一张卡片时，用 `FeatureList` 包住若干 `FeatureCard variant="row"`；从属设置用 `SubRow` 缩进；分组标题用 `GroupLabel`。
-- 开关一律正向命名（打开 = 开启或显示）。直接绑定存储的开关用 `FeatureSwitch`；存储值与开关含义相反时传 `invert`（如 `sidebarColumn` 存 'on' 表示隐藏）。自己管理状态的卡片用 `SwitchToggle`，多选项用 `SegmentedControl` / `ToggleGroupControl`。
+- 开关打开 = 开启或显示；例外：X 默认显示的界面元素（右侧边栏、发帖按钮）写成「隐藏…」，打开 = 隐藏，开关关着就等于 X 原样。直接绑定存储的开关用 `FeatureSwitch`；存储值与开关含义相反时传 `invert`（如「隐藏发帖按钮」：`tweetButton` 存 'off' 表示隐藏）。自己管理状态的卡片用 `SwitchToggle`，多选项用 `SegmentedControl` / `ToggleGroupControl`。
 - 界面文案用白描：写动作和结果，不拟人、不比喻、不用夸张的形容词和副词。
 - 视觉规范见 `docs/design/DESIGN.md`：配色来自 `docs/design/design-tokens.json`（refactoring-ui 色阶算法生成，参考图为深蓝 + 米白 + 橙色）。组件只用 `theme.css` 里的语义变量（`body-bg`、`card-bg`、`sunken-bg`、`text`、`secondary-text`、`muted-text`、`accent`、`accent-text` 等），字号只用 12/14/16/18/20，字重只用 400/600，间距用 4 的倍数；`test/unit/popup-design-tokens.test.ts` 会拦截不合规的写法。
 - 过滤页分两层（`modules/FilterModule.vue`）：第一层四张卡片用 `FeatureCard details-as="page"`，点击后切到第二层；第二层用 `ui/SubPage.vue`（返回按钮 + 「内容过滤 / 功能名」）。进入时记录 `#app` 的滚动位置并回到顶部，返回时恢复位置并把焦点放回入口按钮（`data-details-for`）。

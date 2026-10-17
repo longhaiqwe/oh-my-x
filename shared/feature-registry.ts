@@ -122,14 +122,14 @@ export const FEATURES: readonly FeatureDefinition[] = [
   {
     id: 'sidebarColumn',
     module: 'layout',
-    label: '显示右侧边栏',
+    label: '隐藏右侧边栏',
     description: '右侧的搜索、推荐关注和趋势栏',
     storageKeys: [KeySidebarColumn],
   },
   {
     id: 'tweetButton',
     module: 'layout',
-    label: '显示发帖按钮',
+    label: '隐藏发帖按钮',
     description: '左侧导航栏里的发帖按钮，隐藏后可以按 N 发帖',
     storageKeys: [KeyTweetButton],
   },
