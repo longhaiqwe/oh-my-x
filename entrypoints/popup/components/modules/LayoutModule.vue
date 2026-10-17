@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { KeyTweetButton, KeySidebarColumn, KeyArticleToc } from '../../../../storage-keys'
-import TimelineWidthSlider from '../controls/TimelineWidthSlider.vue'
+import {
+ KeyTweetButton, KeySidebarColumn, KeyArticleToc, KeyTimelineWidth, KeyNavigationWidth,
+} from '../../../../storage-keys'
+import WidthSlider from '../controls/WidthSlider.vue'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import GroupLabel from '../ui/GroupLabel.vue'
 import FeatureList from '../ui/FeatureList.vue'
@@ -16,7 +18,10 @@ import NavigationCard from '../sections/NavigationCard.vue'
   <GroupLabel>布局</GroupLabel>
   <FeatureList>
    <FeatureCard feature-id="timelineWidth" variant="row">
-    <TimelineWidthSlider />
+    <WidthSlider :storage-key="KeyTimelineWidth" :min="600" :max="800" :step="50" label="时间线宽度" />
+   </FeatureCard>
+   <FeatureCard feature-id="navigationWidth" variant="row">
+    <WidthSlider :storage-key="KeyNavigationWidth" :min="200" :max="275" :step="25" label="导航栏宽度" />
    </FeatureCard>
    <FeatureCard feature-id="sidebarColumn" variant="row">
     <template #control>

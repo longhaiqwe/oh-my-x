@@ -12,6 +12,7 @@ import {
   KeyMessagesButton,
   KeyMoreMenuButton,
   KeyNavigationButtonsLabels,
+  KeyNavigationWidth,
   KeyNotificationsButton,
   KeyProfileButton,
   KeySidebarColumn,
@@ -77,6 +78,7 @@ export interface ExtensionSettings {
   [KeyExtensionStatus]: ToggleValue
   [KeyTimelineWidth]: number
   [KeyNavigationButtonsLabels]: NavigationLabelMode
+  [KeyNavigationWidth]: number
   [KeyTweetButton]: ToggleValue
   [KeyHomeButton]: ToggleValue
   [KeyExploreButton]: ToggleValue
@@ -191,6 +193,7 @@ function normalizeToggle(value: unknown, fallback: ToggleValue): ToggleValue {
 /** 数值类设置的业务范围，用于 clamp 损坏/越界的 storage 值（对齐各 UI 滑块边界） */
 const NUMERIC_RANGES: Partial<Record<string, { min: number; max: number }>> = {
   [KeyTimelineWidth]: { min: 600, max: 800 },
+  [KeyNavigationWidth]: { min: 200, max: 275 },
   [KeySpamThreshold]: { min: 20, max: 150 },
   [KeyViralPotentialThreshold]: { min: 0, max: 50000 },
   [KeyViralViralThreshold]: { min: 0, max: 50000 },
@@ -295,6 +298,7 @@ export function normalizeSettings(raw: Partial<Record<string, unknown>> = {}): E
       result[key] = normalizeToggle(value, fallback as ToggleValue)
     } else if (
       key === KeyTimelineWidth ||
+      key === KeyNavigationWidth ||
       key === KeySpamThreshold ||
       key === KeyViralPotentialThreshold ||
       key === KeyViralViralThreshold

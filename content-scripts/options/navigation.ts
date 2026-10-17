@@ -103,6 +103,34 @@ export function ensureCustomTweetButton() {
   nativeBtn.parentNode.insertBefore(customBtn, nativeBtn.nextSibling)
 }
 
+/** X 在窗口宽度达到这个值时才显示导航文字，导航栏宽 275px；更窄时只渲染 88px 宽的图标栏 */
+const X_NAV_LABELS_MIN_VIEWPORT = 1265
+export const X_NAVIGATION_WIDTH = 275
+
+/**
+ * 调整左侧导航栏宽度。只在 X 显示导航文字时生效：
+ * 导航文字为「从不」时导航栏是图标宽度，窗口窄于 1265px 时 X 自己只显示图标。
+ * 「悬停」模式下文字隐藏但仍占这个宽度。
+ */
+export const changeNavigationWidth = (
+  navigationWidth: string | number | boolean,
+  navigationLabels: string | number | boolean = 'always',
+) => {
+  const width = Number(navigationWidth)
+  if (!Number.isFinite(width) || navigationLabels === 'never' || width >= X_NAVIGATION_WIDTH) {
+    removeStyles('navigationWidth')
+    return
+  }
+  // header > div 是占位层，决定导航栏在页面里占多宽；header > div > div > div 是固定定位层里的内容层
+  addStyles(
+    'navigationWidth',
+    `@media only screen and (min-width: ${X_NAV_LABELS_MIN_VIEWPORT}px) {
+      header[role="banner"] > div,
+      header[role="banner"] > div > div > div { width: ${width}px !important; }
+    }`
+  )
+}
+
 let lastNavigationLabelsCacheKey: string | null = null
 
 export const changeNavigationButtonsLabels = (setting: string | number | boolean) => {
@@ -233,8 +261,6 @@ export const changeNavigationButtonsLabels = (setting: string | number | boolean
       'showLabelsOnHover',
       `${selectors.leftSidebarLabel_hover},
       ${selectors.accountSwitcherLabel_hover} { opacity: 1; }
-      header[role="banner"] > div,
-      header[role="banner"] > div > div > div { width: 275px !important; }
       header[role="banner"] nav[role="navigation"]:hover ${tweetBtn},
       header[role="banner"]:hover ${tweetBtn} {
         display: flex !important;

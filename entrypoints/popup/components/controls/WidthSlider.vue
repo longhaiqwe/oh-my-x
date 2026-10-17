@@ -1,19 +1,33 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
-import { KeyTimelineWidth } from '../../../../storage-keys'
+import { defaultPreferences } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+
+// 宽度滑块（时间线宽度、导航栏宽度共用）。
+// 值同时缓存到 localStorage，弹窗打开时先显示上次的值，不会从默认值跳过来
+const props = defineProps<{
+  storageKey: string
+  min: number
+  max: number
+  step: number
+  label: string
+}>()
 
 function getInitialWidth(): number {
   try {
-    const cached = window?.localStorage?.getItem(KeyTimelineWidth)
+    const cached = window?.localStorage?.getItem(props.storageKey)
     if (cached) return Number(cached)
   } catch {}
-  return 700
+  return Number(defaultPreferences[props.storageKey])
 }
 
 const userTrack = ref(getInitialWidth())
-const trackDots = [600, 650, 700, 750, 800]
+const trackDots = computed(() => {
+  const dots: number[] = []
+  for (let v = props.min; v <= props.max; v += props.step) dots.push(v)
+  return dots
+})
 
 // 只读 computed，供 SliderRoot :model-value 绑定
 const sliderValue = computed(() => [userTrack.value])
@@ -23,21 +37,21 @@ function onSliderUpdate(val: number[] | undefined) {
   if (val[0] !== undefined && val[0] !== userTrack.value) {
     userTrack.value = val[0]
     try {
-      localStorage.setItem(KeyTimelineWidth, String(val[0]))
+      localStorage.setItem(props.storageKey, String(val[0]))
     } catch {}
-    void setStorage({ [KeyTimelineWidth]: val[0] })
+    void setStorage({ [props.storageKey]: val[0] })
   }
 }
 
 onMounted(async () => {
-  const stored = await getStorage(KeyTimelineWidth)
+  const stored = await getStorage(props.storageKey)
   if (stored !== undefined) {
     const num = Number(stored)
     if (userTrack.value !== num) {
       userTrack.value = num
     }
     try {
-      localStorage.setItem(KeyTimelineWidth, String(num))
+      localStorage.setItem(props.storageKey, String(num))
     } catch {}
   }
 })
@@ -49,10 +63,10 @@ onMounted(async () => {
     <SliderRoot
      :model-value="sliderValue"
      @update:model-value="onSliderUpdate"
-     :min="600"
-     :max="800"
-     :step="50"
-     aria-label="时间线宽度滑块"
+     :min="min"
+     :max="max"
+     :step="step"
+     :aria-label="`${label}滑块`"
      class="relative flex items-center select-none touch-none w-full h-5 cursor-pointer"
     >
      <SliderTrack class="bg-accent-track relative flex-grow rounded-full h-1">
@@ -68,7 +82,7 @@ onMounted(async () => {
         :title="`${track}px`"
          class="absolute w-3 h-3 rounded-full -translate-x-1/2"
         :style="{
-         left: `${((track - 600) / 200) * 100}%`,
+         left: `${((track - min) / (max - min)) * 100}%`,
          backgroundColor: track === userTrack ? 'transparent' : (track > userTrack ? 'var(--color-accent-track)' : 'var(--color-accent)'),
         }"
        />

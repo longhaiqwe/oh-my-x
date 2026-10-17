@@ -22,6 +22,7 @@ export const KeyCreatorStudioButton = 'creatorStudioButton'
 export const KeyChatMoneyButton = 'chatMoneyButton'
 export const KeyMoreMenuButton = 'moreMenuButton'
 export const KeyNavigationButtonsLabels = 'navigationButtonsLabels'
+export const KeyNavigationWidth = 'navigationWidth' // 左侧导航栏宽度（px），显示导航文字时生效
 export const KeyTweetButton = 'tweetButton'
 export const KeySidebarColumn = 'sidebarColumn'
 export const KeyHighlightNonFollowers = 'highlightNonFollowers'
@@ -97,6 +98,7 @@ export const allSettingsKeys = [
   KeyExtensionStatus,
   KeyTimelineWidth,
   KeyNavigationButtonsLabels,
+  KeyNavigationWidth,
   KeyTweetButton,
   KeyHomeButton,
   KeyExploreButton,
@@ -265,6 +267,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyExtensionStatus]: 'on',
   [KeyTimelineWidth]: 700,
   [KeyNavigationButtonsLabels]: 'always',
+  [KeyNavigationWidth]: 275,
   [KeyTweetButton]: 'on',
   [KeyHomeButton]: 'on',
   [KeyExploreButton]: 'on',

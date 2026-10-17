@@ -29,6 +29,7 @@ import {
   KeyMessagesButton,
   KeyMoreMenuButton,
   KeyNavigationButtonsLabels,
+  KeyNavigationWidth,
   KeyNotificationsButton,
   KeyOwnPostAutoSync,
   KeyProfileActivityStats,
@@ -118,6 +119,14 @@ export const FEATURES: readonly FeatureDefinition[] = [
     label: '时间线宽度',
     description: '在 600 到 800 像素之间调整主时间线的宽度',
     storageKeys: [KeyTimelineWidth],
+  },
+  {
+    id: 'navigationWidth',
+    module: 'layout',
+    label: '导航栏宽度',
+    description: '在 200 到 275 像素之间调整左侧导航栏的宽度',
+    note: '导航栏只显示图标时不生效：导航文字设为「从不」，或浏览器窗口窄于 1265 像素',
+    storageKeys: [KeyNavigationWidth],
   },
   {
     id: 'sidebarColumn',

@@ -6,6 +6,7 @@ import {
   KeyViralPotentialThreshold,
   KeyViralViralThreshold,
   KeyTimelineWidth,
+  KeyNavigationWidth,
   KeySpamThreshold,
   KeyRadarWidth,
   defaultPreferences,
@@ -60,6 +61,14 @@ describe('normalizeSettings numeric constraints', () => {
     expect(normalizeSettings({ [KeyTimelineWidth]: 900 })[KeyTimelineWidth]).toBe(800)
     expect(normalizeSettings({ [KeyTimelineWidth]: 500 })[KeyTimelineWidth]).toBe(600)
     expect(normalizeSettings({ [KeyTimelineWidth]: 700 })[KeyTimelineWidth]).toBe(700)
+  })
+
+  it('clamps navigationWidth to the slider range [200, 275], default 275 (X original)', () => {
+    expect(normalizeSettings({})[KeyNavigationWidth]).toBe(275)
+    expect(normalizeSettings({ [KeyNavigationWidth]: 150 })[KeyNavigationWidth]).toBe(200)
+    expect(normalizeSettings({ [KeyNavigationWidth]: 400 })[KeyNavigationWidth]).toBe(275)
+    expect(normalizeSettings({ [KeyNavigationWidth]: 225 })[KeyNavigationWidth]).toBe(225)
+    expect(normalizeSettings({ [KeyNavigationWidth]: 'bad' })[KeyNavigationWidth]).toBe(275)
   })
 
   it('clamps spamThreshold to the popup slider range [20, 150]', () => {

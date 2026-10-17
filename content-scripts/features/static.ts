@@ -2,7 +2,7 @@ import {
   KeyArticlesButton, KeyBookmarksButton, KeyCommunitiesButton,
   KeyExploreButton, KeyGrokButton,
   KeyJobsButton, KeyListsButton, KeyMessagesButton,
-  KeyNavigationButtonsLabels, KeyNotificationsButton,
+  KeyNavigationButtonsLabels, KeyNavigationWidth, KeyNotificationsButton,
   KeyChatMoneyButton, KeyMoreMenuButton, KeyProfileButton,
   KeySidebarColumn,
   KeyTimelineWidth,
@@ -24,7 +24,7 @@ import {
   changeArticlesButton, changeBookmarksButton,
   changeCommunitiesButton, changeExploreButton, changeGrokButton,
   changeJobsButton, changeListsButton,
-  changeMessagesButton, changeNavigationButtonsLabels,
+  changeMessagesButton, changeNavigationButtonsLabels, changeNavigationWidth,
   changeChatMoneyButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
   changeTopicsButton, changeVerifiedOrgsButton,
   changeXPremiumButton,
@@ -52,6 +52,7 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
   },
   navigation: (data) => {
     changeNavigationButtonsLabels(data[KeyNavigationButtonsLabels])
+    changeNavigationWidth(data[KeyNavigationWidth], data[KeyNavigationButtonsLabels])
   },
   sidebar: (data) => {
     changeExploreButton(data[KeyExploreButton])
@@ -87,7 +88,7 @@ const TIMELINE_KEYS = new Set<SettingKey>([
   KeyRadarWidth,
 ])
 
-const NAVIGATION_KEYS = new Set<SettingKey>([KeyNavigationButtonsLabels])
+const NAVIGATION_KEYS = new Set<SettingKey>([KeyNavigationButtonsLabels, KeyNavigationWidth])
 
 const SIDEBAR_KEYS = new Set<SettingKey>([
   KeyExploreButton,

@@ -1,7 +1,7 @@
 import { createApp, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import LayoutModule from '../../entrypoints/popup/components/modules/LayoutModule.vue'
-import { KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
+import { KeyNavigationWidth, KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
 import { event, flushMicrotasks } from '../helpers/runtime-port'
 
 type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>
@@ -90,4 +90,14 @@ it('已经隐藏的用户升级后，开关显示为打开', async () => {
   await mount({ [KeySidebarColumn]: 'on', [KeyTweetButton]: 'off' })
   expect(switchFor('隐藏右侧边栏').getAttribute('aria-checked')).toBe('true')
   expect(switchFor('隐藏发帖按钮').getAttribute('aria-checked')).toBe('true')
+})
+
+it('导航栏宽度滑块紧跟时间线宽度，显示已保存的宽度', async () => {
+  await mount({ [KeyNavigationWidth]: 225 })
+  const text = root.textContent!
+  expect(text).toContain('导航栏宽度')
+  expect(text.indexOf('时间线宽度')).toBeLessThan(text.indexOf('导航栏宽度'))
+  expect(text.indexOf('导航栏宽度')).toBeLessThan(text.indexOf('隐藏右侧边栏'))
+  expect(root.querySelector('[aria-label="导航栏宽度滑块"]')).not.toBeNull()
+  expect(text).toContain('225px')
 })
