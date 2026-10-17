@@ -25,7 +25,8 @@ const labelOptions = [
     :view-box="item.viewBox"
    />
   </div>
-  <SubRow feature-id="navigationLabels">
+  <!-- 图标网格最后一排是文字，和下面的从属设置拉开到 20px，看得出是两组 -->
+  <SubRow feature-id="navigationLabels" class="mt-2">
    <ToggleGroupControl :storage-key="KeyNavigationButtonsLabels" :options="labelOptions" />
   </SubRow>
  </FeatureCard>
