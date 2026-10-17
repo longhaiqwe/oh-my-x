@@ -20,7 +20,6 @@ export function syncAccountAnalyticsPageMarker() {
 
 export const changeTimelineWidth = (
   timelineWidth: string | number | boolean,
-  navigationLabels: string | number | boolean = 'never',
   sidebarColumn: string | number | boolean = 'off',
 ) => {
   // 账号分析页与 Radar 页不限制主列宽度，先同步 body 标记
@@ -33,30 +32,46 @@ export const changeTimelineWidth = (
     return
   }
   const isSidebarHidden = sidebarColumn === 'on' || sidebarColumn === 'hide'
-
-  // 当右侧栏隐藏时，header 与 main 自然按 1:1 flex-grow 平分剩余空间达成居中，
-  // 不再人为干预 header 宽度；主列右侧间距也置为 0；
-  // 仅在右侧栏展示且导航栏非 never 且宽度 > 600 时，按原逻辑补偿侧栏宽度。
-  const sidebarWidth =
-    isSidebarHidden || navigationLabels === 'never' || width <= 600
-      ? null
-      : Math.round(200 + ((800 - width) / 50) * 25)
-
   const primaryMarginRight = isSidebarHidden ? '0px' : '20px'
+
+  const page = 'body:not([data-xf-account-analytics]):not([data-xf-radar])'
+  // 只处理「时间线 + 右侧栏」这种布局；私信、设置等页面没有右侧栏，不改它们的排版。
+  // 隐藏右侧栏只是 display:none，元素还在，规则照样生效
+  const layoutBox = `${selectors.mainWrapper} > div:has(${selectors.rightSidebar})`
+  const column = `${selectors.mainColumn}:has(+ ${selectors.rightSidebar})`
 
   addStyles(
     'timelineWidth',
     `@media only screen and (min-width: 988px) {
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} {
+      ${page} ${column} {
         width: ${width}px !important;
         max-width: ${width}px !important;
         margin-right: ${primaryMarginRight};
       }
-      ${sidebarWidth ? `${selectors.leftSidebar} { width: ${sidebarWidth}px !important; }` : ''}
+      /* 时间线和右侧栏优先，左栏只占导航本身的宽度：
+         - 去掉 X 在宽屏给导航加的左边距，空间紧张时它不会让出来；
+         - 中间区域按内容定宽，左右两边按实际需要分配剩余空间（X 原本是固定宽度的盒子，内容超出就把右侧栏挤出屏幕）；
+         - 窗口放不下时时间线自动收窄，最窄 600px。 */
+      ${page} ${selectors.leftSidebar}:has(+ ${selectors.mainWrapper} ${selectors.rightSidebar}) > div {
+        margin-left: 0px !important;
+      }
+      ${page} ${selectors.mainWrapper}:has(${selectors.rightSidebar}) {
+        min-width: 0px !important;
+      }
+      ${page} ${layoutBox},
+      ${page} ${layoutBox} > div,
+      ${page} ${layoutBox} > div > div {
+        width: fit-content !important;
+        max-width: 100% !important;
+      }
+      ${page} ${column} {
+        flex-shrink: 1 !important;
+        min-width: 600px !important;
+      }
       /* Column shell only — do not force width:100% on arbitrary nested divs
          (bookmarks search uses ~95% width and must keep it). */
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} > div,
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} > div > div {
+      ${page} ${column} > div,
+      ${page} ${column} > div > div {
         max-width: ${width}px !important;
       }
       /* X caps the timeline wrapper at 600px (e.g. .r-1ye8kvj). Override that
@@ -66,9 +81,9 @@ export const changeTimelineWidth = (
          - div.r-13qz1uu.r-1ye8kvj: Timeline wrapper on profile, home, search, bookmarks, and tweet status
          - section[role="region"]: Timeline section itself
       */
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} div:has(> section[role="region"]),
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} div.r-13qz1uu.r-1ye8kvj,
-      body:not([data-xf-account-analytics]):not([data-xf-radar]) ${selectors.mainColumn} section[role="region"] {
+      ${page} ${column} div:has(> section[role="region"]),
+      ${page} ${column} div.r-13qz1uu.r-1ye8kvj,
+      ${page} ${column} section[role="region"] {
         max-width: ${width}px !important;
         width: 100% !important;
       }

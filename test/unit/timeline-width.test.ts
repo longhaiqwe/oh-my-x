@@ -13,16 +13,21 @@ describe('changeTimelineWidth', () => {
           .r-1ye8kvj { max-width: 600px; }
         </style>
       </head><body>
-        <div data-testid="primaryColumn" style="width:800px">
+        <main role="main">
           <div>
-            <div>
-              <div class="r-1mdsvnl" id="search">搜索书签</div>
-              <div class="r-1ye8kvj" id="feed-wrap">
-                <section role="region" id="feed">timeline</section>
+            <div data-testid="primaryColumn" id="column" style="width:800px">
+              <div>
+                <div>
+                  <div class="r-1mdsvnl" id="search">搜索书签</div>
+                  <div class="r-1ye8kvj" id="feed-wrap">
+                    <section role="region" id="feed">timeline</section>
+                  </div>
+                </div>
               </div>
             </div>
+            <div data-testid="sidebarColumn">Sidebar</div>
           </div>
-        </div>
+        </main>
       </body></html>`,
       { pretendToBeVisual: true, url: 'https://x.com/i/bookmarks' },
     )
@@ -62,15 +67,32 @@ describe('changeTimelineWidth', () => {
     expect(getComputedStyle(search).width).toBe('95%')
   })
 
-  it('skips left-sidebar width compensation when navigation labels are never', () => {
-    changeTimelineWidth(700, 'never')
-    const neverCss = document.getElementById('xf-style-timelineWidth')!.textContent!
-    expect(neverCss).not.toMatch(/header\[role="banner"\]\s*\{\s*width:/)
+  // 回归：以前时间线 > 600 时会把整个左栏强行设成 200–275px。
+  // 窗口窄于 1265px 时 X 只显示 88px 图标，左边空出一大块，右侧栏被挤出屏幕、出现横向滚动条
+  it('never forces the left column width', () => {
+    for (const width of [600, 650, 700, 800]) {
+      changeTimelineWidth(width)
+      const css = document.getElementById('xf-style-timelineWidth')!.textContent!
+      expect(css).not.toMatch(/header\[role="banner"\]\s*\{\s*width:/)
+    }
+  })
 
-    changeTimelineWidth(700, 'always')
-    const alwaysCss = document.getElementById('xf-style-timelineWidth')!.textContent!
-    // 700 → 200 + (800-700)/50*25 = 250
-    expect(alwaysCss).toContain('header[role="banner"] { width: 250px !important; }')
+  it('gives the timeline and right sidebar priority over blank space beside the navigation', () => {
+    changeTimelineWidth(700)
+    const css = document.getElementById('xf-style-timelineWidth')!.textContent!
+
+    // X 在宽屏给导航加的左边距要去掉，否则空间紧张时它也不让出来
+    expect(css).toMatch(
+      /header\[role="banner"\]:has\(\+ main\[role="main"\] \[data-testid="sidebarColumn"\]\) > div \{\s*margin-left: 0px !important;/,
+    )
+    // 中间区域按内容定宽，只针对有右侧栏的布局，私信、设置等页面不受影响
+    expect(css).toMatch(
+      /main\[role="main"\] > div:has\(\[data-testid="sidebarColumn"\]\),[\s\S]*?\{\s*width: fit-content !important;\s*max-width: 100% !important;/,
+    )
+    // 放不下时时间线自动收窄，最窄 600px
+    expect(css).toMatch(
+      /\[data-testid="primaryColumn"\]:has\(\+ \[data-testid="sidebarColumn"\]\) \{\s*flex-shrink: 1 !important;\s*min-width: 600px !important;/,
+    )
   })
 
   it('gates the primaryColumn width rules behind the account-analytics marker', () => {
@@ -79,17 +101,15 @@ describe('changeTimelineWidth', () => {
     const css = document.getElementById('xf-style-timelineWidth')!.textContent!
 
     // 所有主列宽度规则都必须被 body 标记排除，账号分析页（/i/account_analytics）与 Radar 页面不受限
-    expect(css).toContain('body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"]')
+    const column =
+      'body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"]:has(+ [data-testid="sidebarColumn"])'
+    expect(css).toContain(`${column} {`)
+    expect(css).toContain(`${column} div:has(> section[role="region"])`)
+    expect(css).toContain(`${column} section[role="region"]`)
+    // 布局分配规则同样受标记约束，这两个页面保持 X 原样
     expect(css).toContain(
-      'body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"] div:has(> section[role="region"])',
+      'body:not([data-xf-account-analytics]):not([data-xf-radar]) main[role="main"] > div:has([data-testid="sidebarColumn"])',
     )
-    expect(css).toContain(
-      'body:not([data-xf-account-analytics]):not([data-xf-radar]) [data-testid="primaryColumn"] section[role="region"]',
-    )
-    // 左侧栏补偿规则不属于主列宽度，保持不受标记影响
-    changeTimelineWidth(700, 'always')
-    const alwaysCss = document.getElementById('xf-style-timelineWidth')!.textContent!
-    expect(alwaysCss).toContain('header[role="banner"] { width: 250px !important; }')
   })
 
   it('syncs the account-analytics marker based on the current path', () => {
@@ -110,18 +130,92 @@ describe('changeTimelineWidth', () => {
     expect(document.body.hasAttribute(marker)).toBe(false)
   })
 
-  it('skips left-sidebar width compensation and resets primary margin-right when right sidebar is hidden', () => {
-    changeTimelineWidth(700, 'always', 'on')
+  it('applies the width rules to the timeline column next to the right sidebar', () => {
+    changeTimelineWidth(700)
+    const column = document.getElementById('column')!
+    const feed = document.getElementById('feed')!
+    expect(rulesMatching(column).some((rule) => rule.style.getPropertyValue('width') === '700px')).toBe(true)
+    expect(rulesMatching(feed).length).toBeGreaterThan(0)
+  })
+
+  it('resets primary margin-right when right sidebar is hidden', () => {
+    changeTimelineWidth(700, 'on')
     const css = document.getElementById('xf-style-timelineWidth')!.textContent!
-    expect(css).not.toMatch(/header\[role="banner"\]\s*\{\s*width:/)
     expect(css).toContain('margin-right: 0px;')
 
-    changeTimelineWidth(700, 'always', 'off')
+    changeTimelineWidth(700, 'off')
     const cssWithSidebar = document.getElementById('xf-style-timelineWidth')!.textContent!
-    expect(cssWithSidebar).toContain('header[role="banner"] { width: 250px !important; }')
     expect(cssWithSidebar).toContain('margin-right: 20px;')
   })
 })
+
+// 私信页（/i/chat，旧地址 /messages 会跳过来）：主列后面没有右侧栏，聊天区宽度由 X 自己决定。
+// 以前时间线宽度把主列设成 700px，1250px 窗口下本该约 980px 的聊天区被压窄、右边空着；
+// 「隐藏右侧边栏」把外层按内容定宽，主列直接塌成 2px
+describe('layout options on pages without the right sidebar', () => {
+  let dom: JSDOM
+
+  beforeEach(() => {
+    dom = new JSDOM(
+      `<!DOCTYPE html><html><head></head><body>
+        <header role="banner"><div><div>Nav</div></div></header>
+        <main role="main">
+          <div>
+            <div>
+              <div>
+                <div data-testid="primaryColumn" id="chat">
+                  <div>
+                    <div>
+                      <section role="region" id="conversations">会话列表</section>
+                      <section role="region" id="thread">聊天内容</section>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </body></html>`,
+      { pretendToBeVisual: true, url: 'https://x.com/i/chat' },
+    )
+    globalThis.document = dom.window.document
+    // @ts-expect-error jsdom window
+    globalThis.window = dom.window
+  })
+
+  afterEach(() => {
+    dom.window.close()
+  })
+
+  it('leaves the chat column and the surrounding layout untouched', () => {
+    for (const sidebar of ['off', 'on']) {
+      changeTimelineWidth(700, sidebar)
+      const touched = Array.from(document.body.querySelectorAll('*')).filter(
+        (el) => rulesMatching(el).length > 0,
+      )
+      expect(touched.map((el) => el.id || el.tagName.toLowerCase())).toEqual([])
+    }
+  })
+
+  it('does not shrink the chat column when the right sidebar is hidden', async () => {
+    const { changeSidebarColumn } = await import('../../content-scripts/options/interface')
+    changeSidebarColumn('on')
+    const touched = Array.from(document.body.querySelectorAll('*')).filter(
+      (el) => rulesMatching(el, 'hideSidebarColumn').length > 0,
+    )
+    expect(touched.map((el) => el.id || el.tagName.toLowerCase())).toEqual([])
+    changeSidebarColumn('off')
+  })
+})
+
+/** 某份注入样式（默认时间线宽度）里，选择器能命中 el 的规则；媒体查询里的规则一并展开 */
+function rulesMatching(el: Element, id = 'timelineWidth') {
+  const sheet = (document.getElementById(`xf-style-${id}`) as HTMLStyleElement).sheet!
+  return Array.from(sheet.cssRules)
+    .flatMap((rule) => ('cssRules' in rule ? Array.from((rule as CSSMediaRule).cssRules) : [rule]))
+    .map((rule) => rule as CSSStyleRule)
+    .filter((rule) => el.matches(rule.selectorText))
+}
 
 describe('changeSidebarColumn', () => {
   let dom: JSDOM
@@ -156,12 +250,13 @@ describe('changeSidebarColumn', () => {
 
     const css = document.getElementById('xf-style-hideSidebarColumn')!.textContent!
     expect(css).toContain('[data-testid="sidebarColumn"] { display: none !important; }')
-    expect(css).toContain('header[role="banner"] > div')
-    expect(css).toContain('margin-left: 0px !important;')
-    expect(css).toContain('main[role="main"] > div:has([data-testid="primaryColumn"])')
-    expect(css).toContain('width: fit-content !important;')
-    expect(css).toContain('[data-testid="primaryColumn"]')
-    expect(css).toContain('margin-right: 0px !important;')
+
+    // 时间线布局：导航去掉左边距、中间区域按内容定宽、主列去掉右边距，整体居中
+    const declared = (el: Element, prop: string) =>
+      rulesMatching(el, 'hideSidebarColumn').map((rule) => rule.style.getPropertyValue(prop))
+    expect(declared(document.querySelector('header[role="banner"] > div')!, 'margin-left')).toContain('0px')
+    expect(declared(document.querySelector('main[role="main"] > div')!, 'width')).toContain('fit-content')
+    expect(declared(document.querySelector('[data-testid="primaryColumn"]')!, 'margin-right')).toContain('0px')
 
     changeSidebarColumn('off')
     expect(document.getElementById('xf-style-hideSidebarColumn')).toBeNull()

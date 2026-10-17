@@ -39,26 +39,24 @@ export const changeTweetButton = (
 
 export const changeSidebarColumn = (state: string | number | boolean) => {
   if (state === 'on' || state === 'hide') {
+    const page = 'body:not([data-xf-account-analytics])'
+    // 居中只针对「主列 + 右侧栏」布局；右侧栏 display:none 后元素还在，选择器照样匹配。
+    // 私信等页面没有右侧栏，主列宽度靠外层撑开，按内容定宽会塌成 2px，所以不碰
+    const layoutBox = `${selectors.mainWrapper} > div:has(${selectors.rightSidebar})`
     addStyles(
       'hideSidebarColumn',
       `${selectors.rightSidebar} { display: none !important; }
       @media only screen and (min-width: 988px) {
-        body:not([data-xf-account-analytics]) ${selectors.leftSidebar} > div {
+        ${page} ${selectors.leftSidebar}:has(+ ${selectors.mainWrapper} ${selectors.rightSidebar}) > div {
           margin-left: 0px !important;
         }
-        body:not([data-xf-account-analytics]) ${selectors.mainWrapper} > div:has(${selectors.mainColumn}) {
+        ${page} ${layoutBox},
+        ${page} ${layoutBox} > div,
+        ${page} ${layoutBox} > div > div {
           width: fit-content !important;
           max-width: 100% !important;
         }
-        body:not([data-xf-account-analytics]) ${selectors.mainWrapper} > div:has(${selectors.mainColumn}) > div {
-          width: fit-content !important;
-          max-width: 100% !important;
-        }
-        body:not([data-xf-account-analytics]) ${selectors.mainWrapper} > div:has(${selectors.mainColumn}) > div > div {
-          width: fit-content !important;
-          max-width: 100% !important;
-        }
-        body:not([data-xf-account-analytics]) ${selectors.mainColumn} {
+        ${page} ${selectors.mainColumn}:has(+ ${selectors.rightSidebar}) {
           margin-right: 0px !important;
         }
       }`

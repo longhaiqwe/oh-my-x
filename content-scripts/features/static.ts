@@ -42,7 +42,7 @@ type FeatureData = ExtensionSettings
 
 export const staticFeatures: Record<string, (data: FeatureData) => void> = {
   timeline: (data) => {
-    changeTimelineWidth(data[KeyTimelineWidth], data[KeyNavigationButtonsLabels], data[KeySidebarColumn])
+    changeTimelineWidth(data[KeyTimelineWidth], data[KeySidebarColumn])
     changeTweetButton(data[KeyTweetButton], data[KeyNavigationButtonsLabels])
     changeSidebarColumn(data[KeySidebarColumn])
     changeHighlightNonFollowers(data[KeyHighlightNonFollowers])
