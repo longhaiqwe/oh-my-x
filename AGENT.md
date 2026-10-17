@@ -52,7 +52,13 @@ oh-my-x/
 │   ├── parse-tweet.ts           # 从 article DOM 提取文本/昵称/handle
 │   ├── detect-language.ts       # 独立语言识别 + 排除引用推文逻辑
 │   ├── navItems.ts              # 导航项注册表（id/storageKey/label/selector）
+│   ├── staticNavIcons.ts        # 弹窗「导航栏按钮」里列出的 10 个按钮
 │   ├── feature-registry.ts      # 功能清单：5 个模块、每个功能的归属/名称/说明/存储项
+│   ├── tweet-filter-rules.ts    # 正文关键词过滤规则
+│   ├── tweet-media.ts           # 从推文 DOM 和接口数据提取图片/视频地址（下载用）
+│   ├── own-post-library*.ts     # 帖子库：IndexedDB 存储 + 同步调度
+│   ├── ai-repost.ts             # AI 转发提示词：通用规则 + 用户的转发风格
+│   ├── ai-request.ts            # AI 请求的 Port 生命周期与超时
 │   └── viral-radar-parser.ts    # 流速数值解析 + 分类
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -63,14 +69,27 @@ oh-my-x/
 │   │   ├── static.ts            # 一次性 CSS 注入 + 按变更 key 分组增量应用
 │   │   ├── dynamic.ts           # 运行时动态功能（按 scope 调度 + pending 合并）
 │   │   ├── viral-radar.ts       # 爆款雷达：流速计算 + 标签/高亮
-│   │   └── article-toc.ts       # 文章目录导航
+│   │   ├── article-toc.ts       # 文章目录导航
+│   │   ├── tweet-filter.ts      # 正文关键词过滤（折叠/隐藏）
+│   │   ├── user-followers.ts    # 用户粉丝数徽章
+│   │   ├── bookmark-counter.ts  # 收藏量
+│   │   ├── creator-rewards.ts   # 原创内容奖励计划数据
+│   │   ├── ai-repost.ts         # AI 总结转发面板
+│   │   ├── quick-interaction.ts # 快捷键 1-4 + 底部悬浮条
+│   │   ├── reply-assistant.ts   # 直达回复区胶囊（可拖动，位置存 jumpRepliesPosition）
+│   │   ├── auto-like-reply.ts   # 回复后自动点赞
+│   │   └── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的 Lists」入口
 │   │
 │   ├── options/
-│   │   ├── timeline.ts          # 时间线宽度 / 推广隐藏 / 话题隐藏 / 媒体下载
+│   │   ├── timeline.ts          # 时间线宽度 + 媒体下载（复制 X 原生菜单项，只换图标和文字）
 │   │   ├── navigation.ts        # 侧边栏按钮显隐 + 导航标签模式
-│   │   ├── interface.ts         # Tweet 按钮显隐
-│   │   ├── composer.ts          # 编辑器插入链接按钮
+│   │   ├── more-menu.ts         # 被收进「更多」菜单的导航入口，在菜单打开时同步隐藏
+│   │   ├── interface.ts         # 发帖按钮、右侧边栏、长文目录、排期全景开关
+│   │   ├── composer.ts          # 编辑器插入链接按钮 + Markdown 格式化
+│   │   ├── own-post-picker.ts   # 编辑器里的「引用我的帖子」搜索面板
+│   │   ├── own-post-library-client.ts # 帖子库同步（分批翻页、断点）
 │   │   ├── precompose.ts        # 发帖前保存当前 URL
+│   │   ├── radar.ts             # X Radar 页宽度
 │   │   ├── stat-ratio.ts        # 粉丝比/互动比徽章
 │   │   ├── profile-activity.ts  # 账号活动统计
 │   │   └── scheduled-time.ts    # 排期全景显示 + 接收 MAIN world 桥接数据
@@ -97,7 +116,7 @@ oh-my-x/
 ├── entrypoints/
 │   ├── content.ts               # isolated content script 入口（storage.onChanged、总开关）
 │   ├── interceptor.content.ts   # MAIN world 脚本：hook fetch/XHR 拦截排期 API
-│   ├── background.ts            # Service Worker：版本化默认词库同步
+│   ├── background.ts            # Service Worker：默认词库同步、帖子库、Lists/媒体请求、创作者奖励、AI 请求
 │   ├── popup/                   # 设置面板（Vue 3 SPA，5 个模块标签，只挂载当前模块）
 │   └── options/                 # 完整设置页（新标签页整页打开，复用 popup 的模块页）
 │       ├── App.vue / main.ts / style.css / index.html
@@ -113,7 +132,7 @@ oh-my-x/
 扩展在 x.com 上运行**两个 content script**（不同 world）+ 一个 background + 一个 popup：
 
 ### 1. Isolated Content Script（`entrypoints/content.ts`）
-- 匹配 `twitter.com` / `x.com` / `pro.x.com`，`document_end` 运行。
+- 匹配 `twitter.com` / `mobile.twitter.com` / `x.com` / `pro.x.com`，`document_end` 运行。
 - **总开关**：读 `KeyExtensionStatus`，为 `off` 则不初始化；切换该 key 会 `location.reload()`。
 - **storage.onChanged**：只处理 setting key 变更，合并到 `currentSettings` 后调用 `applyChangedStaticFeatures`（按 key 分组增量应用），避免任意存储写入都重跑全部静态功能。
 - spam 相关 key 变更触发 `invalidateSpamConfig()` + `runScan()`；viral 相关 key 变更触发对应刷新。
@@ -224,3 +243,5 @@ npm run zip       # 构建 + 打包
 Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
 
 AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；请求 25 秒超时，Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
+
+转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用 `DEFAULT_REPOST_STYLE`。提示词里不要写入具体某个人的人设或账号。

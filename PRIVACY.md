@@ -1,6 +1,6 @@
 # Privacy Policy for oh-my-x
 
-Last updated: October 16, 2026
+Last updated: October 17, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and user-triggered AI requests.
 
