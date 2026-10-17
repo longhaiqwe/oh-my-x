@@ -910,6 +910,30 @@ function createQuickListNavNode(
 let currentNavEnabled = true
 let currentNavPosition = 'top'
 
+/**
+ * 把 Lists 入口放到设置的位置：top 放在 Home 上方，sidebar 放在原生 Lists 等入口之后。
+ * 已经在目标位置时不移动，避免与页面的 DOM 监听互相触发。
+ */
+export function placeNavEntry(nav: Element, homeLink: Element, entry: HTMLElement, position: string) {
+  if (position === 'top') {
+    if (entry.nextElementSibling !== homeLink) homeLink.insertAdjacentElement('beforebegin', entry)
+    return
+  }
+
+  const notSelf = `:not(.${NAV_CLASS})`
+  const target =
+    nav.querySelector(`a[href*="/lists"][role="link"]${notSelf}`) ||
+    nav.querySelector('a[data-testid="AppTabBar_DirectMessage_Link"]') ||
+    nav.querySelector('a[href*="grok"]') ||
+    nav.querySelector('a[href*="bookmarks"]') ||
+    nav.querySelector('a[data-testid="AppTabBar_Profile_Link"]') ||
+    (homeLink.nextElementSibling === entry ? entry.nextElementSibling : homeLink.nextElementSibling) ||
+    homeLink
+
+  if (target === entry || target.nextElementSibling === entry) return
+  target.insertAdjacentElement('afterend', entry)
+}
+
 export function ensureQuickListNavEntry(enabled = true, position = 'top') {
   currentNavEnabled = enabled
   currentNavPosition = position
@@ -938,33 +962,14 @@ export function ensureQuickListNavEntry(enabled = true, position = 'top') {
   if (existing && document.contains(existing)) {
     navEntryEl = existing
     syncNavEntryLayout(existing, isExpandedNow)
-
-    if (position === 'top' && existing.nextElementSibling !== homeLink) {
-      homeLink.insertAdjacentElement('beforebegin', existing)
-    }
+    // 位置设置可能刚改过：已有入口也按当前设置归位，不必刷新页面
+    placeNavEntry(nav, homeLink, existing, position)
     return
   }
 
   const newNode = createQuickListNavNode(homeLink, isExpandedNow)
   navEntryEl = newNode
-
-  if (position === 'top') {
-    homeLink.insertAdjacentElement('beforebegin', newNode)
-  } else {
-    const target =
-      nav.querySelector('a[href*="/lists"][role="link"]') ||
-      nav.querySelector('a[data-testid="AppTabBar_DirectMessage_Link"]') ||
-      nav.querySelector('a[href*="grok"]') ||
-      nav.querySelector('a[href*="bookmarks"]') ||
-      nav.querySelector('a[data-testid="AppTabBar_Profile_Link"]') ||
-      homeLink.nextElementSibling
-
-    if (target) {
-      target.insertAdjacentElement('afterend', newNode)
-    } else {
-      homeLink.insertAdjacentElement('afterend', newNode)
-    }
-  }
+  placeNavEntry(nav, homeLink, newNode, position)
 
   if (!navResizeListenerAttached) {
     navResizeListenerAttached = true
