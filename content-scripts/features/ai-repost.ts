@@ -981,7 +981,7 @@ function openOrUpdateRepostPanel(
           <button type="button" class="xf-ai-repost-action-btn" data-action="close">取消</button>
         </div>
       </div>
-      <div class="xf-ai-repost-status">按 @longhaiqwe123 语言风格提炼中，请稍候...</div>
+      <div class="xf-ai-repost-status">正在生成两条转发草稿，请稍候…</div>
     `
     panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
       e.stopPropagation()

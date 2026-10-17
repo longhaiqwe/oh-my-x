@@ -59,6 +59,8 @@ import {
   KeyAiRepostApiKey,
   KeyAiRepostModel,
   KeyAiRepostCustomPrompt,
+  KeyAiRepostStylePrompt,
+  KeyAiRepostStyleSamples,
   allSettingsKeys,
   defaultPreferences,
 } from '../storage-keys'
@@ -132,6 +134,8 @@ export interface ExtensionSettings {
   [KeyAiRepostApiKey]: string
   [KeyAiRepostModel]: string
   [KeyAiRepostCustomPrompt]: string
+  [KeyAiRepostStylePrompt]: string
+  [KeyAiRepostStyleSamples]: string
 }
 
 export type SettingsPatch = Partial<Record<keyof ExtensionSettings, unknown>>

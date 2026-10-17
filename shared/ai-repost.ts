@@ -16,46 +16,80 @@ export interface ChatMessage {
   content: string
 }
 
+/** 用户自定义的转发风格：风格描述 + 自己写过的转发样本 */
+export interface RepostStyle {
+  description?: string
+  samples?: string
+}
+
+/** 未设置风格时使用的默认风格：平实、直给，不带任何个人身份 */
+export const DEFAULT_REPOST_STYLE = `- 开门见山：第一句直接说明原文讲了什么、核心结论是什么，或帮读者省了什么事，不绕弯子。
+- 结构清晰：遇到方法论或长文，用平实的短句、「1）2）3）」或「A → B → C」列出核心步骤、对比项或底层逻辑。
+- 真实视角：不做高高在上的点评，像跟同行朋友交流，可以结合实际使用场景或下一步打算怎么用顺手说两句。
+- 用词朴素：克制、准确，少用形容词和副词。`
+
+/** 样本最多取几条、每条最多多少字，避免挤占原文的上下文 */
+const MAX_STYLE_SAMPLES = 5
+const MAX_SAMPLE_CHARS = 600
+
 /**
- * 蒸馏自 @longhaiqwe123 历史爆款贴与高赞引用转发的语言风格系统提示词
+ * 把用户粘贴的样本拆成多条：有单独一行的 --- 时按 --- 拆（一条样本内部可以分段），
+ * 没有时按空行拆（适合每条只有一段的情况）
  */
-export const LONGHAI_STYLE_SYSTEM_PROMPT = `你是 X 创作者「龙海 (@longhaiqwe123)」的专属 Repost（引用转发）文案助手。
-请模仿龙海的真实语言风格，阅读用户准备转发的推文或长文，写出 2 个不同切入角度的中文转发总结选项，供他二选一直接发布。
+export function parseStyleSamples(raw?: string): string[] {
+  if (!raw) return []
+  const text = raw.replace(/\r\n/g, '\n')
+  const separator = /^\s*-{3,}\s*$/m.test(text) ? /\n?^\s*-{3,}\s*$\n?/m : /\n\s*\n/
+  return text
+    .split(new RegExp(separator.source, separator.flags.includes('m') ? 'gm' : 'g'))
+    .map((sample) => sample.trim())
+    .filter(Boolean)
+    .slice(0, MAX_STYLE_SAMPLES)
+    .map((sample) => (sample.length > MAX_SAMPLE_CHARS ? `${sample.slice(0, MAX_SAMPLE_CHARS)}…` : sample))
+}
 
-【龙海 (@longhaiqwe123) 语言风格蒸馏画像】
-1. 身份底色：十余年一线研发背景（做过数据库内核、大厂工程研发），现独立做产品与浏览器插件、带娃、下厨、严肃阅读与听英文播客。关注「用 AI 把手头具体问题解决掉」的实操方案，以及事物运作的底层规律（第一性原理）。
-2. 行文特征（白描、平实、直给、有颗粒度）：
-   - 开门见山：第一句直接说明原文讲了什么、核心结论是什么，或帮读者省了什么事，不绕弯子。
-   - 结构清晰：遇到方法论或长文，习惯用平实的短句、「1）2）3）」或「A → B → C」把核心步骤、对比项或底层逻辑列出来。
-   - 真实视角：不做高高在上的点评，而是像跟同行朋友自然交流，常结合自己的实际使用场景、过往工程经验、阅读认知（如底层规律、第一性原理）或下一步打算怎么用顺手聊两句。
-   - 用词朴素：常用「实操」「底层原理」「痛点」「确实」「值得一看」「省掉几个小时」「转需」等自然口语，克制准确。
+/**
+ * 组装系统提示词：通用任务规则 + 风格（默认或用户自定义）+ 可选样本 + AI 腔禁用规则 + 输出格式
+ */
+export function buildRepostSystemPrompt(style: RepostStyle = {}): string {
+  const description = style.description?.trim()
+  const samples = parseStyleSamples(style.samples)
 
-【真实历史样本参考（仅学习语气与骨架，严禁照抄样本内容）】
-- 样本 1（干货链路提炼）：
-  "分享一套实践两年的严肃听播客工作流：\n\n获取英文文字稿 → AI 整理中文初稿 → 自己审阅修改 → 保存成合集反复阅读和收听\n\n只有亲手改过、反复读过听过的知识，才能内化为真认知。"
-- 样本 2（提炼核心结论）：
-  "这篇把小红书冷启动的第一步讲得很清楚：先做出一个最小可行定位——你准备长期帮哪一类人解决什么问题，为什么这件事由你来说，以及接下来至少能围绕它写出哪些内容。\n\n先想清楚再行动，不要做思考上的懒人。"
-- 样本 3（观点共鸣与自身延伸）：
-  "非常认可文中说的：你积累的跨领域认知越多，能踩的肩膀就越多，做出创新的概率也就越大。\n\n做产品和写代码也是一样，底层逻辑是相通的，先把好内容扎实吸收进来。"
-- 样本 4（实操工具/经验印证）：
-  "这篇把背后的操作步骤和避坑细节拆得很实在，又帮大家省掉好几个小时的摸索时间。正好命中我最近的需求，先记下来准备试一下。"
+  const parts = [
+    `你是一个 X（推特）引用转发文案助手。
+阅读用户准备转发的推文或长文，写出 2 个不同切入角度的中文转发总结选项，供用户二选一后直接发布。`,
+    description
+      ? `【语言风格（用户自己的描述，优先遵守）】\n${description}`
+      : `【语言风格】\n${DEFAULT_REPOST_STYLE}`,
+  ]
 
-【必须生成的两个选项】
+  if (samples.length > 0) {
+    parts.push(
+      `【用户自己写过的转发样本（只学习语气、句式和结构，严禁照抄样本内容）】\n${samples
+        .map((sample, i) => `- 样本 ${i + 1}：\n${sample}`)
+        .join('\n')}`,
+    )
+  }
+
+  parts.push(`【必须生成的两个选项】
 - optionA（干货脱水总结）：直接提炼原文最核心的结论、关键步骤（可用「1）2）3）」或「→」串联）或底层逻辑，帮读者快速抓住重点。
-- optionB（观点共鸣与延伸）：挑出原文最有价值的一个核心观点或实操方法，用平实的大白话讲清楚，并顺手结合做产品、写代码、学习或日常实践的视角补一两句真实看法或行动延伸。
+- optionB（观点共鸣与延伸）：挑出原文最有价值的一个核心观点或实操方法，用平实的大白话讲清楚，并结合实际使用场景或经验补一两句真实看法或行动延伸。`)
 
-【严格禁止的 AI 味红线（触碰任一条即视为不合格）】
-1. 严禁拟人化与过度隐喻：禁止把功能、观点或知识包装成文学修辞（如「慢慢发酵」「出来透透气」「好选题慢慢长出来」「先接住还没晾出的灵感」「思维的火花碰撞」「灵魂共振」）。
-2. 严禁鸡汤式心理抚慰：禁止在结尾或文中塞入空洞金句或情感安抚（如「不必完整，也不必漂亮」「灵感会在这里等你」「允许自己慢下来」「时间会给你答案」）。
-3. 严禁设问式推销腔：禁止用反问句或感叹号引导读者（如「今天有什么值得写下来？」「你是否也曾感到焦虑？」「还不快来看看！」「建议所有人立刻收藏！」）。
-4. 严禁极端副词与空洞修饰：禁止使用「极其、完美、无缝、优雅、从容、彻底、瞬间、秒杀、超级、狠狠、赋能、抓手、闭环、醍醐灌顶、振聋发聩、干货满满、保姆级、天花板、王炸」等词汇。
+  parts.push(`【严格禁止的 AI 味红线（触碰任一条即视为不合格）】
+1. 严禁拟人化与过度隐喻：禁止把功能、观点或知识包装成文学修辞（如「慢慢发酵」「出来透透气」「思维的火花碰撞」「灵魂共振」）。
+2. 严禁鸡汤式心理抚慰：禁止在结尾或文中塞入空洞金句或情感安抚（如「不必完整，也不必漂亮」「允许自己慢下来」「时间会给你答案」）。
+3. 严禁设问式推销腔：禁止用反问句或感叹号引导读者（如「你是否也曾感到焦虑？」「还不快来看看！」「建议所有人立刻收藏！」）。
+4. 严禁极端副词与空洞修饰：禁止使用「极其、完美、无缝、优雅、从容、彻底、瞬间、秒杀、超级、狠狠、赋能、抓手、闭环、醍醐灌顶、振聋发聩、干货满满、保姆级、天花板、王炸」等词汇。`)
 
-【输出格式要求】
+  parts.push(`【输出格式要求】
 请严格只输出一个合法的 JSON 对象，不要包含任何额外解释，格式如下：
 {
   "optionA": "选项A的完整转发文案（分段请用 \\n\\n）",
   "optionB": "选项B的完整转发文案（分段请用 \\n\\n）"
-}`
+}`)
+
+  return parts.join('\n\n')
+}
 
 /**
  * 极端副词与空洞 AI 修饰词替换表（作为 Prompt 之外的确定性兜底过滤）
@@ -127,6 +161,7 @@ export function resolveChatCompletionsUrl(rawBaseUrl: string): string {
 export function buildRepostMessages(
   source: RepostSourceInput,
   customPrompt?: string,
+  style?: RepostStyle,
 ): ChatMessage[] {
   const metaParts: string[] = []
   if (source.authorName || source.authorHandle) {
@@ -161,7 +196,7 @@ export function buildRepostMessages(
   }
 
   return [
-    { role: 'system', content: LONGHAI_STYLE_SYSTEM_PROMPT },
+    { role: 'system', content: buildRepostSystemPrompt(style) },
     { role: 'user', content: userPrompt },
   ]
 }

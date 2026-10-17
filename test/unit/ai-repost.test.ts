@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   buildRepostMessages,
+  buildRepostSystemPrompt,
+  DEFAULT_REPOST_STYLE,
   extractTweetFullTextFromGraphql,
-  LONGHAI_STYLE_SYSTEM_PROMPT,
   parseAiRepostResponse,
+  parseStyleSamples,
   resolveChatCompletionsUrl,
   sanitizeAiTone,
 } from '../../shared/ai-repost'
@@ -60,7 +62,7 @@ describe('shared/ai-repost', () => {
 
     expect(msgs).toHaveLength(2)
     expect(msgs[0].role).toBe('system')
-    expect(msgs[0].content).toBe(LONGHAI_STYLE_SYSTEM_PROMPT)
+    expect(msgs[0].content).toBe(buildRepostSystemPrompt())
     expect(msgs[0].content).toContain('拟人化与过度隐喻')
     expect(msgs[0].content).toContain('鸡汤式心理抚慰')
     expect(msgs[0].content).toContain('设问式推销腔')
@@ -70,6 +72,47 @@ describe('shared/ai-repost', () => {
     expect(msgs[1].content).toContain('孟岩 (@myanTokenGeek)')
     expect(msgs[1].content).toContain('没有什么能把我们的人生分为两段')
     expect(msgs[1].content).toContain('控制在 100 字以内')
+  })
+
+  it('默认风格不带任何个人身份或账号', () => {
+    const prompt = buildRepostSystemPrompt()
+    expect(prompt).toContain(DEFAULT_REPOST_STYLE)
+    for (const personal of ['龙海', 'longhaiqwe123', '带娃', '下厨', '数据库内核']) {
+      expect(prompt).not.toContain(personal)
+    }
+  })
+
+  it('填写风格描述后替换默认风格，样本作为参考附上', () => {
+    const prompt = buildRepostSystemPrompt({
+      description: '开头直接说结论，多用短句',
+      samples: '第一条样本\n第二行\n\n第二条样本',
+    })
+    expect(prompt).toContain('开头直接说结论，多用短句')
+    expect(prompt).not.toContain(DEFAULT_REPOST_STYLE)
+    expect(prompt).toContain('样本 1：\n第一条样本\n第二行')
+    expect(prompt).toContain('样本 2：\n第二条样本')
+    expect(prompt).toContain('严禁照抄样本内容')
+    // 通用规则仍然保留
+    expect(prompt).toContain('拟人化与过度隐喻')
+    expect(prompt).toContain('"optionA"')
+  })
+
+  it('有 --- 分隔时按 --- 拆，一条样本内部可以分段', () => {
+    const raw = '第一条第一段\n\n第一条第二段\n---\n第二条\n\n  ---  \n第三条'
+    expect(parseStyleSamples(raw)).toEqual(['第一条第一段\n\n第一条第二段', '第二条', '第三条'])
+  })
+
+  it('没有 --- 时按空行拆分，最多取 5 条，单条过长会截断', () => {
+    expect(parseStyleSamples('')).toEqual([])
+    expect(parseStyleSamples('a\r\n\r\nb\n  \nc')).toEqual(['a', 'b', 'c'])
+    expect(parseStyleSamples(['1', '2', '3', '4', '5', '6'].join('\n\n'))).toHaveLength(5)
+    expect(parseStyleSamples('x'.repeat(700))[0]).toHaveLength(601)
+  })
+
+  it('只填样本时仍使用默认风格描述', () => {
+    const prompt = buildRepostSystemPrompt({ samples: '一条样本' })
+    expect(prompt).toContain(DEFAULT_REPOST_STYLE)
+    expect(prompt).toContain('样本 1：\n一条样本')
   })
 
   it('parses JSON, fenced JSON, and fallback text into two options', () => {

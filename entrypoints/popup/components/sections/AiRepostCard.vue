@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { requestAiPermission, sendAiRequest } from '../../../../shared/ai-request'
+import { parseStyleSamples } from '../../../../shared/ai-repost'
 import FeatureCard from '../ui/FeatureCard.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 import {
@@ -9,6 +10,8 @@ import {
   KeyAiRepostApiKey,
   KeyAiRepostModel,
   KeyAiRepostCustomPrompt,
+  KeyAiRepostStylePrompt,
+  KeyAiRepostStyleSamples,
   defaultPreferences,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
@@ -18,6 +21,10 @@ const baseUrl = ref(String(defaultPreferences[KeyAiRepostBaseUrl]))
 const apiKey = ref('')
 const model = ref(String(defaultPreferences[KeyAiRepostModel]))
 const customPrompt = ref('')
+const stylePrompt = ref('')
+const styleSamples = ref('')
+const sampleCount = computed(() => parseStyleSamples(styleSamples.value).length)
+const hasCustomStyle = computed(() => Boolean(stylePrompt.value.trim() || sampleCount.value))
 const showApiKey = ref(false)
 const isTesting = ref(false)
 const statusText = ref('')
@@ -47,6 +54,8 @@ onMounted(async () => {
     KeyAiRepostApiKey,
     KeyAiRepostModel,
     KeyAiRepostCustomPrompt,
+    KeyAiRepostStylePrompt,
+    KeyAiRepostStyleSamples,
   ])
   if (disposed) return
   enabled.value = stored[KeyAiRepostEnabled] !== 'off'
@@ -61,6 +70,12 @@ onMounted(async () => {
   }
   if (typeof stored[KeyAiRepostCustomPrompt] === 'string') {
     customPrompt.value = stored[KeyAiRepostCustomPrompt] as string
+  }
+  if (typeof stored[KeyAiRepostStylePrompt] === 'string') {
+    stylePrompt.value = stored[KeyAiRepostStylePrompt] as string
+  }
+  if (typeof stored[KeyAiRepostStyleSamples] === 'string') {
+    styleSamples.value = stored[KeyAiRepostStyleSamples] as string
   }
   // 还没填 API Key 时直接展开配置
   detailsOpen.value = !configured.value
@@ -78,6 +93,8 @@ function saveSettings() {
     [KeyAiRepostApiKey]: apiKey.value.trim(),
     [KeyAiRepostModel]: model.value.trim() || String(defaultPreferences[KeyAiRepostModel]),
     [KeyAiRepostCustomPrompt]: customPrompt.value.trim(),
+    [KeyAiRepostStylePrompt]: stylePrompt.value.trim(),
+    [KeyAiRepostStyleSamples]: styleSamples.value.trim(),
   })
 }
 
@@ -155,14 +172,14 @@ async function testConnection() {
     <template #status>
       <span v-if="configured" class="flex items-center gap-2 min-w-0">
         <span class="w-2 h-2 rounded-full bg-success shrink-0" aria-hidden="true"></span>
-        <span class="truncate">已填写 API Key · 模型 {{ model }}</span>
+        <span class="truncate">模型 {{ model }} · 风格：{{ hasCustomStyle ? '自定义' : '默认' }}</span>
       </span>
       <span v-else class="text-warning">还没有填写 API Key</span>
     </template>
 
     <template #details>
       <p class="text-xs text-muted-text leading-normal">
-        生成时会把原文、作者信息和补充要求发送到你配置的服务，API Key 只用于该服务的认证。
+        生成时会把原文、作者信息、转发风格和补充要求发送到你配置的服务，API Key 只用于该服务的认证。
         首次使用或更换地址时需要授权；测试连接只发送一段测试文本。
       </p>
       <div class="flex flex-col gap-1">
@@ -210,17 +227,6 @@ async function testConnection() {
         />
       </div>
 
-      <div class="flex flex-col gap-1">
-        <label for="ai-prompt" class="text-xs font-semibold text-secondary-text">补充要求（可选）</label>
-        <input
-          id="ai-prompt"
-          v-model="customPrompt"
-          type="text"
-          class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none text-text"
-          placeholder="例如：字数控制在 120 字以内"
-          @input="scheduleSave"
-        />
-      </div>
 
       <div class="flex items-center gap-3 pt-1">
         <button
@@ -240,6 +246,48 @@ async function testConnection() {
         >
           {{ statusText }}
         </span>
+      </div>
+
+      <!-- 转发风格：留空用默认风格；与上面的连接设置分开成一组 -->
+      <div class="flex flex-col gap-3 pt-4 border-t border-border">
+        <div class="flex flex-col gap-1">
+          <p class="text-sm font-semibold text-text">转发风格</p>
+          <p class="text-xs leading-normal text-muted-text">留空时使用默认风格：开门见山、结构清晰、用词朴素。填写后按你的描述和样本生成。</p>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="ai-style" class="text-xs font-semibold text-secondary-text">风格描述（可选）</label>
+          <textarea
+            id="ai-style"
+            v-model="stylePrompt"
+            rows="3"
+            class="w-full px-3 py-2 rounded-control border border-border-strong bg-sunken-bg text-xs leading-normal text-text placeholder:text-muted-text outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring resize-y"
+            placeholder="例如：开头直接说结论；多用短句；常结合自己的使用经验；不用感叹号"
+            @input="scheduleSave"
+          />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="ai-samples" class="text-xs font-semibold text-secondary-text">参考样本（可选）</label>
+          <textarea
+            id="ai-samples"
+            v-model="styleSamples"
+            rows="4"
+            class="w-full px-3 py-2 rounded-control border border-border-strong bg-sunken-bg text-xs leading-normal text-text placeholder:text-muted-text outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring resize-y"
+            placeholder="粘贴 2 到 5 条你自己写过的转发，每条之间用单独一行 --- 隔开"
+            @input="scheduleSave"
+          />
+          <p class="text-xs text-muted-text">{{ sampleCount > 0 ? `已识别 ${sampleCount} 条样本，最多使用 5 条` : '每条之间用单独一行 --- 隔开；每条只有一段时，也可以只空一行' }}</p>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="ai-prompt" class="text-xs font-semibold text-secondary-text">补充要求（可选）</label>
+          <input
+            id="ai-prompt"
+            v-model="customPrompt"
+            type="text"
+            class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none text-text"
+            placeholder="例如：字数控制在 120 字以内"
+            @input="scheduleSave"
+          />
+        </div>
       </div>
     </template>
   </FeatureCard>

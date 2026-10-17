@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event, flushMicrotasks, portPair } from '../helpers/runtime-port'
-import { KeyAiRepostApiKey, KeyAiRepostBaseUrl, KeyAiRepostModel } from '../../storage-keys'
+import { KeyAiRepostApiKey, KeyAiRepostBaseUrl, KeyAiRepostModel, KeyAiRepostStylePrompt, KeyAiRepostStyleSamples } from '../../storage-keys'
 
 let runtime: any
 let permissions: any
@@ -57,6 +57,18 @@ describe('AI background requests', () => {
     expect(init.redirect).toBe('error')
     expect(JSON.parse(init.body).messages[1].content).toContain('原文内容')
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('生成时带上用户的转发风格和样本', async () => {
+    ;(globalThis as any).browser.storage.local.get.mockResolvedValue({
+      [KeyAiRepostApiKey]: 'test-key', [KeyAiRepostBaseUrl]: 'https://ai.example/v1', [KeyAiRepostModel]: 'test-model',
+      [KeyAiRepostStylePrompt]: '只用短句', [KeyAiRepostStyleSamples]: '我的一条转发',
+    })
+    start()
+    await flushMicrotasks()
+    const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content
+    expect(system).toContain('只用短句')
+    expect(system).toContain('样本 1：\n我的一条转发')
   })
 
   it.each(['XF_GENERATE_REPOST_OPTIONS', 'XF_TEST_AI_CONNECTION'])('times out and aborts a stalled %s fetch', async type => {

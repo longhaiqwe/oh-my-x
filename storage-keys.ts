@@ -90,6 +90,8 @@ export const KeyAiRepostBaseUrl = 'aiRepostBaseUrl'
 export const KeyAiRepostApiKey = 'aiRepostApiKey'
 export const KeyAiRepostModel = 'aiRepostModel'
 export const KeyAiRepostCustomPrompt = 'aiRepostCustomPrompt'
+export const KeyAiRepostStylePrompt = 'aiRepostStylePrompt' // 转发风格描述；留空用默认风格
+export const KeyAiRepostStyleSamples = 'aiRepostStyleSamples' // 自己写过的转发样本，每条之间用单独一行 --- 隔开（单段样本也可只空一行）
 
 export const allSettingsKeys = [
   KeyExtensionStatus,
@@ -155,6 +157,8 @@ export const allSettingsKeys = [
   KeyAiRepostApiKey,
   KeyAiRepostModel,
   KeyAiRepostCustomPrompt,
+  KeyAiRepostStylePrompt,
+  KeyAiRepostStyleSamples,
 ] as const
 
 export type SettingKey = (typeof allSettingsKeys)[number]
@@ -321,4 +325,6 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyAiRepostApiKey]: '',
   [KeyAiRepostModel]: 'gpt-4o-mini',
   [KeyAiRepostCustomPrompt]: '',
+  [KeyAiRepostStylePrompt]: '',
+  [KeyAiRepostStyleSamples]: '',
 }

@@ -55,7 +55,9 @@ describe('storage defaults', () => {
         key !== 'aiRepostBaseUrl' &&
         key !== 'aiRepostApiKey' &&
         key !== 'aiRepostModel' &&
-        key !== 'aiRepostCustomPrompt'
+        key !== 'aiRepostCustomPrompt' &&
+        key !== 'aiRepostStylePrompt' &&
+        key !== 'aiRepostStyleSamples'
       ) {
         expect(['on', 'off']).toContain(value)
       } else {

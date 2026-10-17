@@ -7,6 +7,8 @@ import {
   KeyAiRepostApiKey,
   KeyAiRepostBaseUrl,
   KeyAiRepostCustomPrompt,
+  KeyAiRepostStylePrompt,
+  KeyAiRepostStyleSamples,
   KeyAiRepostModel,
   KeyCreatorRewardsStats,
   defaultPreferences,
@@ -205,6 +207,8 @@ async function callAiRepostApi(
     KeyAiRepostApiKey,
     KeyAiRepostModel,
     KeyAiRepostCustomPrompt,
+    KeyAiRepostStylePrompt,
+    KeyAiRepostStyleSamples,
   ])
 
   const baseUrl = String(
@@ -233,7 +237,11 @@ async function callAiRepostApi(
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
   await requireAiPermission(baseUrl, signal)
-  const messages = buildRepostMessages(source, customPrompt)
+  const style = {
+    description: String(stored[KeyAiRepostStylePrompt] ?? ''),
+    samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
+  }
+  const messages = buildRepostMessages(source, customPrompt, style)
 
   const res = await fetch(endpoint, {
     method: 'POST',
