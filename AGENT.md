@@ -12,7 +12,7 @@ X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览�
 |------|------|
 | 框架 | [WXT](https://wxt.dev/) + Vite（版本见 `package.json`） |
 | UI | Vue 3 + reka-ui（无头组件）+ Tailwind CSS |
-| 构建 | `wxt build` → `.output/chrome-mv3/` |
+| 构建 | `wxt build` → `build/chrome-mv3/`（`wxt.config.ts` 的 `outDir`，不用默认的 `.output`，方便用户找到） |
 | 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads`） |
 | 类型 | TypeScript（严格模式；版本见 `package.json`） |
 | 测试 | Vitest + jsdom（见 `vitest.config.ts`） |
@@ -23,7 +23,7 @@ X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览�
 npm run dev           # 开发模式（HMR，需终端保持运行）
 npm run build         # 生产构建
 npm run zip           # 构建 + 打包 ZIP
-npm run clean         # 删除 .output/
+npm run clean         # 删除 build/（以及旧版的 .output/）
 npm test              # 运行单元测试
 npm run test:watch    # 监听模式
 npm run test:coverage # 测试 + 覆盖率报告
@@ -31,9 +31,9 @@ npm run typecheck     # vue-tsc --noEmit（含 Vue 模板）
 npm run check         # 类型检查 + 全量测试 + 生产构建
 ```
 
-Chrome 加载：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选 `.output/chrome-mv3/`
+Chrome 加载：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选 `build/chrome-mv3/`
 
-> ⚠️ 不要加载 `.output/chrome-mv3-dev/`，除非你在同时运行 `npm run dev`。
+> ⚠️ 不要加载 `build/chrome-mv3-dev/`，除非你在同时运行 `npm run dev`。
 
 ## 目录结构
 
@@ -236,7 +236,7 @@ npm run typecheck   # 类型检查（vue-tsc --noEmit，含 Vue SFC 脚本和模
 ## 构建 + 权限
 
 ```bash
-npm run build     # → .output/chrome-mv3/
+npm run build     # → build/chrome-mv3/
 npm run zip       # 构建 + 打包
 ```
 

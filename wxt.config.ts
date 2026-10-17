@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   browser: 'chrome',
+  // 输出到 build/（不用默认的 .output）：点开头的文件夹在访达和「加载已解压的扩展程序」选择框里默认隐藏，用户找不到
+  outDir: 'build',
   dev: {
     server: {
       port: 3005,

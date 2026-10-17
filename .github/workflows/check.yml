@@ -27,6 +27,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: oh-my-x-chrome-mv3
-          path: .output/chrome-mv3/
+          path: build/chrome-mv3/
           if-no-files-found: error
           retention-days: 7

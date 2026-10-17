@@ -110,7 +110,7 @@ npm run build
 
 # 4. Chrome 中加载
 chrome://extensions → 开发者模式 → 加载已解压的扩展
-→ 选择 oh-my-x/.output/chrome-mv3/
+→ 选择 oh-my-x/build/chrome-mv3/
 ```
 
 ---

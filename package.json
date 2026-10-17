@@ -10,7 +10,7 @@
     "zip": "wxt zip",
     "compile": "wxt prepare",
     "postinstall": "wxt prepare",
-    "clean": "rm -rf .output",
+    "clean": "rm -rf build .output",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
