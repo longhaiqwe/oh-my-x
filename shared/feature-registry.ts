@@ -128,7 +128,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'tweetButton',
     module: 'layout',
     label: '显示发帖按钮',
-    description: '左侧导航栏里的发帖按钮。隐藏后可以按 N 发帖',
+    description: '左侧导航栏里的发帖按钮，隐藏后可以按 N 发帖',
     storageKeys: [KeyTweetButton],
   },
   {
