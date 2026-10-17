@@ -21,6 +21,7 @@ import {
   USER_METRICS_TYPE,
   CREATOR_REWARDS_TYPE,
   PROFILE_ACTIVITY_FETCH_REQ_TYPE,
+  PROFILE_ACTIVITY_FETCH_ACK_TYPE,
   PROFILE_ACTIVITY_FETCH_RES_TYPE,
   OWN_POSTS_FETCH_REQ_TYPE,
   OWN_POSTS_FETCH_RES_TYPE,
@@ -644,6 +645,10 @@ export default defineContentScript({
             .catch(error => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: error instanceof Error ? error.message : '读取失败，请重试', __xf: XF_BRIDGE_MARKER }, location.origin))
             .finally(() => { ownPostsBusy = false })
         } else if (data.type === PROFILE_ACTIVITY_FETCH_REQ_TYPE) {
+          window.postMessage(
+            { type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: data.requestId, __xf: XF_BRIDGE_MARKER },
+            '*',
+          )
           void handleProfileActivityFetch(
             data.requestId,
             data.profileHandle,

@@ -27,6 +27,9 @@ export const CREATOR_REWARDS_TYPE = 'XF_CREATOR_REWARDS'
 /** 后台静默抓取博主近期活动度请求 postMessage 的 type */
 export const PROFILE_ACTIVITY_FETCH_REQ_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_REQ'
 
+/** 拦截器收到活动度抓取请求后立即回复的 type，请求方据此判断页面里有没有拦截器 */
+export const PROFILE_ACTIVITY_FETCH_ACK_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_ACK'
+
 /** 后台静默抓取博主近期活动度响应 postMessage 的 type */
 export const PROFILE_ACTIVITY_FETCH_RES_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_RES'
 

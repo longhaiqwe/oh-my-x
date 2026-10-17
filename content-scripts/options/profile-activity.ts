@@ -3,14 +3,13 @@ import {
   getOldestActivityTimestamp,
   getProfileActivityRoute,
   summarizeProfileActivity,
-  type ProfileActivityEntry,
   type ProfileActivitySummary,
 } from '../../shared/profile-activity'
 import {
-  XF_BRIDGE_MARKER,
-  PROFILE_ACTIVITY_FETCH_REQ_TYPE,
-  PROFILE_ACTIVITY_FETCH_RES_TYPE,
-} from '../../shared/bridge'
+  createProfileActivityBridgeOptions,
+  requestProfileActivityFromPage,
+  type ProfileActivityBridgeResult,
+} from '../../shared/profile-activity-bridge'
 import { KeyProfileActivityStats } from '../../storage-keys'
 import { setStorage } from '../utilities/storage'
 
@@ -26,61 +25,6 @@ function pruneSeenEntries() {
     if (firstKey) seenEntries.delete(firstKey)
     else break
   }
-}
-
-function fetchProfileActivityInBackground(
-  profileHandle: string,
-  days: number,
-  timeoutMs = 120000,
-): Promise<{ ok: boolean; entries?: ProfileActivityEntry[]; error?: string }> {
-  return new Promise((resolve) => {
-    const requestId = `paf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    const listener = (event: MessageEvent) => {
-      if (event.source !== window) return
-      const data = event.data
-      if (
-        data &&
-        typeof data === 'object' &&
-        data.__xf === XF_BRIDGE_MARKER &&
-        data.type === PROFILE_ACTIVITY_FETCH_RES_TYPE &&
-        data.requestId === requestId
-      ) {
-        cleanup()
-        resolve({
-          ok: data.ok === true,
-          entries: Array.isArray(data.entries) ? (data.entries as ProfileActivityEntry[]) : undefined,
-          error: typeof data.error === 'string' ? data.error : undefined,
-        })
-      }
-    }
-
-    const cleanup = () => {
-      if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-      window.removeEventListener('message', listener)
-    }
-
-    window.addEventListener('message', listener)
-    timer = setTimeout(() => {
-      cleanup()
-      resolve({ ok: false, error: '后台抓取响应超时' })
-    }, timeoutMs)
-
-    window.postMessage(
-      {
-        type: PROFILE_ACTIVITY_FETCH_REQ_TYPE,
-        profileHandle,
-        days,
-        requestId,
-        __xf: XF_BRIDGE_MARKER,
-      },
-      '*',
-    )
-  })
 }
 
 /**
@@ -118,21 +62,24 @@ export async function scanProfileActivity(
     return { ok: false, error: '请在博主个人主页使用此功能' }
   }
 
-  const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000
+  const bgResult = await requestProfileActivityFromPage(
+    createProfileActivityBridgeOptions(route.profileHandle, days),
+  )
+  return saveProfileActivityScan(route.profileHandle, bgResult, days)
+}
 
-  // 1. 后台无感静默拉取（零滚动，同时采集原创帖子与回复）
-  let bgResult: { ok: boolean; entries?: ProfileActivityEntry[]; error?: string }
-  try {
-    bgResult = await fetchProfileActivityInBackground(route.profileHandle, days)
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    bgResult = { ok: false, error: msg }
-  }
-
+/**
+ * 把拦截器返回的抓取结果汇总成近 N 天统计并保存。弹窗绕过内容脚本直接抓取时也用它。
+ */
+export async function saveProfileActivityScan(
+  profileHandle: string,
+  bgResult: ProfileActivityBridgeResult,
+  days: number,
+): Promise<{ ok: boolean; error?: string; stats?: ProfileActivitySummary }> {
   if (bgResult.ok && bgResult.entries) {
     // 纯粹以完整的后台数据为准，不与局部 DOM 碎片混合
-    const summary = summarizeProfileActivity(route.profileHandle, bgResult.entries, {
-      cutoffTimestamp: cutoffMs,
+    const summary = summarizeProfileActivity(profileHandle, bgResult.entries, {
+      cutoffTimestamp: Date.now() - days * 24 * 60 * 60 * 1000,
     })
 
     if (saveTimer) {
@@ -144,7 +91,7 @@ export async function scanProfileActivity(
     return { ok: true, stats: summary }
   }
 
-  // 2. 若后台未成功返回，不再滚动页面，而是直接向用户返回清晰说明
+  // 后台未成功返回时不滚动页面，直接向用户返回清晰说明
   const errorMsg = bgResult.error || '后台数据请求未响应，请按 F5 刷新网页后重试'
   console.warn('[oh-my-x] 后台抓取未成功:', errorMsg)
   return { ok: false, error: errorMsg }

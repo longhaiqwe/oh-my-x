@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import interceptorScript from '../../entrypoints/interceptor.content'
-import { PROFILE_ACTIVITY_FETCH_REQ_TYPE, PROFILE_ACTIVITY_FETCH_RES_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
+import { PROFILE_ACTIVITY_FETCH_ACK_TYPE, PROFILE_ACTIVITY_FETCH_REQ_TYPE, PROFILE_ACTIVITY_FETCH_RES_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
 
 const recent = '2026-10-15T10:00:00Z'
 function tweet(id: string, created_at = recent, reply = false) {
@@ -76,6 +76,16 @@ describe('profile activity scan completeness', () => {
     }
     throw new Error('Scan did not respond')
   }
+
+  it('acknowledges the request right away so callers can tell the interceptor is present', async () => {
+    nativeFetch.mockResolvedValue(json({}, 404))
+    receive(new MessageEvent('message', { source: window, data: {
+      type: PROFILE_ACTIVITY_FETCH_REQ_TYPE, requestId: 'scan', profileHandle: 'alice', days: 7, __xf: XF_BRIDGE_MARKER,
+    } }))
+    expect(post.mock.calls[0][0]).toEqual({ type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: 'scan', __xf: XF_BRIDGE_MARKER })
+    expect(post.mock.calls.some(([data]) => data.type === PROFILE_ACTIVITY_FETCH_RES_TYPE)).toBe(false)
+    await scan()
+  })
 
   it('captures modern XHR timelines separately and fetches posts plus replies', async () => {
     const capture = (op: string, qid: string, cursor: string) => {

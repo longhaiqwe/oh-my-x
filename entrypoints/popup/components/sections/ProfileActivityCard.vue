@@ -2,7 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { KeyProfileActivityStats } from '../../../../storage-keys'
 import { getStorage } from '../../../../content-scripts/utilities/storage'
-import type { ProfileActivitySummary } from '../../../../shared/profile-activity'
+import { saveProfileActivityScan } from '../../../../content-scripts/options/profile-activity'
+import { getProfileActivityRoute, type ProfileActivitySummary } from '../../../../shared/profile-activity'
+import {
+  createProfileActivityBridgeOptions,
+  requestProfileActivityFromPage,
+} from '../../../../shared/profile-activity-bridge'
 import FeatureCard from '../ui/FeatureCard.vue'
 import { useSettingsSurface } from '../../modules'
 
@@ -62,6 +67,22 @@ async function detectCurrentTabHandle() {
   } catch {}
 }
 
+type ScanResponse = { ok?: boolean; error?: string; stats?: ProfileActivitySummary }
+
+// 插件更新或重新加载后，已打开页面里的旧内容脚本收不到弹窗消息，但页面里的拦截器还在：
+// 直接把抓取请求注入页面，用户不用手动刷新
+async function scanViaInjectedRequest(tabId: number, url: string | undefined, days: number): Promise<ScanResponse> {
+  const route = url ? getProfileActivityRoute(new URL(url).pathname) : null
+  if (!route) return { ok: false, error: '请在博主个人主页使用此功能' }
+  const [injection] = await browser.scripting.executeScript({
+    target: { tabId },
+    func: requestProfileActivityFromPage,
+    args: [createProfileActivityBridgeOptions(route.profileHandle, days)],
+  })
+  if (!injection?.result) throw new Error('注入的抓取请求没有返回结果')
+  return saveProfileActivityScan(route.profileHandle, injection.result, days)
+}
+
 async function triggerProfileScan() {
   if (scanning.value) return
   scanning.value = true
@@ -74,10 +95,15 @@ async function triggerProfileScan() {
       scanFeedback.value = '没有找到当前标签页'
       return
     }
-    const res = (await browser.tabs.sendMessage(activeTab.id, {
-      type: 'XF_SCAN_PROFILE_ACTIVITY',
-      days: 7,
-    })) as { ok?: boolean; error?: string; stats?: ProfileActivitySummary } | undefined
+    let res: ScanResponse | undefined
+    try {
+      res = (await browser.tabs.sendMessage(activeTab.id, {
+        type: 'XF_SCAN_PROFILE_ACTIVITY',
+        days: 7,
+      })) as ScanResponse | undefined
+    } catch {
+      res = await scanViaInjectedRequest(activeTab.id, activeTab.url, 7)
+    }
 
     if (res?.ok && res.stats) {
       profileActivity.value = res.stats
