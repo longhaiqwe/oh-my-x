@@ -21,6 +21,7 @@ import {
   KeyHomeButton,
   KeyJobsButton,
   KeyJumpToReplies,
+  KeyJumpRepliesPosition,
   KeyListsButton,
   KeyMediaDownload,
   KeyMessagesButton,
@@ -336,8 +337,8 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'jumpToReplies',
     module: 'engage',
     label: '直达回复区',
-    description: '点击按钮跳到评论区，再点一次回到正文',
-    storageKeys: [KeyJumpToReplies],
+    description: '点击按钮跳到评论区，再点一次回到正文；按住可以拖到别的位置',
+    storageKeys: [KeyJumpToReplies, KeyJumpRepliesPosition],
     where: '长文和长推文页右下角',
   },
   {

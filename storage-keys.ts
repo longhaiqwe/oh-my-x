@@ -35,6 +35,7 @@ export const KeyMediaDownload = 'mediaDownload' // 分享菜单中的媒体下�
 
 // Reply assistant storage keys
 export const KeyJumpToReplies = 'jumpToReplies'
+export const KeyJumpRepliesPosition = 'jumpRepliesPosition' // 直达回复胶囊被拖动后的位置 { right, bottom }，属于数据，不是设置项
 export const KeySortRepliesByTime = 'sortRepliesByTime'
 export const KeyRepliesSortOrder = 'repliesSortOrder' // 'default' | 'newest' | 'oldest'
 export const KeyAutoLikeOnReply = 'autoLikeOnReply'

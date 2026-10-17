@@ -1,5 +1,5 @@
-import { KeyJumpToReplies } from '../../storage-keys'
-import { getStorage } from '../utilities/storage'
+import { KeyJumpRepliesPosition, KeyJumpToReplies } from '../../storage-keys'
+import { getStorage, setStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
 import debounce from '../utilities/debounce'
 
@@ -35,6 +35,17 @@ const REPLY_ASSISTANT_STYLES = `
   border-color: rgba(29, 155, 240, 0.5) !important;
 }
 
+/* 支持拖动：触屏上不触发页面滚动；拖动中关闭悬停动画 */
+.xf-jump-replies-btn {
+  touch-action: none !important;
+}
+.xf-jump-replies-btn.xf-jump-dragging,
+.xf-jump-replies-btn.xf-jump-dragging:hover {
+  cursor: grabbing !important;
+  transition: none !important;
+  transform: none !important;
+}
+
 .xf-jump-replies-btn svg {
   width: 16px !important;
   height: 16px !important;
@@ -61,6 +72,44 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-jump-replies-btn {
   border-color: rgba(255, 255, 255, 0.16) !important;
 }
 `
+
+/** 胶囊距离右下角的位置（像素） */
+export interface JumpButtonPosition {
+  right: number
+  bottom: number
+}
+
+/** 按下后移动超过这个距离才算拖动，否则仍是点击 */
+export const JUMP_DRAG_THRESHOLD = 4
+/** 胶囊与窗口边缘至少保持的距离 */
+export const JUMP_EDGE_MARGIN = 8
+
+/** 把位置限制在窗口内，胶囊不会被拖出屏幕 */
+export function clampJumpButtonPosition(
+  pos: JumpButtonPosition,
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+): JumpButtonPosition {
+  const maxRight = Math.max(JUMP_EDGE_MARGIN, viewport.width - size.width - JUMP_EDGE_MARGIN)
+  const maxBottom = Math.max(JUMP_EDGE_MARGIN, viewport.height - size.height - JUMP_EDGE_MARGIN)
+  return {
+    right: Math.round(Math.min(Math.max(pos.right, JUMP_EDGE_MARGIN), maxRight)),
+    bottom: Math.round(Math.min(Math.max(pos.bottom, JUMP_EDGE_MARGIN), maxBottom)),
+  }
+}
+
+export function parseJumpButtonPosition(raw: unknown): JumpButtonPosition | null {
+  if (typeof raw !== 'string' || !raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<JumpButtonPosition>
+    if (typeof parsed.right === 'number' && typeof parsed.bottom === 'number' && Number.isFinite(parsed.right) && Number.isFinite(parsed.bottom)) {
+      return { right: parsed.right, bottom: parsed.bottom }
+    }
+  } catch {
+    // 损坏的值按默认位置处理
+  }
+  return null
+}
 
 /**
  * 判断当前是否处于可以查看长推文/长文章及回复的单篇详情页
@@ -103,7 +152,20 @@ export class ReplyAssistant {
   private jumpButton: HTMLElement | null = null
   private isAtReplies = false
   private scrollListenerAttached = false
+  private resizeListenerAttached = false
   private debouncedUpdate: () => void
+  /** 用户拖动后的位置；undefined 表示还没读取，null 表示用默认位置 */
+  private position: JumpButtonPosition | null | undefined = undefined
+  private drag: {
+    pointerId: number
+    startX: number
+    startY: number
+    start: JumpButtonPosition
+    size: { width: number; height: number }
+    moved: boolean
+  } | null = null
+  /** 拖动结束后紧跟的那次 click 不触发跳转 */
+  private suppressClick = false
 
   private constructor() {
     this.debouncedUpdate = debounce(() => {
@@ -265,6 +327,9 @@ export class ReplyAssistant {
     }
 
     this.ensureStyles()
+    if (this.position === undefined) {
+      this.position = parseJumpButtonPosition(await getStorage(KeyJumpRepliesPosition))
+    }
     this.updateJumpButton()
   }
 
@@ -310,6 +375,7 @@ export class ReplyAssistant {
       btn.className = 'xf-jump-replies-btn'
       btn.setAttribute('role', 'button')
       btn.setAttribute('tabindex', '0')
+      btn.title = '点击跳转，按住可以拖动位置'
       btn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -320,18 +386,101 @@ export class ReplyAssistant {
       `
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
+        if (this.suppressClick) {
+          this.suppressClick = false
+          return
+        }
         if (this.isAtReplies) {
           this.scrollToMainTweet()
         } else {
           this.scrollToReplies()
         }
       })
+      this.attachDrag(btn)
       document.body.appendChild(btn)
       this.jumpButton = btn
+      this.applyPosition()
     }
 
     this.attachScrollListener()
+    this.attachResizeListener()
     this.refreshJumpButtonState()
+  }
+
+  private viewport() {
+    return { width: window.innerWidth, height: window.innerHeight }
+  }
+
+  /** 把记住的位置应用到胶囊上；没有记录时用样式表里的默认位置 */
+  private applyPosition() {
+    const btn = this.jumpButton
+    if (!btn || !this.position) return
+    const rect = btn.getBoundingClientRect()
+    const pos = clampJumpButtonPosition(this.position, { width: rect.width, height: rect.height }, this.viewport())
+    btn.style.setProperty('right', `${pos.right}px`, 'important')
+    btn.style.setProperty('bottom', `${pos.bottom}px`, 'important')
+  }
+
+  private attachDrag(btn: HTMLElement) {
+    btn.addEventListener('pointerdown', (e: PointerEvent) => {
+      if (e.button !== 0) return
+      const rect = btn.getBoundingClientRect()
+      const viewport = this.viewport()
+      this.drag = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        start: { right: viewport.width - rect.right, bottom: viewport.height - rect.bottom },
+        size: { width: rect.width, height: rect.height },
+        moved: false,
+      }
+      btn.setPointerCapture?.(e.pointerId)
+    })
+
+    btn.addEventListener('pointermove', (e: PointerEvent) => {
+      const drag = this.drag
+      if (!drag || e.pointerId !== drag.pointerId) return
+      const dx = e.clientX - drag.startX
+      const dy = e.clientY - drag.startY
+      if (!drag.moved && Math.hypot(dx, dy) < JUMP_DRAG_THRESHOLD) return
+      if (!drag.moved) {
+        drag.moved = true
+        btn.classList.add('xf-jump-dragging')
+      }
+      e.preventDefault()
+      const pos = clampJumpButtonPosition(
+        { right: drag.start.right - dx, bottom: drag.start.bottom - dy },
+        drag.size,
+        this.viewport(),
+      )
+      this.position = pos
+      btn.style.setProperty('right', `${pos.right}px`, 'important')
+      btn.style.setProperty('bottom', `${pos.bottom}px`, 'important')
+    })
+
+    const endDrag = (e: PointerEvent) => {
+      const drag = this.drag
+      if (!drag || e.pointerId !== drag.pointerId) return
+      this.drag = null
+      btn.releasePointerCapture?.(e.pointerId)
+      if (!drag.moved) return
+      btn.classList.remove('xf-jump-dragging')
+      // 松手后浏览器会补发一次 click，忽略它；若没有补发，下一轮事件循环前恢复
+      this.suppressClick = true
+      setTimeout(() => {
+        this.suppressClick = false
+      }, 0)
+      if (this.position) void setStorage({ [KeyJumpRepliesPosition]: JSON.stringify(this.position) })
+    }
+    btn.addEventListener('pointerup', endDrag)
+    btn.addEventListener('pointercancel', endDrag)
+  }
+
+  private attachResizeListener() {
+    if (this.resizeListenerAttached) return
+    this.resizeListenerAttached = true
+    // 窗口变小时把胶囊拉回可见范围
+    window.addEventListener('resize', debounce(() => this.applyPosition(), 100))
   }
 
   private attachScrollListener() {
