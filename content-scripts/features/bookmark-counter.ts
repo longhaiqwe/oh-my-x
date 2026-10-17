@@ -335,6 +335,7 @@ export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
 
   const refStyle = getReferenceStyle(btn)
   const defaultSecondaryColor = 'rgb(83, 100, 113)'
+  // X 收藏按钮的激活色是固定蓝（blue500），不随强调色变，这里保持一致
   const twitterBlueColor = 'rgb(29, 155, 240)'
 
   const finalColor = isBookmarked ? twitterBlueColor : (refStyle?.color || defaultSecondaryColor)

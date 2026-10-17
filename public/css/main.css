@@ -192,8 +192,8 @@ a[href*="quick_promote_web"] {
 
 .xf-toc-line-bar.active {
   opacity: 1;
-  background-color: rgb(29, 155, 240);
-  box-shadow: 0 0 6px rgba(29, 155, 240, 0.8);
+  background-color: var(--xf-accent, rgb(29, 155, 240));
+  box-shadow: 0 0 6px rgba(var(--xf-accent-rgb, 29, 155, 240), 0.8);
 }
 
 .xf-toc-detailed-wrapper {
@@ -252,8 +252,8 @@ a[href*="quick_promote_web"] {
 .xf-toc-count {
   font-size: 10px;
   font-weight: 600;
-  color: rgb(29, 155, 240);
-  background: rgba(29, 155, 240, 0.12);
+  color: var(--xf-accent, rgb(29, 155, 240));
+  background: rgba(var(--xf-accent-rgb, 29, 155, 240), 0.12);
   padding: 1px 6px;
   border-radius: 999px;
 }
@@ -289,12 +289,12 @@ a[href*="quick_promote_web"] {
 
 .xf-toc-item:hover {
   background-color: rgba(113, 118, 123, 0.1);
-  color: rgb(29, 155, 240);
+  color: var(--xf-accent, rgb(29, 155, 240));
 }
 
 .xf-toc-item.active {
-  background-color: rgba(29, 155, 240, 0.15);
-  color: rgb(29, 155, 240);
+  background-color: rgba(var(--xf-accent-rgb, 29, 155, 240), 0.15);
+  color: var(--xf-accent, rgb(29, 155, 240));
   font-weight: 600;
 }
 
@@ -315,9 +315,9 @@ a[href*="quick_promote_web"] {
 }
 
 .xf-toc-level-tag.level-1 {
-  background: rgba(29, 155, 240, 0.14);
-  color: rgb(29, 155, 240);
-  border: 1px solid rgba(29, 155, 240, 0.28);
+  background: rgba(var(--xf-accent-rgb, 29, 155, 240), 0.14);
+  color: var(--xf-accent, rgb(29, 155, 240));
+  border: 1px solid rgba(var(--xf-accent-rgb, 29, 155, 240), 0.28);
 }
 
 .xf-toc-level-tag.level-2 {

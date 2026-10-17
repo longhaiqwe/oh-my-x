@@ -4,6 +4,7 @@ import { parseKeywordList } from '../../../shared/spam-rules'
 import { invalidateSpamConfig, runScan } from '../scanner'
 import { segmentText, type SegmentInfo } from '../keyword-segment'
 import { isDarkTheme } from './theme'
+import { ACCENT, ACCENT_TEXT, accentAlpha } from '../../utilities/colors'
 
 // ─── 状态 ──────────────────────────────────────────
 
@@ -75,8 +76,8 @@ export function showPickerPanel(article: HTMLElement) {
     fgSecondary: dark ? 'rgb(113,118,123)' : 'rgb(83,100,113)',
     border: dark ? 'rgb(47,51,54)' : 'rgb(207,217,222)',
     chipBg: dark ? 'rgba(239,243,244,0.05)' : 'rgba(15,20,25,0.05)',
-    accent: 'rgb(29,155,240)',
-    accentBg: dark ? 'rgba(29,155,240,0.2)' : 'rgba(29,155,240,0.15)',
+    accent: ACCENT,
+    accentBg: dark ? accentAlpha(0.2) : accentAlpha(0.15),
     danger: 'rgb(249,88,88)',
     dangerBg: dark ? 'rgba(249,88,88,0.2)' : 'rgba(249,88,88,0.1)',
     hoverBg: dark ? 'rgba(239,243,244,0.1)' : 'rgba(15,20,25,0.08)',
@@ -445,7 +446,7 @@ export function showPickerPanel(article: HTMLElement) {
     'border-radius:9999px',
     'border:none',
     `background:${c.accent}`,
-    'color:#fff',
+    `color:${ACCENT_TEXT}`,
     'font-size:13px',
     'font-weight:600',
     'cursor:pointer',

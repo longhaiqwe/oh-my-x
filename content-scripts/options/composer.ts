@@ -1,5 +1,6 @@
 import selectors from '../selectors'
 import addStyles, { stylesExist } from '../utilities/addStyles'
+import { accentAlpha } from '../utilities/colors'
 import { openOwnPostPicker } from './own-post-picker'
 import { convertMarkdownToPost, isMarkdownContent } from '../../shared/markdown-to-post'
 
@@ -119,7 +120,7 @@ function ensureComposerStyles() {
   if (!stylesExist('insertLinkButton')) {
     addStyles(
       'insertLinkButton',
-      '.xf-insert-link-presentation{display:inline-flex!important}.xf-insert-link-inner{display:inline-flex!important;align-items:center!important;gap:2px!important}.xf-insert-link-button{background:transparent!important;border:0!important;padding:6px!important;margin-left:2px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;color:inherit!important;border-radius:9999px!important}.xf-insert-link-button:hover{background-color:rgba(29,155,240,0.1)!important}.xf-insert-link-button svg{width:20px!important;height:20px!important;color:inherit!important}'
+      '.xf-insert-link-presentation{display:inline-flex!important}.xf-insert-link-inner{display:inline-flex!important;align-items:center!important;gap:2px!important}.xf-insert-link-button{background:transparent!important;border:0!important;padding:6px!important;margin-left:2px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;color:inherit!important;border-radius:9999px!important}.xf-insert-link-button:hover{background-color:' + accentAlpha(0.1) + '!important}.xf-insert-link-button svg{width:20px!important;height:20px!important;color:inherit!important}'
     )
   }
 }

@@ -1,5 +1,6 @@
 import { showListDropdown } from './list-dropdown'
 import { showPickerPanel } from './picker-panel'
+import { ACCENT, accentAlpha } from '../../utilities/colors'
 
 // ─── 状态 ──────────────────────────────────────────
 
@@ -42,8 +43,8 @@ export function injectKeywordButton(article: HTMLElement) {
   ].join(';')
 
   btn.addEventListener('mouseenter', () => {
-    btn.style.background = 'rgba(29,155,240,0.1)'
-    btn.style.color = 'rgb(29,155,240)'
+    btn.style.background = accentAlpha(0.1)
+    btn.style.color = ACCENT
   })
   btn.addEventListener('mouseleave', () => {
     btn.style.background = 'transparent'

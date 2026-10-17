@@ -26,6 +26,7 @@ import { addScheduledRelativeTimes, maintainScheduledPostsCache, removeScheduled
 import { addStatRatioBadges } from '../options/stat-ratio'
 import { changeTweetButton, changeHighlightNonFollowers } from '../options/interface'
 import { getStorage } from '../utilities/storage'
+import { syncXAccentColor } from '../utilities/colors'
 import throttle from '../utilities/throttle'
 import type { ExtensionSettings } from '../../shared/settings'
 
@@ -94,6 +95,9 @@ export const dynamicFeatures = {
       while (pendingScopes.size > 0) {
         const scopes = new Set(pendingScopes)
         pendingScopes.clear()
+
+        // 用户在 X 设置里换了强调色后，页面上的浮层跟着变
+        syncXAccentColor()
 
         if (includesScope(scopes, 'tweet')) {
           // 先读开关再注入，关闭状态下不会先画出来再移除

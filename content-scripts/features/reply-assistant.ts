@@ -2,6 +2,7 @@ import { KeyJumpRepliesPosition, KeyJumpToReplies } from '../../storage-keys'
 import { getStorage, setStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
 import debounce from '../utilities/debounce'
+import { accentAlpha } from '../utilities/colors'
 
 const REPLY_ASSISTANT_STYLES = `
 /* 浮动直达回复按钮 */
@@ -31,8 +32,8 @@ const REPLY_ASSISTANT_STYLES = `
 
 .xf-jump-replies-btn:hover {
   transform: translateY(-2px) scale(1.03) !important;
-  box-shadow: 0 6px 20px rgba(29, 155, 240, 0.28) !important;
-  border-color: rgba(29, 155, 240, 0.5) !important;
+  box-shadow: 0 6px 20px ${accentAlpha(0.28)} !important;
+  border-color: ${accentAlpha(0.5)} !important;
 }
 
 /* 支持拖动：触屏上不触发页面滚动；拖动中关闭悬停动画 */

@@ -4,6 +4,7 @@ import { ReplyAssistant } from './reply-assistant'
 import { getStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
 import debounce from '../utilities/debounce'
+import { ACCENT, accentAlpha } from '../utilities/colors'
 
 const TOC_STYLES = `
 .xf-toc-container,
@@ -109,9 +110,9 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-toc-minimal {
 }
 
 .xf-toc-line-bar.active {
-  background-color: #1d9bf0 !important;
+  background-color: ${ACCENT} !important;
   opacity: 1 !important;
-  box-shadow: 0 0 8px rgba(29, 155, 240, 0.95) !important;
+  box-shadow: 0 0 8px ${accentAlpha(0.95)} !important;
   transform: scaleX(1.2);
 }
 
@@ -183,8 +184,8 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-toc-header {
 .xf-toc-count {
   font-size: 11px !important;
   font-weight: 600 !important;
-  color: #1d9bf0 !important;
-  background: rgba(29, 155, 240, 0.12) !important;
+  color: ${ACCENT} !important;
+  background: ${accentAlpha(0.12)} !important;
   padding: 2px 7px !important;
   border-radius: 9999px !important;
 }
@@ -238,12 +239,12 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-toc-item {
 
 .xf-toc-item:hover {
   background-color: rgba(128, 128, 128, 0.12) !important;
-  color: #1d9bf0 !important;
+  color: ${ACCENT} !important;
 }
 
 .xf-toc-item.active {
-  background-color: rgba(29, 155, 240, 0.14) !important;
-  color: #1d9bf0 !important;
+  background-color: ${accentAlpha(0.14)} !important;
+  color: ${ACCENT} !important;
   font-weight: 600 !important;
 }
 
@@ -264,9 +265,9 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-toc-item {
 }
 
 .xf-toc-level-tag.level-1 {
-  background: rgba(29, 155, 240, 0.14) !important;
-  color: #1d9bf0 !important;
-  border: 1px solid rgba(29, 155, 240, 0.28) !important;
+  background: ${accentAlpha(0.14)} !important;
+  color: ${ACCENT} !important;
+  border: 1px solid ${accentAlpha(0.28)} !important;
 }
 
 .xf-toc-level-tag.level-2 {
@@ -518,9 +519,9 @@ class ArticleTocManager {
     replyItem.style.marginTop = '4px'
     replyItem.style.borderTop = '1px dashed rgba(128, 128, 128, 0.2)'
     replyItem.style.paddingTop = '6px'
-    replyItem.style.color = '#1d9bf0'
+    replyItem.style.color = ACCENT
     replyItem.innerHTML = `
-      <span class="xf-toc-level-tag" style="background: rgba(29, 155, 240, 0.15); color: #1d9bf0;">💬</span>
+      <span class="xf-toc-level-tag" style="background: ${accentAlpha(0.15)}; color: ${ACCENT};">💬</span>
       <span class="xf-toc-item-text" style="font-weight: 600;">直达回复区</span>
     `
     replyItem.addEventListener('click', (e) => {

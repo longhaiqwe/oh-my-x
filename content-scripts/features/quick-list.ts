@@ -12,7 +12,7 @@ import {
   type QuickListItem,
 } from '../../shared/quick-list'
 import { getStorage, setStorage } from '../utilities/storage'
-import { getThemeColors } from '../utilities/colors'
+import { ACCENT, ACCENT_TEXT, getThemeColors } from '../utilities/colors'
 
 const BTN_CLASS = 'xf-quick-list-btn'
 const NAV_CLASS = 'xf-quick-list-nav-entry'
@@ -339,7 +339,7 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
     body.innerHTML = `
       <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); text-align: center;">
         <div style="margin-bottom: 8px;">还没有配置 List</div>
-        <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: rgb(29, 155, 240); color: #fff; border: none; cursor: pointer; transition: opacity 0.15s ease;">
+        <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: ${ACCENT}; color: ${ACCENT_TEXT}; border: none; cursor: pointer; transition: opacity 0.15s ease;">
           从 X 一键同步 Lists
         </button>
       </div>
@@ -597,7 +597,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
     body.innerHTML = `
       <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); text-align: center;">
         <div style="margin-bottom: 8px;">还没有配置 List</div>
-        <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: rgb(29, 155, 240); color: #fff; border: none; cursor: pointer; transition: opacity 0.15s ease;">
+        <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: ${ACCENT}; color: ${ACCENT_TEXT}; border: none; cursor: pointer; transition: opacity 0.15s ease;">
           从 X 一键同步 Lists
         </button>
       </div>

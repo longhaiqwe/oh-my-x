@@ -219,6 +219,7 @@ oh-my-x/
 | `setStorage(kv)` | storage.set，返回 `Promise<boolean>` 让调用方可感知失败 |
 | `constructNewData(changes)` | storage changes → newValue map |
 | `extractNavItems()` / `getNavIconSvg(id)` | 导航项扫描 + SVG 提取 |
+| `ACCENT` / `accentAlpha(a)` / `ACCENT_TEXT`（`colors.ts`） | 注入页面的界面用的强调色，跟随 X 设置；`syncXAccentColor()` 在启动和每轮动态循环里读取并写入 `--xf-accent` / `--xf-accent-rgb` / `--xf-accent-text`，读不到用 X 默认蓝。纯 CSS 文件直接写 `var(--xf-accent, rgb(29, 155, 240))`。表示含义的颜色（评级、档位、X 操作按钮的固定色）不用它，`test/unit/x-accent.test.ts` 记着保留清单 |
 
 ## 测试
 

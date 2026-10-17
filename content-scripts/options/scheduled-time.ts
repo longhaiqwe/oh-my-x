@@ -4,6 +4,7 @@ import 'dayjs/locale/zh-cn'
 import { KeyScheduledPostsCache, KeyScheduledPanorama } from '../../storage-keys'
 import { XF_BRIDGE_MARKER, SCHEDULED_TWEETS_TYPE } from '../../shared/bridge'
 import { getStorage, setStorage } from '../utilities/storage'
+import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
 
 dayjs.extend(relativeTime)
 
@@ -636,9 +637,9 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
         display: inline-block !important;
         font-size: 13px !important;
         font-weight: 600 !important;
-        color: rgb(29, 155, 240) !important;
-        background-color: rgba(29, 155, 240, 0.12) !important;
-        border: 1px solid rgba(29, 155, 240, 0.3) !important;
+        color: ${ACCENT} !important;
+        background-color: ${accentAlpha(0.12)} !important;
+        border: 1px solid ${accentAlpha(0.3)} !important;
         padding: 2px 8px !important;
         border-radius: 12px !important;
         white-space: nowrap !important;
@@ -700,13 +701,13 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
     }
 
     if (node.isNewPicked) {
-      const chipPos = `<span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; background: rgba(29, 155, 240, 0.2); color: rgb(29, 155, 240); padding: 0 8px !important; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap;">#${pickedIndex + 1}</span>`
+      const chipPos = `<span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; background: ${accentAlpha(0.2)}; color: ${ACCENT}; padding: 0 8px !important; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap;">#${pickedIndex + 1}</span>`
 
       timelineItemsHtml += `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:rgba(29,155,240,0.14); border:2px solid rgb(29,155,240); border-radius:10px; box-shadow: 0 2px 8px rgba(29,155,240,0.2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:${accentAlpha(0.14)}; border:2px solid ${ACCENT}; border-radius:10px; box-shadow: 0 2px 8px ${accentAlpha(0.2)};">
           <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; flex:1; overflow:hidden;">
-            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: rgb(29, 155, 240) !important; background: rgba(29, 155, 240, 0.2) !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid rgba(29, 155, 240, 0.4) !important; white-space: nowrap !important;">${relTime}</span>
-            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: #fff !important; background: rgb(29, 155, 240) !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid rgb(29, 155, 240) !important; white-space: nowrap !important;">本次拟发</span>
+            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: ${ACCENT} !important; background: ${accentAlpha(0.2)} !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid ${accentAlpha(0.4)} !important; white-space: nowrap !important;">${relTime}</span>
+            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: ${ACCENT_TEXT} !important; background: ${ACCENT} !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid ${ACCENT} !important; white-space: nowrap !important;">本次拟发</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;">
             ${chipPos}
@@ -731,7 +732,7 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
     margin-top: 8px !important;
     padding: 10px 12px !important;
     background-color: transparent !important;
-    border: 1px solid rgba(29, 155, 240, 0.25) !important;
+    border: 1px solid ${accentAlpha(0.25)} !important;
     border-radius: 12px !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -739,14 +740,14 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
 
   const html = `
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
-      <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: rgb(29, 155, 240);">
+      <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: ${ACCENT};">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M7 4V3h2v1h6V3h2v1h1.5C19.89 4 21 5.12 21 6.5v12c0 1.38-1.11 2.5-2.5 2.5h-13C4.12 21 3 19.88 3 18.5v-12C3 5.12 4.12 4 5.5 4H7zm0 2H5.5c-.27 0-.5.22-.5.5v12c0 .28.23.5.5.5h13c.28 0 .5-.22.5-.5v-12c0-.28-.22-.5-.5-.5H17v1h-2V6H9v1H7V6z"/>
         </svg>
         <span>排期全景</span>
       </div>
       <span style="font-size: 12px; font-weight: 600; color: #8b98a5; background: rgba(255, 255, 255, 0.08); padding: 3px 10px; border-radius: 12px; white-space: nowrap;">
-        共 ${cachedItems.length}${pickedDate ? ' <span style="color: rgb(29, 155, 240); font-weight: 700; background: rgba(29, 155, 240, 0.18); padding: 1px 6px; border-radius: 8px; margin: 0 2px;">+1</span>' : ''} 条
+        共 ${cachedItems.length}${pickedDate ? ` <span style="color: ${ACCENT}; font-weight: 700; background: ${accentAlpha(0.18)}; padding: 1px 6px; border-radius: 8px; margin: 0 2px;">+1</span>` : ''} 条
       </span>
     </div>
 

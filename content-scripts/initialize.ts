@@ -2,7 +2,7 @@ import { runDynamicFeatures, type DynamicFeatureScope } from './features/dynamic
 import { applyStaticFeatures } from './features/static'
 import addStyleSheet from './utilities/addStyleSheet'
 import addStyles from './utilities/addStyles'
-import { extractColorsAsRootVars } from './utilities/colors'
+import { extractColorsAsRootVars, syncXAccentColor } from './utilities/colors'
 import debounce from './utilities/debounce'
 import isMutationSkippable from './utilities/isMutationSkippable'
 import { getSettings } from './utilities/storage'
@@ -79,6 +79,8 @@ function addResizeListener() {
 
 export async function initializeExtension() {
   addStylesheets()
+  // 先写入强调色变量（读不到就用默认蓝），后面注入的界面直接引用
+  syncXAccentColor()
 
   // 数据监听必须最先注册：排期数据不依赖任何 DOM 操作，
   // 后续静态/动态特性即使抛错也不能影响数据持久化链路。

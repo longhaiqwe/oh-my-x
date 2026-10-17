@@ -11,6 +11,7 @@ import type { AiRepostOptionsResult, RepostSourceInput } from '../../shared/ai-r
 import selectors from '../selectors'
 import { getPrecomposeUrl } from '../options/precompose'
 import addStyles from '../utilities/addStyles'
+import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
 import { getStorage, setStorage } from '../utilities/storage'
 
 const STYLE_ID = 'xf-ai-repost-styles'
@@ -24,9 +25,9 @@ const AI_REPOST_STYLES = `
   padding: 0 10px !important;
   margin-left: 8px !important;
   border-radius: 9999px !important;
-  border: 1px solid rgba(29, 155, 240, 0.45) !important;
-  background: rgba(29, 155, 240, 0.08) !important;
-  color: rgb(29, 155, 240) !important;
+  border: 1px solid ${accentAlpha(0.45)} !important;
+  background: ${accentAlpha(0.08)} !important;
+  color: ${ACCENT} !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   line-height: 1 !important;
@@ -38,8 +39,8 @@ const AI_REPOST_STYLES = `
   flex-shrink: 0 !important;
 }
 .xf-ai-repost-trigger:hover {
-  background: rgba(29, 155, 240, 0.16) !important;
-  border-color: rgb(29, 155, 240) !important;
+  background: ${accentAlpha(0.16)} !important;
+  border-color: ${ACCENT} !important;
 }
 .xf-ai-repost-trigger:disabled {
   opacity: 0.6 !important;
@@ -137,8 +138,8 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
 }
 .xf-ai-repost-action-btn:hover {
   opacity: 1 !important;
-  border-color: rgb(29, 155, 240) !important;
-  color: rgb(29, 155, 240) !important;
+  border-color: ${ACCENT} !important;
+  color: ${ACCENT} !important;
 }
 
 .xf-ai-repost-options {
@@ -159,12 +160,12 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
   transition: border-color 0.15s ease, background 0.15s ease !important;
 }
 .xf-ai-repost-card:hover {
-  border-color: rgba(29, 155, 240, 0.65) !important;
-  background: rgba(29, 155, 240, 0.06) !important;
+  border-color: ${accentAlpha(0.65)} !important;
+  background: ${accentAlpha(0.06)} !important;
 }
 .xf-ai-repost-card.is-selected {
-  border-color: rgb(29, 155, 240) !important;
-  background: rgba(29, 155, 240, 0.1) !important;
+  border-color: ${ACCENT} !important;
+  background: ${accentAlpha(0.1)} !important;
 }
 .xf-ai-repost-card-tag {
   display: flex !important;
@@ -172,7 +173,7 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
   justify-content: space-between !important;
   font-size: 11px !important;
   font-weight: 600 !important;
-  color: rgb(29, 155, 240) !important;
+  color: ${ACCENT} !important;
 }
 .xf-ai-repost-card-body {
   font-size: 13px !important;
@@ -220,7 +221,7 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
   outline: none !important;
 }
 .xf-ai-repost-input:focus {
-  border-color: rgb(29, 155, 240) !important;
+  border-color: ${ACCENT} !important;
 }
 .xf-ai-repost-config-actions {
   display: flex !important;
@@ -232,8 +233,8 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
   padding: 4px 12px !important;
   border-radius: 6px !important;
   border: 0 !important;
-  background: rgb(29, 155, 240) !important;
-  color: #fff !important;
+  background: ${ACCENT} !important;
+  color: ${ACCENT_TEXT} !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
@@ -248,8 +249,8 @@ body[style*="background-color: rgb(21, 32, 43)"] .xf-ai-repost-panel {
   cursor: pointer !important;
 }
 .xf-ai-repost-test-btn:hover {
-  border-color: rgb(29, 155, 240) !important;
-  color: rgb(29, 155, 240) !important;
+  border-color: ${ACCENT} !important;
+  color: ${ACCENT} !important;
 }
 .xf-ai-repost-test-btn:disabled, .xf-ai-repost-save-btn:disabled {
   opacity: 0.5 !important;

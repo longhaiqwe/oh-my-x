@@ -57,6 +57,7 @@ const QUICK_INTERACTION_STYLES = `
   background-color: rgba(128, 128, 128, 0.12) !important;
 }
 
+/* 各按钮颜色照搬 X 操作按钮：回复、收藏是固定蓝（blue500），不随强调色变 */
 .xf-qi-btn.xf-qi-btn-reply:hover {
   background-color: rgba(29, 155, 240, 0.12) !important;
   color: #1d9bf0 !important;
