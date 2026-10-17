@@ -1,5 +1,5 @@
 import selectors from '../selectors'
-import addStyles, { removeStyles } from '../utilities/addStyles'
+import addStyles, { removeStyles, stylesExist } from '../utilities/addStyles'
 import waitForElement from '../utilities/waitForElement'
 import { syncRadarPageMarker } from './radar'
 import { extractTweetInfoFromDom, type DomTweetInfo } from '../../shared/tweet-media'
@@ -165,6 +165,8 @@ export const addMediaDownloadButtons = () => {
           void waitForElement("div[data-testid='Dropdown']", 3000).then((dropdown) => {
             if (!dropdown) return
             injectMediaDownloadOptions(dropdown, lastActiveTweetContext)
+            // X 自带的「下载视频」可能晚一点才渲染出来，稍后再查一次
+            setTimeout(() => removeDuplicateVideoOption(dropdown), 200)
           })
         }, 30)
       },
@@ -196,15 +198,15 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
   const dropdownText = dropdown.textContent || ''
   const isZh = /复制|分享|发送|收藏/i.test(dropdownText)
 
-  // 1. 如果有视频
-  if (info.hasVideo) {
+  // 1. 如果有视频；X 已经自带「下载视频」时（自己发的视频）不再重复加
+  if (info.hasVideo && !hasNativeVideoDownload(dropdown)) {
     createDownloadOption({
       id: 'xf-download-video-btn',
       dropdown,
       template,
       label: isZh ? '下载视频 (MP4)' : 'Download video (MP4)',
       onClick: async (btnTextEl) => {
-        btnTextEl.innerText = isZh ? '正在解析视频...' : 'Resolving video...'
+        btnTextEl.textContent = isZh ? '正在解析视频...' : 'Resolving video...'
         try {
           const res = await browser.runtime.sendMessage({
             type: 'XF_GET_TWEET_MEDIA',
@@ -213,19 +215,19 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           const videoItem = res?.media?.videos?.[0]
           const mp4Url = videoItem?.bestMp4Url
           if (!mp4Url) {
-            btnTextEl.innerText = isZh ? '未获取到视频直链' : 'Video URL not found'
+            btnTextEl.textContent = isZh ? '未获取到视频直链' : 'Video URL not found'
             return
           }
-          btnTextEl.innerText = isZh ? '正在下载...' : 'Downloading...'
+          btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
           const filename = `x_${info!.authorHandle || 'video'}_${info!.tweetId || Date.now()}.mp4`
           await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.innerText = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
         } catch {
-          btnTextEl.innerText = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
         }
       },
     })
@@ -239,7 +241,7 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
       template,
       label: isZh ? '下载 GIF (MP4)' : 'Download GIF (MP4)',
       onClick: async (btnTextEl) => {
-        btnTextEl.innerText = isZh ? '正在解析 GIF...' : 'Resolving GIF...'
+        btnTextEl.textContent = isZh ? '正在解析 GIF...' : 'Resolving GIF...'
         try {
           const res = await browser.runtime.sendMessage({
             type: 'XF_GET_TWEET_MEDIA',
@@ -248,19 +250,19 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           const gifItem = res?.media?.gifs?.[0] || res?.media?.videos?.[0]
           const mp4Url = gifItem?.bestMp4Url
           if (!mp4Url) {
-            btnTextEl.innerText = isZh ? '未获取到动图源' : 'GIF URL not found'
+            btnTextEl.textContent = isZh ? '未获取到动图源' : 'GIF URL not found'
             return
           }
-          btnTextEl.innerText = isZh ? '正在下载...' : 'Downloading...'
+          btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
           const filename = `x_${info!.authorHandle || 'gif'}_${info!.tweetId || Date.now()}.mp4`
           await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.innerText = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
         } catch {
-          btnTextEl.innerText = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
         }
       },
     })
@@ -284,7 +286,7 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
       template,
       label,
       onClick: async (btnTextEl) => {
-        btnTextEl.innerText = isZh ? '正在下载...' : 'Downloading...'
+        btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
         try {
           for (let i = 0; i < info!.photos.length; i++) {
             const photo = info!.photos[i]
@@ -297,13 +299,76 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
               filename,
             })
           }
-          btnTextEl.innerText = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
         } catch {
-          btnTextEl.innerText = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
         }
       },
     })
   }
+}
+
+// 线条风格的下载图标，线宽和 X 菜单里的其他图标一致；用行内样式，避免被图标上的填充色规则盖掉
+const DOWNLOAD_ICON_PATH =
+  '<path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 14.5v4A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-4" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"></path>'
+
+/** 菜单项里放文字的那一层：图标以外、没有子元素、有文字的第一个元素 */
+function findLabelElement(item: Element): HTMLElement | null {
+  const walker = document.createTreeWalker(item, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) =>
+      node.nodeName.toLowerCase() === 'svg' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  })
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const el = node as HTMLElement
+    if (el.childElementCount === 0 && el.textContent?.trim()) return el
+  }
+  return null
+}
+
+/**
+ * 复制一条 X 原生菜单项，只换图标和文字，字体、间距、图标尺寸都沿用 X 的。
+ * 找不到图标或文字（X 改了结构）时返回 null，由调用方退回自建的菜单项。
+ */
+function cloneNativeMenuItem(template: Element, label: string) {
+  const option = template.cloneNode(true) as HTMLElement
+  const svg = option.querySelector('svg')
+  const textEl = findLabelElement(option)
+  if (!svg || !textEl) return null
+
+  svg.removeAttribute('data-icon')
+  svg.innerHTML = DOWNLOAD_ICON_PATH
+  textEl.textContent = label
+  // 去掉从原菜单项带过来的编号、标识和悬停状态
+  for (const el of [option, ...Array.from(option.querySelectorAll('*'))]) {
+    el.removeAttribute('id')
+    el.removeAttribute('data-testid')
+    el.removeAttribute('data-highlighted')
+  }
+  option.style.removeProperty('background-color')
+  return { option, textEl }
+}
+
+// 复制出来的菜单项没有 X 的悬停处理，用样式补上；--x-hover-subtle 是 X 新版页面的悬停色
+function ensureMenuHoverStyle() {
+  if (stylesExist('mediaDownloadMenu')) return
+  addStyles(
+    'mediaDownloadMenu',
+    `.xf-media-download-option:hover { background-color: var(--x-hover-subtle, rgba(127, 127, 127, 0.08)) !important; }`,
+  )
+}
+
+/** X 自带的「下载视频」：只出现在自己发的视频上 */
+const NATIVE_VIDEO_DOWNLOAD = /^(下载视频|下載影片|download video)$/i
+
+function hasNativeVideoDownload(dropdown: Element) {
+  return Array.from(dropdown.querySelectorAll('[role="menuitem"]:not(.xf-media-download-option)')).some(
+    (item) => NATIVE_VIDEO_DOWNLOAD.test((item.textContent ?? '').replace(/\s+/g, ' ').trim()),
+  )
+}
+
+/** X 自带的「下载视频」比我们晚渲染时，去掉我们那条，菜单里不出现两条下载视频 */
+function removeDuplicateVideoOption(dropdown: Element) {
+  if (hasNativeVideoDownload(dropdown)) dropdown.querySelector('#xf-download-video-btn')?.remove()
 }
 
 function createDownloadOption(params: {
@@ -316,27 +381,12 @@ function createDownloadOption(params: {
   const { id, dropdown, template, label, onClick } = params
   if (dropdown.querySelector(`#${id}`)) return
 
-  const option = template.cloneNode(true) as HTMLElement
+  const cloned = cloneNativeMenuItem(template, label)
+  const { option, textEl } = cloned ?? buildFallbackMenuItem(template, label)
   option.id = id
   option.classList.add('xf-media-download-option')
-  option.innerHTML = ''
   option.style.cursor = 'pointer'
-
-  const iconContainer = document.createElement('div')
-  iconContainer.style.display = 'inline-flex'
-  iconContainer.style.alignItems = 'center'
-  iconContainer.style.marginRight = '12px'
-  iconContainer.style.flexShrink = '0'
-  iconContainer.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11H10V4H14V11H17L12 16Z" fill="currentColor"/><path d="M4 18H20V20H4V18Z" fill="currentColor"/></svg>`
-  option.appendChild(iconContainer)
-
-  const textEl = document.createElement('div')
-  textEl.innerText = label
-  textEl.style.flexGrow = '1'
-  textEl.style.overflow = 'hidden'
-  textEl.style.textOverflow = 'ellipsis'
-  textEl.style.whiteSpace = 'nowrap'
-  option.appendChild(textEl)
+  ensureMenuHoverStyle()
 
   option.addEventListener('click', (ev) => {
     ev.preventDefault()
@@ -345,4 +395,28 @@ function createDownloadOption(params: {
   })
 
   dropdown.appendChild(option)
+}
+
+/** 退回方案：X 菜单项结构认不出来时，清空后自己拼图标和文字 */
+function buildFallbackMenuItem(template: Element, label: string) {
+  const option = template.cloneNode(true) as HTMLElement
+  option.innerHTML = ''
+
+  const iconContainer = document.createElement('div')
+  iconContainer.style.display = 'inline-flex'
+  iconContainer.style.alignItems = 'center'
+  iconContainer.style.marginRight = '12px'
+  iconContainer.style.flexShrink = '0'
+  iconContainer.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${DOWNLOAD_ICON_PATH}</svg>`
+  option.appendChild(iconContainer)
+
+  const textEl = document.createElement('div')
+  textEl.textContent = label
+  textEl.style.flexGrow = '1'
+  textEl.style.overflow = 'hidden'
+  textEl.style.textOverflow = 'ellipsis'
+  textEl.style.whiteSpace = 'nowrap'
+  option.appendChild(textEl)
+
+  return { option, textEl }
 }
