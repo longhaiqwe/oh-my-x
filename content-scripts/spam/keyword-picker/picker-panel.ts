@@ -326,7 +326,7 @@ export function showPickerPanel(article: HTMLElement) {
   // ── 已选区域 ──
   const selectedLabel = document.createElement('div')
   selectedLabel.style.cssText = `font-size:12px;font-weight:600;color:${c.fgSecondary};margin-top:8px;`
-  selectedLabel.textContent = '已选/输 0 词'
+  selectedLabel.textContent = '待添加 0 个词'
   panel.appendChild(selectedLabel)
 
   const selectedContainer = document.createElement('div')
@@ -358,7 +358,7 @@ export function showPickerPanel(article: HTMLElement) {
 
   function updateSelectedDisplay() {
     const count = selectedSet.size
-    selectedLabel.textContent = `已选/输 ${count} 词`
+    selectedLabel.textContent = `待添加 ${count} 个词`
     selectedContainer.style.padding = count ? '8px' : '0'
     emptyState.style.display = count ? 'none' : 'block'
 
