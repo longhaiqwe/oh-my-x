@@ -91,11 +91,18 @@
 
 ## 安装
 
-### Chrome 网上商店
+### 方式一：下载发行包（推荐，不需要开发环境）
 
-> 即将上线
+1. 在 [Releases 页面](https://github.com/longhaiqwe/oh-my-x/releases/latest) 下载 `oh-my-x-chrome-mv3.zip`
+2. 解压，得到 `chrome-mv3` 文件夹。把它放在一个固定位置，以后不要挪动
+3. 打开 `chrome://extensions`（Edge 同样适用），开启右上角的「开发者模式」
+4. 点「加载已解压的扩展程序」，选择 `chrome-mv3` 文件夹
 
-### 开发者模式加载
+**升级**：解压新版本，用里面的文件覆盖原来的 `chrome-mv3` 文件夹，再到 `chrome://extensions` 点 oh-my-x 卡片上的刷新按钮。换文件夹位置，或点「移除」后重新加载，Chrome 会当成新扩展，设置和拦截记录都会清空。
+
+### 方式二：从源码构建
+
+需要 Node.js 24。
 
 ```bash
 # 1. 克隆仓库
@@ -109,9 +116,13 @@ npm install
 npm run build
 
 # 4. Chrome 中加载
-chrome://extensions → 开发者模式 → 加载已解压的扩展
+chrome://extensions → 开发者模式 → 加载已解压的扩展程序
 → 选择 oh-my-x/build/chrome-mv3/
 ```
+
+### 方式三：Chrome 网上商店
+
+> 审核中，通过后补上安装链接
 
 ---
 
@@ -146,7 +157,9 @@ npm run zip        # 构建 + 打包 ZIP
 npm run clean      # 清理构建产物
 ```
 
-GitHub Actions 会在 push、pull request 和手动触发时执行 `npm ci` 与 `npm run check`，通过后保存 Chrome 扩展构建产物 7 天。CI 使用 Node.js 24；本地建议使用 Node.js 24.15 或更新的 24.x。
+GitHub Actions 会在 push、pull request 和手动触发时执行 `npm ci` 与 `npm run check`，通过后保存 Chrome 扩展构建产物 7 天。
+
+**发布新版本**：先把 `package.json` 的 `version` 改成新版本号并提交，再推送同名标签（如 `git tag v2.0.0 && git push origin v2.0.0`）。`release.yml` 会检查标签与版本号一致，跑完 `npm run check` 后把 `oh-my-x-chrome-mv3.zip` 发到 Releases 页面。CI 使用 Node.js 24；本地建议使用 Node.js 24.15 或更新的 24.x。
 
 ### 技术栈
 

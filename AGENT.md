@@ -233,6 +233,8 @@ npm run typecheck   # 类型检查（vue-tsc --noEmit，含 Vue SFC 脚本和模
 > TypeScript 固定在 6.0.x，配合 `vue-tsc` 检查模板；升级至 7.x 前需确认 Vue 工具链支持（[上游兼容性记录](https://github.com/vuejs/language-tools/issues/6124)）。
 
 > GitHub Actions 在 push / pull request / workflow_dispatch 时运行 `npm ci` 和 `npm run check`，并保存生产构建产物。
+>
+> 推送 `v*` 标签时 `release.yml` 发布版本：标签必须等于 `v` + `package.json` 的 `version`，跑完 `npm run check` 后把 `build/chrome-mv3/` 打包成 `oh-my-x-chrome-mv3.zip`（压缩包顶层是 `chrome-mv3/`）发到 Releases。README 和对外文章都指向这个文件名，改名要同步。
 
 ## 构建 + 权限
 

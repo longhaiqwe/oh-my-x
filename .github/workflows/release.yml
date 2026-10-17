@@ -1,0 +1,59 @@
+name: Release
+
+# 推送 v* 标签（如 v2.0.0）时构建扩展，打包成 oh-my-x-chrome-mv3.zip 发到 Releases 页面。
+# 压缩包内顶层是 chrome-mv3/ 文件夹，解压后直接用「加载已解压的扩展程序」选中它。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: 标签与 package.json 版本一致
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "标签 $GITHUB_REF_NAME 与 package.json 版本 $version 不一致" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: 打包
+        run: cd build && zip -r ../oh-my-x-chrome-mv3.zip chrome-mv3
+
+      - name: 发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## 安装
+
+          1. 下载下方的 `oh-my-x-chrome-mv3.zip` 并解压，得到 `chrome-mv3` 文件夹。把它放在一个固定位置，以后不要挪动
+          2. 打开 `chrome://extensions`，开启右上角的「开发者模式」
+          3. 点「加载已解压的扩展程序」，选择 `chrome-mv3` 文件夹
+
+          ## 升级
+
+          1. 解压新版本，用里面的文件覆盖原来的 `chrome-mv3` 文件夹
+          2. 在 `chrome://extensions` 点 oh-my-x 卡片上的刷新按钮
+
+          换文件夹位置，或点「移除」后重新加载，Chrome 会当成新扩展，设置和拦截记录都会清空。
+          EOF
+          gh release create "$GITHUB_REF_NAME" oh-my-x-chrome-mv3.zip \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --generate-notes
