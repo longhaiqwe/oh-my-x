@@ -1,12 +1,18 @@
-import type { NavIconId } from '../../shared/navItems'
+import { NAV_ITEMS, type NavIconId } from '../../shared/navItems'
 import selectors from '../selectors'
 import addStyles, { removeStyles } from '../utilities/addStyles'
 import { getNavIconSvg } from '../utilities/navIcons'
 import { addSidebarButton } from '../utilities/sidebar'
+import { setNavItemHiddenInMoreMenu } from './more-menu'
+
+const NAV_IDS = new Set<string>(NAV_ITEMS.map((item) => item.id))
 
 function changeSidebarSetting(sidebarSelector: string, state: string | number | boolean, onAdd?: () => void) {
   const sel = (selectors.sidebarLinks as Record<string, string>)[sidebarSelector]
   if (!sel) return
+
+  // 同一个入口可能被 X 收进「更多」菜单，菜单里也要同步隐藏
+  if (NAV_IDS.has(sidebarSelector)) setNavItemHiddenInMoreMenu(sidebarSelector as NavIconId, state === 'off')
 
   if (state === 'off') {
     addStyles(sidebarSelector, `${sel} { display: none; }`)

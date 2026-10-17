@@ -136,6 +136,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
     module: 'layout',
     label: '导航栏按钮',
     description: '点击图标切换是否显示，虚线框表示已隐藏',
+    note: '被 X 收进「更多」菜单的入口，也会在菜单里一起隐藏',
     storageKeys: [
       KeyHomeButton,
       KeyExploreButton,
