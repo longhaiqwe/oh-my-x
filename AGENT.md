@@ -78,11 +78,12 @@ oh-my-x/
 │   │   ├── quick-interaction.ts # 快捷键 1-4 + 底部悬浮条
 │   │   ├── reply-assistant.ts   # 直达回复区胶囊（可拖动，位置存 jumpRepliesPosition）
 │   │   ├── auto-like-reply.ts   # 回复后自动点赞
-│   │   └── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的 Lists」入口
+│   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的 Lists」入口
+│   │   └── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
 │   │
 │   ├── options/
-│   │   ├── timeline.ts          # 时间线宽度 + 媒体下载（复制 X 原生菜单项，只换图标和文字）
-│   │   ├── navigation.ts        # 侧边栏按钮显隐 + 导航标签模式
+│   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
+│   │   ├── navigation.ts        # 侧边栏按钮显隐 + 导航标签模式 + 导航栏宽度（只在窗口 ≥1265px、显示文字时生效）
 │   │   ├── more-menu.ts         # 被收进「更多」菜单的导航入口，在菜单打开时同步隐藏
 │   │   ├── interface.ts         # 发帖按钮、右侧边栏、长文目录、排期全景开关
 │   │   ├── composer.ts          # 编辑器插入链接按钮 + Markdown 格式化
@@ -140,6 +141,7 @@ oh-my-x/
 ### 2. MAIN World Interceptor（`entrypoints/interceptor.content.ts`）
 - `world: 'MAIN'`、`document_start` 运行，**无 `browser.storage` 访问**。
 - hook `window.fetch` / `XMLHttpRequest`，命中排期 API 时 clone+解析响应，通过 `postMessage` 桥接给 isolated world（`scheduled-time.ts` 消费），并写一份结构化快照到 `sessionStorage` 作 fallback。
+- 记下 X 自己请求排期列表时的接口编号（存页面 `localStorage`），收到右侧栏面板的刷新请求或拦截到新建/修改/删除定时帖后，用 `shared/scheduled-fetcher.ts` 主动重读一次排期列表。
 - 只在 URL 命中时才解析，异常不影响宿主请求。
 
 ### 3. Background Worker（`entrypoints/background.ts`）
