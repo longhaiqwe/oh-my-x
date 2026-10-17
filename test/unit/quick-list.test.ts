@@ -196,7 +196,7 @@ describe('Quick List Helpers', () => {
       expect(navEntry?.style.alignItems).toBe('flex-start')
     })
 
-    it('aligns entry to flex-end and hides text in Chat (/messages) collapsed mode', async () => {
+    it('centers entry and hides text in Chat (/messages) collapsed mode', async () => {
       const { ensureQuickListNavEntry } = await import('../../content-scripts/features/quick-list')
       window.history.pushState({}, '', '/messages')
       document.body.innerHTML = `
@@ -217,9 +217,35 @@ describe('Quick List Helpers', () => {
       expect(navEntry).not.toBeNull()
       expect(navEntry?.getAttribute('data-xf-mode')).toBe('collapsed')
       expect(navEntry?.style.width).toBe('100%')
-      expect(navEntry?.style.alignItems).toBe('flex-end')
+      expect(navEntry?.style.alignItems).toBe('center')
       const pill = navEntry?.firstElementChild as HTMLElement | null
       expect(pill?.style.margin).toBe('')
+    })
+
+    it('follows the native nav link alignment when X provides one', async () => {
+      const { ensureQuickListNavEntry } = await import('../../content-scripts/features/quick-list')
+      window.history.pushState({}, '', '/i/chat')
+      document.body.innerHTML = `
+        <header role="banner" style="width: 68px;">
+          <nav role="navigation">
+            <a data-testid="AppTabBar_Home_Link" href="/home" style="display: flex; align-items: flex-end;">
+              <div>
+                <div><svg viewBox="0 0 24 24"></svg></div>
+              </div>
+            </a>
+          </nav>
+        </header>
+      `
+
+      ensureQuickListNavEntry(true, 'top')
+      const navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement | null
+      expect(navEntry?.style.alignItems).toBe('flex-end')
+
+      // X 换了布局（例如只显示图标时改成居中），入口下次同步时跟着变
+      const homeLink = document.querySelector('[data-testid="AppTabBar_Home_Link"]') as HTMLElement
+      homeLink.style.alignItems = 'center'
+      ensureQuickListNavEntry(true, 'top')
+      expect(navEntry?.style.alignItems).toBe('center')
     })
 
     it('smoothly switches between expanded and collapsed modes via syncNavEntryLayout', async () => {
@@ -256,7 +282,7 @@ describe('Quick List Helpers', () => {
       ensureQuickListNavEntry(true, 'top')
       navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement | null
       expect(navEntry?.getAttribute('data-xf-mode')).toBe('collapsed')
-      expect(navEntry?.style.alignItems).toBe('flex-end')
+      expect(navEntry?.style.alignItems).toBe('center')
       expect(navEntry?.style.width).toBe('100%')
       const textContainer = navEntry?.querySelector('div[dir]') as HTMLElement | null
       expect(textContainer?.style.display).toBe('none')

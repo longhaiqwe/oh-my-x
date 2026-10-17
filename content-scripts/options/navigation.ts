@@ -1,18 +1,21 @@
-import { NAV_ITEMS, type NavIconId } from '../../shared/navItems'
+import type { NavIconId } from '../../shared/navItems'
+import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 import selectors from '../selectors'
 import addStyles, { removeStyles } from '../utilities/addStyles'
 import { getNavIconSvg } from '../utilities/navIcons'
 import { addSidebarButton } from '../utilities/sidebar'
 import { setNavItemHiddenInMoreMenu } from './more-menu'
 
-const NAV_IDS = new Set<string>(NAV_ITEMS.map((item) => item.id))
+// 只有弹窗里能切换的入口才同步到「更多」菜单。
+// 社群、话题等没有开关，不能因为存着的旧值把 X 菜单里的原生入口藏掉
+const POPUP_NAV_IDS = new Set<string>(STATIC_NAV_ITEMS.map((item) => item.id))
 
 function changeSidebarSetting(sidebarSelector: string, state: string | number | boolean, onAdd?: () => void) {
   const sel = (selectors.sidebarLinks as Record<string, string>)[sidebarSelector]
   if (!sel) return
 
   // 同一个入口可能被 X 收进「更多」菜单，菜单里也要同步隐藏
-  if (NAV_IDS.has(sidebarSelector)) setNavItemHiddenInMoreMenu(sidebarSelector as NavIconId, state === 'off')
+  if (POPUP_NAV_IDS.has(sidebarSelector)) setNavItemHiddenInMoreMenu(sidebarSelector as NavIconId, state === 'off')
 
   if (state === 'off') {
     addStyles(sidebarSelector, `${sel} { display: none; }`)
@@ -37,13 +40,16 @@ export const changeXPremiumButton = (state: string | number | boolean) => change
 export const changeGrokButton = (state: string | number | boolean) => changeSidebarSetting('grok', state)
 export const changeTopicsButton = (state: string | number | boolean) => changeSidebarSetting('topics', state, addTopicsButton)
 export const changeCommunitiesButton = (state: string | number | boolean) => changeSidebarSetting('communities', state, addCommunitiesButton)
+// 只管插件自己加的 Lists 按钮。X 原生的 Lists（左侧导航栏、「更多」菜单）不受插件设置影响，
+// 「我的 Lists」入口由 quick-list 功能单独控制
 export const changeListsButton = (state: string | number | boolean) => {
-  if (state === 'off') {
-    document
-      .querySelectorAll('.xf-sidebar-button[aria-label="Lists"], .xf-sidebar-button[aria-label="lists"]')
-      .forEach((el) => el.remove())
+  if (state === 'on') {
+    addListsButton()
+    return
   }
-  changeSidebarSetting('lists', state, addListsButton)
+  document
+    .querySelectorAll('.xf-sidebar-button[aria-label="Lists"], .xf-sidebar-button[aria-label="lists"]')
+    .forEach((el) => el.remove())
 }
 
 function addSidebarButtonFromPage(name: string, id: NavIconId, options: { href?: string; userHref?: string }) {

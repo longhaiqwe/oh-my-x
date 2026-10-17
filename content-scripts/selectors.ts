@@ -18,7 +18,6 @@ const selectors = {
     circles: 'header[role="banner"] a[href*=circles]',
     communities: 'header[role="banner"] a[href*=communities]',
     profile: `header[role="banner"] [data-testid="AppTabBar_Profile_Link"]`,
-    lists: `header[role="banner"] nav[role="navigation"] a[href*="lists"]:not(.xf-ql-nav-entry)`,
     xPremium: `header[role="banner"] a[href*="premium"][role="link"][aria-label]`,
     verifiedOrgs: `header[role="banner"] a[href*="verified-orgs"][role="link"][aria-label]`,
     analytics: `header[role="banner"] .xf-sidebar-button[aria-label="Analytics"]`,

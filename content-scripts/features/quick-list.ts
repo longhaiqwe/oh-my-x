@@ -906,15 +906,23 @@ function isNavExpanded(refLink: HTMLElement): boolean {
   return w >= 988
 }
 
-function syncNavEntryLayout(entry: HTMLElement, expanded: boolean) {
+/**
+ * 入口的对齐方式照抄旁边的原生导航项（X 不同页面、不同宽度下不一样，例如只显示图标时是居中）。
+ * 读不到时兜底：展开靠文字起始一侧，收起居中
+ */
+function resolveNavEntryAlign(refLink: HTMLElement | null, expanded: boolean): string {
+  const nativeAlign = refLink ? window.getComputedStyle(refLink).alignItems : ''
+  if (nativeAlign && nativeAlign !== 'normal') return nativeAlign
+  if (!expanded) return 'center'
   const isRtl = document.dir === 'rtl' || document.documentElement.dir === 'rtl'
-  const collapsedAlign = isRtl ? 'flex-start' : 'flex-end'
-  const expandedAlign = isRtl ? 'flex-end' : 'flex-start'
+  return isRtl ? 'flex-end' : 'flex-start'
+}
 
+function syncNavEntryLayout(entry: HTMLElement, expanded: boolean, refLink: HTMLElement | null) {
   entry.style.display = 'flex'
   entry.style.flexDirection = 'column'
   entry.style.width = '100%'
-  entry.style.alignItems = expanded ? expandedAlign : collapsedAlign
+  entry.style.alignItems = resolveNavEntryAlign(refLink, expanded)
   entry.setAttribute('data-xf-mode', expanded ? 'expanded' : 'collapsed')
 
   const pill = entry.firstElementChild as HTMLElement | null
@@ -988,7 +996,7 @@ function createQuickListNavNode(
   }
 
   // 同步排版与展开/收起模式
-  syncNavEntryLayout(newNode, expanded)
+  syncNavEntryLayout(newNode, expanded, refNode)
 
   // 点击弹出 Lists 面板
   newNode.addEventListener('click', (e) => {
@@ -1054,7 +1062,7 @@ export function ensureQuickListNavEntry(enabled = true, position = 'top') {
 
   if (existing && document.contains(existing)) {
     navEntryEl = existing
-    syncNavEntryLayout(existing, isExpandedNow)
+    syncNavEntryLayout(existing, isExpandedNow, homeLink)
     // 位置设置可能刚改过：已有入口也按当前设置归位，不必刷新页面
     placeNavEntry(nav, homeLink, existing, position)
     return
