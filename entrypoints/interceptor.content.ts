@@ -25,6 +25,8 @@ import {
   PROFILE_ACTIVITY_FETCH_RES_TYPE,
   OWN_POSTS_FETCH_REQ_TYPE,
   OWN_POSTS_FETCH_RES_TYPE,
+  SCHEDULED_FETCH_REQ_TYPE,
+  SCHEDULED_FETCH_RES_TYPE,
 } from '../shared/bridge'
 import { createOwnPostsFetcher } from '../shared/own-posts-fetcher'
 import {
@@ -40,7 +42,14 @@ import {
   getRequestUrl,
   isScheduledUrl,
   extractScheduledItems,
+  type ExtractedScheduledItem,
 } from '../shared/scheduled-interceptor'
+import {
+  createScheduledFetcher,
+  isScheduledMutationUrl,
+  parseScheduledRequestUrl,
+  type CapturedScheduledRequest,
+} from '../shared/scheduled-fetcher'
 import {
   isTweetOrArticleUrl,
   extractBookmarkMetrics,
@@ -379,6 +388,41 @@ export default defineContentScript({
       return `X 接口请求次数已用尽（429），请在 ${time} 后重试。已读取 ${pages} 页，未保存不完整统计`
     }
 
+    // X 自己请求排期列表时记下接口编号和参数，右侧栏面板刷新时照着请求。
+    // 存在页面的 localStorage 里，新开的标签页不用等 X 再请求一次。
+    const SCHEDULED_REQUEST_KEY = 'xf_scheduled_request_v1'
+
+    let lastScheduledRequest = ''
+    function rememberScheduledRequest(url: string) {
+      const request = parseScheduledRequestUrl(url, location.origin)
+      if (!request) return
+      // XHR 每设一个请求头都会再捕获一次，同一个请求只写一次
+      const serialized = JSON.stringify(request)
+      if (serialized === lastScheduledRequest) return
+      lastScheduledRequest = serialized
+      try {
+        localStorage.setItem(SCHEDULED_REQUEST_KEY, serialized)
+      } catch {}
+    }
+
+    function readScheduledRequest(): CapturedScheduledRequest | null {
+      try {
+        const raw = JSON.parse(localStorage.getItem(SCHEDULED_REQUEST_KEY) || 'null')
+        if (raw && typeof raw.queryId === 'string' && /^[A-Za-z0-9_-]{10,64}$/.test(raw.queryId) && typeof raw.search === 'string') {
+          return { queryId: raw.queryId, search: raw.search }
+        }
+      } catch {}
+      return null
+    }
+
+    function forgetScheduledRequest() {
+      lastScheduledRequest = ''
+      try {
+        localStorage.removeItem(SCHEDULED_REQUEST_KEY)
+        sessionStorage.removeItem('xf_qid_v2_FetchScheduledTweets')
+      } catch {}
+    }
+
     // X 当前使用 XHR 加载个人时间线；fetch 与 XHR 必须共用请求捕获逻辑。
     function captureGraphQLRequest(url: string, headers?: HeadersInit) {
       try {
@@ -386,6 +430,7 @@ export default defineContentScript({
         const match = parsed.pathname.match(/\/graphql\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/)
         if (!match) return
         const [, queryId, operationName] = match
+        if (operationName === 'FetchScheduledTweets') rememberScheduledRequest(parsed.toString())
         const features = JSON.parse(parsed.searchParams.get('features') || '{}')
         if (Object.keys(features).length) cachedFeatures = { ...cachedFeatures, ...features }
         const requestHeaders: Record<string, string> = {}
@@ -644,6 +689,16 @@ export default defineContentScript({
             .then(page => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: true, page, __xf: XF_BRIDGE_MARKER }, location.origin))
             .catch(error => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: error instanceof Error ? error.message : '读取失败，请重试', __xf: XF_BRIDGE_MARKER }, location.origin))
             .finally(() => { ownPostsBusy = false })
+        } else if (data.type === SCHEDULED_FETCH_REQ_TYPE && interceptEnabled) {
+          if (typeof data.requestId !== 'string' || data.requestId.length > 100) return
+          const requestId = data.requestId
+          void fetchScheduled()
+            .then((items) => {
+              // 主动刷新时总是广播：存储里的缓存可能已被清理，需要重新写入
+              broadcastScheduledItems(items, true)
+              window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: true, items, __xf: XF_BRIDGE_MARKER }, location.origin)
+            })
+            .catch((error) => window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: false, error: error instanceof Error ? error.message : '读取失败，请重试', __xf: XF_BRIDGE_MARKER }, location.origin))
         } else if (data.type === PROFILE_ACTIVITY_FETCH_REQ_TYPE) {
           window.postMessage(
             { type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: data.requestId, __xf: XF_BRIDGE_MARKER },
@@ -663,34 +718,53 @@ export default defineContentScript({
         const items = extractScheduledItems(data)
         if (!items) return
 
-        const payload = JSON.stringify(items)
-        if (payload === lastScheduledPosted) {
-          debug('排期数据未变化，跳过广播（当前', items.length, '条）')
-          return
-        }
-        lastScheduledPosted = payload
-
-        // 原始响应便于 DevTools 核对结构；条目快照供 isolated world 链路丢失时回退
+        // 原始响应便于 DevTools 核对结构
         try {
           sessionStorage.setItem(SCHEDULED_RAW_KEY, JSON.stringify(data))
         } catch {
           // ignore
         }
-        try {
-          sessionStorage.setItem(SCHEDULED_ITEMS_KEY, payload)
-        } catch {
-          // ignore
-        }
-
-        // 携带桥接标记，isolated world 监听端校验 source + type + 标记后才会落库
-        window.postMessage(
-          { type: SCHEDULED_TWEETS_TYPE, payload: items, __xf: XF_BRIDGE_MARKER },
-          '*',
-        )
-        debug('已广播排期数据', items.length, '条', items)
+        broadcastScheduledItems(items, false)
       } catch (e) {
         debug('排期解析/发送失败', e)
       }
+    }
+
+    function broadcastScheduledItems(items: ExtractedScheduledItem[], force: boolean) {
+      const payload = JSON.stringify(items)
+      if (!force && payload === lastScheduledPosted) {
+        debug('排期数据未变化，跳过广播（当前', items.length, '条）')
+        return
+      }
+      lastScheduledPosted = payload
+
+      // 条目快照供 isolated world 链路丢失时回退
+      try {
+        sessionStorage.setItem(SCHEDULED_ITEMS_KEY, payload)
+      } catch {
+        // ignore
+      }
+
+      // 携带桥接标记，isolated world 监听端校验 source + type + 标记后才会落库
+      window.postMessage(
+        { type: SCHEDULED_TWEETS_TYPE, payload: items, __xf: XF_BRIDGE_MARKER },
+        '*',
+      )
+      debug('已广播排期数据', items.length, '条', items)
+    }
+
+    // 新建/修改/删除定时帖后 X 不会自动重读列表，这里稍等片刻主动读一次，
+    // 右侧栏面板和弹窗里的排期全景就能马上反映变化。连续操作只读最后一次。
+    let scheduledRefetchTimer: ReturnType<typeof setTimeout> | null = null
+    function scheduleScheduledRefetch() {
+      if (scheduledRefetchTimer) clearTimeout(scheduledRefetchTimer)
+      scheduledRefetchTimer = setTimeout(() => {
+        scheduledRefetchTimer = null
+        if (!interceptEnabled) return
+        void fetchScheduled()
+          .then((items) => broadcastScheduledItems(items, false))
+          .catch((e) => debug('排期变更后重新读取失败', e))
+      }, 1500)
     }
 
     const BOOKMARK_METRICS_KEY = 'xf_bookmark_metrics_last'
@@ -809,6 +883,7 @@ export default defineContentScript({
       if (!data) return
       // 排期：URL 命中后仍由 extractScheduledItems 做结构校验
       if (isScheduledUrl(url)) handleScheduled(data)
+      if (isScheduledMutationUrl(url)) scheduleScheduledRefetch()
       // 推文/长文书签指标
       if (isTweetOrArticleUrl(url)) handleBookmarks(data)
       // 用户粉丝与关注指标
@@ -831,6 +906,13 @@ export default defineContentScript({
       resolveQueryId,
       getHeaders: operation => ({ ...capturedHeaders, ...capturedTimelines.get(operation)?.headers }),
       getFeatures: operation => capturedTimelines.get(operation)?.features || ({ ...DEFAULT_TIMELINE_FEATURES, ...cachedFeatures }),
+    })
+    const fetchScheduled = createScheduledFetcher({
+      fetch: (...args) => originalFetch.apply(window, args),
+      resolveQueryId,
+      getHeaders: () => ({ ...capturedHeaders }),
+      getCapturedRequest: readScheduledRequest,
+      forgetCapturedRequest: forgetScheduledRequest,
     })
     window.fetch = function (this: any, ...args: Parameters<typeof fetch>): Promise<Response> {
       let url = ''

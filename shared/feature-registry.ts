@@ -44,6 +44,8 @@ import {
   KeyRepliesSortOrder,
   KeyScheduledPanorama,
   KeyScheduledPostsCache,
+  KeyScheduledSidebar,
+  KeyScheduledSidebarCollapsed,
   KeySidebarColumn,
   KeySortRepliesByTime,
   KeySpamBlacklist,
@@ -319,6 +321,15 @@ export const FEATURES: readonly FeatureDefinition[] = [
     description: '列出所有定时帖的发布时间和间隔，间隔过短时提示',
     storageKeys: [KeyScheduledPanorama, KeyScheduledPostsCache],
     where: '定时发布弹窗和草稿箱',
+  },
+  {
+    id: 'scheduledSidebar',
+    module: 'create',
+    label: '右侧栏面板',
+    description: '按天列出待发布的定时帖和间隔，可刷新、可收起',
+    storageKeys: [KeyScheduledSidebar, KeyScheduledSidebarCollapsed],
+    where: '右侧栏搜索框下面',
+    parent: 'scheduledPanorama',
   },
 
   // 互动与列表

@@ -12,6 +12,10 @@ export const XF_BRIDGE_MARKER = '__x_focus_bridge_v1__'
 /** 排期数据 postMessage 的 type */
 export const SCHEDULED_TWEETS_TYPE = 'XF_SCHEDULED_TWEETS'
 
+/** 右侧栏排期面板请求拦截器重新读取排期 / 拦截器回复读取结果 */
+export const SCHEDULED_FETCH_REQ_TYPE = 'XF_SCHEDULED_FETCH_REQ'
+export const SCHEDULED_FETCH_RES_TYPE = 'XF_SCHEDULED_FETCH_RES'
+
 /** 推文/长文书签指标 postMessage 的 type */
 export const BOOKMARK_METRICS_TYPE = 'XF_BOOKMARK_METRICS'
 

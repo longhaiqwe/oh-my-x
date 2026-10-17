@@ -29,6 +29,8 @@ export const KeyHighlightNonFollowers = 'highlightNonFollowers'
 export const KeyArticleToc = 'articleToc'
 export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyScheduledPanorama = 'scheduledPanorama'
+export const KeyScheduledSidebar = 'scheduledSidebar' // 右侧栏搜索框下的排期面板
+export const KeyScheduledSidebarCollapsed = 'scheduledSidebarCollapsed' // 右侧栏排期面板是否收起（'on' = 收起），属于数据，不是设置项
 export const KeyRadarWidth = 'radarWidth'
 export const KeyUserFollowerCount = 'userFollowerCount' // 'all' | 'list' | 'off'
 export const KeyBookmarkCount = 'bookmarkCount' // 书签按钮旁显示收藏数
@@ -137,6 +139,7 @@ export const allSettingsKeys = [
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
@@ -306,6 +309,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyViralShowBadge]: 'on',
   [KeyArticleToc]: 'on',
   [KeyScheduledPanorama]: 'on',
+  [KeyScheduledSidebar]: 'on',
   [KeyOwnPostAutoSync]: 'on',
   [KeyRadarWidth]: 'wide',
   [KeyTweetFilterEnabled]: 'on',

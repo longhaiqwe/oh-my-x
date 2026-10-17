@@ -3,6 +3,7 @@ import addStyles, { removeStyles } from '../utilities/addStyles'
 import { updateArticleToc, destroyArticleToc } from '../features/article-toc'
 import { addScheduledRelativeTimes, removeScheduledPanorama } from './scheduled-time'
 import { ensureCustomTweetButton } from './navigation'
+import { setScheduledSidebarEnabled } from '../features/scheduled-sidebar'
 
 export const changeTweetButton = (
   state: string | number | boolean,
@@ -80,6 +81,15 @@ export const changeScheduledPanorama = (state: string | number | boolean) => {
   } else {
     void addScheduledRelativeTimes('on')
   }
+}
+
+// 右侧栏排期面板挂在「排期全景」下面：两个开关都打开才显示
+export const changeScheduledSidebar = (
+  panorama: string | number | boolean,
+  sidebar: string | number | boolean,
+) => {
+  const isOff = (value: string | number | boolean) => value === 'off' || value === 'hide'
+  setScheduledSidebarEnabled(!isOff(panorama) && !isOff(sidebar))
 }
 
 export const changeHighlightNonFollowers = (state: string | number | boolean) => {

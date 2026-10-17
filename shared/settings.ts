@@ -41,6 +41,7 @@ import {
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
@@ -117,6 +118,7 @@ export interface ExtensionSettings {
   [KeyViralShowBadge]: ToggleValue
   [KeyArticleToc]: ToggleValue
   [KeyScheduledPanorama]: ToggleValue
+  [KeyScheduledSidebar]: ToggleValue
   [KeyOwnPostAutoSync]: ToggleValue
   [KeyRadarWidth]: RadarWidthValue
   [KeyTweetFilterEnabled]: ToggleValue
@@ -172,6 +174,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyViralShowBadge,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyTweetFilterEnabled,
   KeyJumpToReplies,

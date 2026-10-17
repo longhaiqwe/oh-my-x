@@ -11,6 +11,7 @@ import {
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyScheduledSidebar,
   KeyRadarWidth,
 } from '../../storage-keys'
 import {
@@ -19,6 +20,7 @@ import {
   changeHighlightNonFollowers,
   changeArticleToc,
   changeScheduledPanorama,
+  changeScheduledSidebar,
 } from '../options/interface'
 import {
   changeArticlesButton, changeBookmarksButton,
@@ -48,6 +50,7 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
     changeHighlightNonFollowers(data[KeyHighlightNonFollowers])
     changeArticleToc(data[KeyArticleToc])
     changeScheduledPanorama(data[KeyScheduledPanorama])
+    changeScheduledSidebar(data[KeyScheduledPanorama], data[KeyScheduledSidebar])
     changeRadarWidth(data[KeyRadarWidth])
   },
   navigation: (data) => {
@@ -85,6 +88,7 @@ const TIMELINE_KEYS = new Set<SettingKey>([
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
+  KeyScheduledSidebar,
   KeyRadarWidth,
 ])
 

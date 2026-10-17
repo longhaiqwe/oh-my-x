@@ -2,7 +2,7 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
 import { KeyScheduledPostsCache, KeyScheduledPanorama } from '../../storage-keys'
-import { XF_BRIDGE_MARKER, SCHEDULED_TWEETS_TYPE } from '../../shared/bridge'
+import { XF_BRIDGE_MARKER, SCHEDULED_TWEETS_TYPE, SCHEDULED_FETCH_REQ_TYPE, SCHEDULED_FETCH_RES_TYPE } from '../../shared/bridge'
 import { getStorage, setStorage } from '../utilities/storage'
 import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
 
@@ -216,6 +216,23 @@ export function parseScheduledTimeString(text: string): Date | null {
 }
 
 /**
+ * 把拦截器给的排期条目整理成缓存格式：去掉无效时间，按发布时间从早到晚排序。
+ */
+export function normalizeScheduledItems(raw: unknown): PersistedScheduledItem[] {
+  if (!Array.isArray(raw)) return []
+  return (raw as Array<{ restId?: unknown; timestamp?: unknown; text?: unknown }>)
+    .filter((item): item is { restId?: unknown; timestamp: number; text?: unknown } =>
+      Boolean(item) && typeof item.timestamp === 'number' && !isNaN(item.timestamp))
+    .map((item) => ({
+      restId: typeof item.restId === 'string' ? item.restId : undefined,
+      timestamp: item.timestamp,
+      formattedTime: dayjs(new Date(item.timestamp)).format('YYYY-MM-DD HH:mm'),
+      text: typeof item.text === 'string' ? item.text : '',
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp)
+}
+
+/**
  * 读取持久化保存的排期列表缓存。
  * 优先读 chrome.storage.local；为空时回退读 MAIN world 拦截器写入的
  * sessionStorage 条目快照（postMessage → storage 链路丢失/晚注册时兜底）。
@@ -234,18 +251,8 @@ export async function getPersistedScheduledPosts(): Promise<PersistedScheduledIt
   try {
     const snapshot = sessionStorage.getItem('xf_scheduled_items_last')
     if (snapshot) {
-      const raw = JSON.parse(snapshot) as Array<{ restId: string; timestamp: number; text: string }>
-      if (Array.isArray(raw)) {
-        return raw
-          .filter((item) => typeof item.timestamp === 'number' && !isNaN(item.timestamp))
-          .map((item) => ({
-            restId: item.restId,
-            timestamp: item.timestamp,
-            formattedTime: dayjs(new Date(item.timestamp)).format('YYYY-MM-DD HH:mm'),
-            text: item.text,
-          }))
-          .sort((a, b) => a.timestamp - b.timestamp)
-      }
+      const raw = JSON.parse(snapshot)
+      if (Array.isArray(raw)) return normalizeScheduledItems(raw)
     }
   } catch {}
 
@@ -307,25 +314,13 @@ export function listenForScheduledTweetsApi() {
     if (event.data.__xf !== XF_BRIDGE_MARKER) return
 
     try {
-      const raw = event.data.payload as Array<{
-        restId: string
-        timestamp: number
-        text: string
-      }>
+      const raw = event.data.payload
       if (!Array.isArray(raw)) return
 
       if (debug()) console.log('[oh-my-x 排期持久化] 收到广播', raw.length, '条', raw)
 
       // 允许空数组：接口返回空列表时同样持久化，清掉已删除排期的旧缓存
-      const items: PersistedScheduledItem[] = raw
-        .filter((item) => typeof item.timestamp === 'number' && !isNaN(item.timestamp))
-        .map((item) => ({
-          restId: item.restId,
-          timestamp: item.timestamp,
-          formattedTime: dayjs(new Date(item.timestamp)).format('YYYY-MM-DD HH:mm'),
-          text: item.text,
-        }))
-        .sort((a, b) => a.timestamp - b.timestamp)
+      const items = normalizeScheduledItems(raw)
 
       void persistScheduledPosts(items).then(() => {
         if (debug()) console.log('[oh-my-x 排期持久化] 已写入 storage', items.length, '条')
@@ -334,6 +329,40 @@ export function listenForScheduledTweetsApi() {
       if (debug()) console.warn('[oh-my-x 排期持久化] 处理失败', e)
     }
   })
+}
+
+let scheduledRefreshSeq = 0
+
+/**
+ * 请求 MAIN world 拦截器重新读取排期列表，返回整理后的条目。
+ * 拦截器读取成功后还会广播一次排期数据，由 listenForScheduledTweetsApi 写入缓存。
+ */
+export function requestScheduledRefresh(timeoutMs = 45_000): Promise<PersistedScheduledItem[]> {
+  return new Promise((resolve, reject) => {
+    const requestId = `sched-${Date.now()}-${++scheduledRefreshSeq}`
+    const cleanup = () => {
+      clearTimeout(timer)
+      window.removeEventListener('message', onMessage)
+    }
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error('读取超时，请稍后重试'))
+    }, timeoutMs)
+    function onMessage(event: MessageEvent) {
+      if (event.source !== window) return
+      const data = event.data
+      if (!data || data.__xf !== XF_BRIDGE_MARKER || data.type !== SCHEDULED_FETCH_RES_TYPE || data.requestId !== requestId) return
+      cleanup()
+      if (data.ok) resolve(normalizeScheduledItems(data.items))
+      else reject(new Error(typeof data.error === 'string' && data.error ? data.error : '读取失败，请重试'))
+    }
+    window.addEventListener('message', onMessage)
+    window.postMessage({ type: SCHEDULED_FETCH_REQ_TYPE, requestId, __xf: XF_BRIDGE_MARKER }, location.origin)
+  })
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
 }
 
 /**
@@ -720,7 +749,7 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
         <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:${theme.bg}; border:1px solid ${theme.borderColor}55; border-radius:8px;">
           <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--color-text-primary, #0f1419); flex:1; overflow:hidden;">
             <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; line-height: 1 !important; font-size:12px; font-weight:700; color:${theme.accentColor}; background:${theme.badgeBg}; padding:3px 8px; border-radius:10px; border:1px solid ${theme.borderColor}33; white-space:nowrap;">${relTime}</span>
-            <span style="display: inline-flex !important; align-items: center !important; line-height: 1.2 !important; font-size:12px; color:var(--color-text-secondary, #536471); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${node.text}</span>
+            <span style="display: inline-flex !important; align-items: center !important; line-height: 1.2 !important; font-size:12px; color:var(--color-text-secondary, #536471); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${escapeHtml(node.text)}</span>
           </div>
           <span style="display: inline-flex !important; align-items: center !important; line-height: 1 !important; font-size:12px; color:var(--color-text-secondary, #536471); font-family: monospace, sans-serif; white-space:nowrap; margin-left:12px;">${dateStr}</span>
         </div>

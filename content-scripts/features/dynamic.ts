@@ -41,6 +41,7 @@ import { updateQuickInteraction } from './quick-interaction'
 import { updateUserFollowerBadges } from './user-followers'
 import { updateAiRepostComposerButton } from './ai-repost'
 import { scanCreatorRewardsFromDom } from './creator-rewards'
+import { updateScheduledSidebar } from './scheduled-sidebar'
 
 export type DynamicFeatureScope = 'tweet' | 'composer' | 'scheduled' | 'navigation' | 'all'
 
@@ -150,6 +151,9 @@ export const dynamicFeatures = {
 
         // 若当前处于创作者奖励页面，从页面 DOM 实时同步指标
         scanCreatorRewardsFromDom()
+        // 右侧栏里的变动不会触发动态功能（isMutationSkippable 跳过了），
+        // 每轮都检查一次面板是否还在搜索框下面；没有变化时只做几次 DOM 查询
+        void updateScheduledSidebar()
       }
     } finally {
       generalInFlight = false
