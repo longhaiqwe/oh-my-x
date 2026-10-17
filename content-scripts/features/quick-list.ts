@@ -28,6 +28,7 @@ let activeMenu: HTMLDivElement | null = null
 let activeMenuOwner: HTMLElement | null = null
 let navEntryEl: HTMLElement | null = null
 let navPanelEl: HTMLDivElement | null = null
+let navPanelAnchor: HTMLElement | null = null
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 function ensureStyles() {
@@ -81,60 +82,76 @@ function ensureStyles() {
     .xf-ql-filters {
       display: flex;
       gap: 4px;
-      padding: 0 14px 8px;
+      padding: 0 12px 10px;
       border-bottom: 1px solid var(--xf-ql-border);
       overflow-x: auto;
     }
     .xf-ql-filter-btn {
-      padding: 2px 8px;
-      font-size: 11px;
-      font-weight: 500;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 13px;
+      line-height: 18px;
       border-radius: 9999px;
-      border: 1px solid transparent;
+      border: none;
       background: transparent;
-      color: var(--secondary-text-color, #71767b);
+      color: var(--xf-ql-fg2);
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.15s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
     .xf-ql-filter-btn:hover {
       background: var(--xf-ql-hover-bg);
       color: inherit;
     }
     .xf-ql-filter-btn.active {
-      background: var(--xf-ql-hover-bg);
-      border-color: var(--xf-ql-border);
-      color: inherit;
+      background: var(--xf-ql-accent-bg);
+      color: var(--xf-ql-accent);
       font-weight: 700;
     }
+    .xf-ql-filter-count {
+      font-size: 12px;
+      font-weight: 400;
+      font-variant-numeric: tabular-nums;
+    }
     .xf-ql-pin-btn {
-      background: transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-right: -6px;
+      padding: 0;
       border: none;
+      border-radius: 9999px;
+      background: transparent;
+      color: var(--xf-ql-fg3);
       cursor: pointer;
-      padding: 4px;
-      font-size: 13px;
-      line-height: 1;
-      opacity: 0.35;
-      transition: opacity 0.15s, transform 0.15s;
       flex: none;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
     .xf-ql-pin-btn:hover {
-      opacity: 1;
-      transform: scale(1.15);
+      background: var(--xf-ql-accent-bg);
+      color: var(--xf-ql-accent);
     }
     .xf-ql-pin-btn.pinned {
-      opacity: 1;
+      color: var(--xf-ql-accent);
     }
     .xf-ql-tag {
-      font-size: 10px;
-      padding: 0.5px 4px;
+      font-size: 12px;
+      line-height: 16px;
+      padding: 0 5px;
       border-radius: 4px;
-      margin-left: 6px;
-      font-weight: 500;
-      border: 1px solid currentColor;
-      opacity: 0.65;
-      line-height: 1.2;
+      border: 1px solid var(--xf-ql-border);
+      color: var(--xf-ql-fg2);
       flex: none;
+    }
+    .xf-ql-divider {
+      height: 1px;
+      margin: 4px 16px;
+      background: var(--xf-ql-border);
     }
     .xf-ql-panel-body {
       max-height: 280px;
@@ -149,11 +166,28 @@ function ensureStyles() {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       padding: 9px 16px;
       cursor: pointer;
       transition: background-color 0.15s ease;
       text-decoration: none;
       color: inherit;
+    }
+    .xf-ql-item:hover {
+      background-color: var(--xf-ql-hover-bg);
+    }
+    .xf-ql-item:focus-visible,
+    .xf-ql-filter-btn:focus-visible,
+    .xf-ql-pin-btn:focus-visible {
+      outline: 2px solid var(--xf-ql-accent);
+      outline-offset: -2px;
+    }
+    .xf-ql-item-main {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
     }
     .xf-ql-item-name {
       overflow: hidden;
@@ -168,14 +202,27 @@ function ensureStyles() {
       align-items: center;
       flex: none;
     }
-    .xf-ql-item-go {
-      display: flex;
-      margin-left: 4px;
-      opacity: 0.6;
-      transition: opacity 0.15s ease;
+
+    /* 侧边栏「我的 Lists」面板：贴在入口右侧 */
+    .xf-ql-nav-panel {
+      animation-name: xf-ql-slide-in;
     }
-    .xf-ql-item:hover .xf-ql-item-go {
-      opacity: 1;
+    @keyframes xf-ql-slide-in {
+      from { opacity: 0; transform: translateX(-4px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .xf-ql-nav-panel .xf-ql-panel-title {
+      font-size: 15px;
+    }
+    .xf-ql-nav-panel .xf-ql-panel-body {
+      max-height: min(360px, calc(100vh - 120px));
+      padding: 4px 0;
+    }
+    .xf-ql-nav-panel .xf-ql-item {
+      padding: 8px 16px;
+    }
+    .xf-ql-nav-panel .xf-ql-item-name {
+      font-size: 15px;
     }
     .xf-ql-panel-foot {
       padding: 9px 16px;
@@ -238,6 +285,15 @@ function applyPanelTheme(panel: HTMLElement) {
   panel.style.boxShadow = theme.shadow
   panel.style.setProperty('--xf-ql-border', theme.border)
   panel.style.setProperty('--xf-ql-hover-bg', theme.hoverBg)
+  panel.style.setProperty('--xf-ql-fg2', theme.fgSecondary)
+  // 比第二档文字再浅一档，给每行都有的图钉用，避免一列图标抢眼
+  panel.style.setProperty('--xf-ql-fg3', theme.isDark ? 'rgb(113, 118, 123)' : 'rgb(139, 152, 165)')
+  panel.style.setProperty('--xf-ql-accent', ACCENT)
+  panel.style.setProperty('--xf-ql-accent-bg', theme.accentBg)
+}
+
+function pinIconSvg(filled: boolean) {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`
 }
 
 function showQuickListToast(text: string, ok: boolean) {
@@ -395,12 +451,6 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
       </div>
       <span class="xf-ql-item-state"></span>
     `
-    item.addEventListener('mouseenter', () => {
-      item.style.backgroundColor = 'var(--xf-ql-hover-bg)'
-    })
-    item.addEventListener('mouseleave', () => {
-      item.style.backgroundColor = 'transparent'
-    })
 
     item.addEventListener('click', async () => {
       if (item.dataset.loading === '1') return
@@ -496,13 +546,15 @@ export function scanAndInjectHoverCards(enabled = true) {
       toggleQuickListMenu(btn, handle, currentUserId)
     })
 
-    const cs = window.getComputedStyle(followBtn)
+    // X 的字体写在按钮内部的文字节点上，外层 button 只有浏览器默认字体
+    const labelEl = followBtn.querySelector('span') || followBtn
+    const cs = window.getComputedStyle(labelEl)
     const theme = getThemeColors()
     Object.assign(btn.style, {
       height: `${(followBtn as HTMLElement).offsetHeight || 32}px`,
       paddingLeft: '14px',
       paddingRight: '14px',
-      fontFamily: cs.fontFamily,
+      fontFamily: cs.fontFamily || 'TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       fontSize: cs.fontSize,
       fontWeight: cs.fontWeight,
       lineHeight: cs.lineHeight,
@@ -524,6 +576,46 @@ export function scanAndInjectHoverCards(enabled = true) {
 }
 
 // ---------- 侧边栏 Lists 入口 ----------
+const NAV_PANEL_WIDTH = 300
+const NAV_PANEL_GAP = 8
+const VIEWPORT_MARGIN = 8
+
+/**
+ * 面板放在入口右侧、顶部和入口对齐；右侧放不下改放左侧，上下不超出视口。
+ */
+export function computeNavPanelPosition(
+  anchor: { left: number; right: number; top: number },
+  panel: { width: number; height: number },
+  viewport: { width: number; height: number },
+) {
+  let left = anchor.right + NAV_PANEL_GAP
+  if (left + panel.width > viewport.width - VIEWPORT_MARGIN) {
+    left = anchor.left - panel.width - NAV_PANEL_GAP
+  }
+  left = Math.max(VIEWPORT_MARGIN, left)
+  const maxTop = viewport.height - panel.height - VIEWPORT_MARGIN
+  const top = Math.max(VIEWPORT_MARGIN, Math.min(anchor.top, maxTop))
+  return { left, top }
+}
+
+/**
+ * 入口链接被设成占满左栏宽度，按它定位面板会落到左栏最右侧、离文字很远；
+ * 改按链接里那块圆角高亮（图标 + 文字）定位。
+ */
+export function getNavAnchorRect(entry: HTMLElement): DOMRect {
+  const pill = entry.firstElementChild as HTMLElement | null
+  const rect = pill?.getBoundingClientRect()
+  return rect && rect.width > 0 ? rect : entry.getBoundingClientRect()
+}
+
+/** 面板打开时入口保持高亮，看得出面板是从哪里弹出来的。 */
+function setNavEntryActive(entry: HTMLElement | null, active: boolean) {
+  if (!entry) return
+  entry.setAttribute('aria-expanded', String(active))
+  const pill = entry.firstElementChild as HTMLElement | null
+  if (pill) pill.style.backgroundColor = active ? getThemeColors().hoverBg : ''
+}
+
 function onNavResize() {
   positionNavPanel()
 }
@@ -533,32 +625,32 @@ function closeNavPanel() {
     navPanelEl.remove()
     navPanelEl = null
   }
+  setNavEntryActive(navPanelAnchor, false)
+  navPanelAnchor = null
   document.removeEventListener('click', onNavDocClick, true)
   window.removeEventListener('resize', onNavResize)
 }
 
 function onNavDocClick(e: MouseEvent) {
+  const anchor = navPanelAnchor || navEntryEl
   if (
     navPanelEl &&
     !navPanelEl.contains(e.target as Node) &&
-    !(navEntryEl && navEntryEl.contains(e.target as Node))
+    !(anchor && anchor.contains(e.target as Node))
   ) {
     closeNavPanel()
   }
 }
 
-function positionNavPanel(anchor?: HTMLElement) {
-  if (!navPanelEl) return
-  const target = anchor || navEntryEl
-  if (!target) return
+function positionNavPanel() {
+  const anchor = navPanelAnchor || navEntryEl
+  if (!navPanelEl || !anchor) return
 
-  const r = target.getBoundingClientRect()
-  const pw = 268
-  let left = r.right + 12
-  if (left + pw > window.innerWidth - 8) {
-    left = Math.max(8, r.left - pw - 12)
-  }
-  const top = Math.max(8, Math.min(r.top, window.innerHeight - 320))
+  const { left, top } = computeNavPanelPosition(
+    getNavAnchorRect(anchor),
+    { width: navPanelEl.offsetWidth || NAV_PANEL_WIDTH, height: navPanelEl.offsetHeight },
+    { width: window.innerWidth, height: window.innerHeight },
+  )
   navPanelEl.style.left = `${left}px`
   navPanelEl.style.top = `${top}px`
 }
@@ -571,17 +663,19 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
   ensureStyles()
   navPanelEl = document.createElement('div')
-  navPanelEl.className = 'xf-ql-panel'
+  navPanelEl.className = 'xf-ql-panel xf-ql-nav-panel'
+  navPanelEl.style.width = `${NAV_PANEL_WIDTH}px`
   applyPanelTheme(navPanelEl)
 
   navPanelEl.innerHTML = `
     <div class="xf-ql-panel-title">我的 Lists</div>
     <div class="xf-ql-panel-filters-container"></div>
     <div class="xf-ql-panel-body"><div class="xf-ql-panel-loading">加载中…</div></div>
-    <div class="xf-ql-panel-foot"></div>
   `
   document.body.appendChild(navPanelEl)
-  positionNavPanel(entryEl)
+  navPanelAnchor = entryEl
+  setNavEntryActive(entryEl, true)
+  positionNavPanel()
   document.addEventListener('click', onNavDocClick, true)
   window.addEventListener('resize', onNavResize)
 
@@ -590,12 +684,11 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
   const body = navPanelEl.querySelector('.xf-ql-panel-body') as HTMLElement | null
   const filtersContainer = navPanelEl.querySelector('.xf-ql-panel-filters-container') as HTMLElement | null
-  const foot = navPanelEl.querySelector('.xf-ql-panel-foot') as HTMLElement | null
-  if (!body || !foot) return
+  if (!body) return
 
   if (!lists.length) {
     body.innerHTML = `
-      <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); text-align: center;">
+      <div class="xf-ql-panel-empty" style="color: var(--xf-ql-fg2); text-align: center;">
         <div style="margin-bottom: 8px;">还没有配置 List</div>
         <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: ${ACCENT}; color: ${ACCENT_TEXT}; border: none; cursor: pointer; transition: opacity 0.15s ease;">
           从 X 一键同步 Lists
@@ -627,6 +720,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
         }
       })
     }
+    positionNavPanel()
     return
   }
 
@@ -643,47 +737,48 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
     if (!sorted.length) {
       body.innerHTML = `
-        <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); text-align: center;">
+        <div class="xf-ql-panel-empty" style="color: var(--xf-ql-fg2); text-align: center;">
           暂无对应分类的 List
         </div>
       `
+      positionNavPanel()
       return
     }
 
     body.innerHTML = ''
-    sorted.forEach((l) => {
+    sorted.forEach((l, i) => {
+      // 置顶的和其余的之间加一条分隔线
+      if (i > 0 && sorted[i - 1].isPinned && !l.isPinned) {
+        const divider = document.createElement('div')
+        divider.className = 'xf-ql-divider'
+        body.appendChild(divider)
+      }
+
       const a = document.createElement('a')
       a.className = 'xf-ql-item'
       a.href = `/i/lists/${l.id}`
-      a.title = `打开「${l.name}」`
 
-      const pinIcon = l.isPinned ? '📌' : '📍'
-      const tagHtml = l.isOwned === false
-        ? `<span class="xf-ql-tag" style="color: var(--secondary-text-color, #71767b)" title="${l.ownerHandle ? '创建者: @' + l.ownerHandle : '关注的列表'}">关注</span>`
+      // 「关注」标签页里每行都是关注的，不再重复标
+      const tagHtml = l.isOwned === false && activeTab !== 'followed'
+        ? `<span class="xf-ql-tag" title="${l.ownerHandle ? '创建者：@' + escapeHtml(l.ownerHandle) : '关注的列表'}">关注</span>`
         : ''
+      const pinLabel = l.isPinned ? '取消置顶' : '置顶'
 
       a.innerHTML = `
-        <div style="display:flex; align-items:center; min-width:0; flex:1; margin-right:6px;">
-          ${l.isPinned ? '<span style="margin-right:4px; font-size:11px; flex:none;">📌</span>' : ''}
-          <span class="xf-ql-item-name" title="${escapeHtml(l.name)}">${escapeHtml(l.name)}</span>
+        <span class="xf-ql-item-main">
+          <span class="xf-ql-item-name">${escapeHtml(l.name)}</span>
           ${tagHtml}
-        </div>
-        <div style="display:flex; align-items:center; gap:4px; flex:none;">
-          <button class="xf-ql-pin-btn ${l.isPinned ? 'pinned' : ''}" title="${l.isPinned ? '取消置顶' : '置顶此列表'}">
-            ${pinIcon}
-          </button>
-          <span class="xf-ql-item-go">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M7 17 17 7M9 7h8v8"/>
-            </svg>
-          </span>
-        </div>
+        </span>
+        <button type="button" class="xf-ql-pin-btn${l.isPinned ? ' pinned' : ''}" aria-pressed="${Boolean(l.isPinned)}" aria-label="${pinLabel}「${escapeHtml(l.name)}」" title="${pinLabel}">
+          ${pinIconSvg(Boolean(l.isPinned))}
+        </button>
       `
+      // 名称被截断时才给完整名称的悬停提示
       a.addEventListener('mouseenter', () => {
-        a.style.backgroundColor = 'var(--xf-ql-hover-bg)'
-      })
-      a.addEventListener('mouseleave', () => {
-        a.style.backgroundColor = 'transparent'
+        const name = a.querySelector('.xf-ql-item-name') as HTMLElement | null
+        if (!name) return
+        if (name.scrollWidth > name.clientWidth) name.title = l.name
+        else name.removeAttribute('title')
       })
       a.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('.xf-ql-pin-btn')) return
@@ -705,6 +800,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
       body.appendChild(a)
     })
+    positionNavPanel()
   }
 
   const renderFilters = () => {
@@ -716,18 +812,18 @@ async function toggleNavPanel(entryEl: HTMLElement) {
       return
     }
 
-    const tabs: { id: 'all' | 'pinned' | 'owned' | 'followed'; label: string; show: boolean }[] = [
-      { id: 'all', label: `全部 (${lists.length})`, show: true },
-      { id: 'pinned', label: `置顶 (${lists.filter(l => l.isPinned).length})`, show: hasPinned },
-      { id: 'owned', label: `创建 (${lists.filter(l => l.isOwned !== false).length})`, show: true },
-      { id: 'followed', label: `关注 (${lists.filter(l => l.isOwned === false).length})`, show: hasFollowed },
+    const tabs: { id: 'all' | 'pinned' | 'owned' | 'followed'; label: string; count: number; show: boolean }[] = [
+      { id: 'all', label: '全部', count: lists.length, show: true },
+      { id: 'pinned', label: '置顶', count: lists.filter(l => l.isPinned).length, show: hasPinned },
+      { id: 'owned', label: '创建', count: lists.filter(l => l.isOwned !== false).length, show: true },
+      { id: 'followed', label: '关注', count: lists.filter(l => l.isOwned === false).length, show: hasFollowed },
     ]
 
     filtersContainer.innerHTML = `
-      <div class="xf-ql-filters">
+      <div class="xf-ql-filters" role="tablist">
         ${tabs.filter(t => t.show).map(t => `
-          <button class="xf-ql-filter-btn ${activeTab === t.id ? 'active' : ''}" data-tab="${t.id}">
-            ${t.label}
+          <button type="button" role="tab" aria-selected="${activeTab === t.id}" class="xf-ql-filter-btn${activeTab === t.id ? ' active' : ''}" data-tab="${t.id}">
+            ${t.label}<span class="xf-ql-filter-count">${t.count}</span>
           </button>
         `).join('')}
       </div>
@@ -746,9 +842,6 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
   renderFilters()
   renderLists()
-
-  foot.style.color = 'var(--secondary-text-color, #71767b)'
-  foot.textContent = '点击分组直达 · 点击 📌 置顶'
 }
 
 let navResizeListenerAttached = false
