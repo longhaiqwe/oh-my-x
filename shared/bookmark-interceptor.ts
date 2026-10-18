@@ -202,6 +202,63 @@ export function extractBookmarkMetrics(data: unknown): Record<string, number> {
   return result
 }
 
+const STATUS_OR_ARTICLE_ID_RE = /\/(?:status|article)\/(\d+)/
+
+/**
+ * 这些区域里的链接指向别的推文，不是按钮所属推文的 ID：
+ * 推文卡片、引用推文卡片（整块可点击的 div[role=link]）、推文正文、长文正文
+ */
+const NESTED_CONTENT_SELECTOR = [
+  'article[data-testid="tweet"]',
+  'div[role="link"]',
+  '[data-testid="tweetText"]',
+  '[data-testid="twitterArticleRichTextView"]',
+].join(', ')
+
+/**
+ * 找出收藏按钮所属推文的 ID 候选，按可信度排序：
+ * 1. 按钮所在操作栏里的推文链接（浏览量链接 /status/<id>/analytics）
+ * 2. 推文自己的时间链接
+ * 3. 推文里其余的推文/长文链接（如时间线里长文卡片的 /article/<id>）
+ * 所有候选都跳过嵌套推文和正文里的链接（引用推文、长文正文里嵌入的推文和文字链接）。
+ * 长文顶部的操作栏没有时间链接，不跳过的话会取到正文里第一条嵌入推文的 ID。
+ * 传入 pathname 时，前三步都没找到才用地址栏里的 ID。
+ */
+export function getBookmarkOwnerIds(btn: Element, pathname?: string): string[] {
+  const ids: string[] = []
+  const container =
+    btn.closest('article[data-testid="tweet"]') ||
+    btn.closest('article') ||
+    btn.closest('[data-testid="twitterArticleReadView"]')
+
+  const belongsToContainer = (el: Element) => {
+    if (!container) return true
+    const boundary = el.closest(NESTED_CONTENT_SELECTOR)
+    return !boundary || boundary.contains(container)
+  }
+  const addFrom = (el: Element | null | undefined) => {
+    if (!el || !belongsToContainer(el)) return
+    const match = (el.getAttribute('href') || '').match(STATUS_OR_ARTICLE_ID_RE)
+    if (match && !ids.includes(match[1])) ids.push(match[1])
+  }
+
+  btn.closest('[role="group"]')?.querySelectorAll('a[href*="/status/"]').forEach(addFrom)
+
+  if (container) {
+    container.querySelectorAll('time').forEach((time) => {
+      if (belongsToContainer(time)) addFrom(time.closest('a'))
+    })
+    container.querySelectorAll('a[href*="/status/"], a[href*="/article/"]').forEach(addFrom)
+  }
+
+  if (ids.length === 0 && pathname) {
+    const match = pathname.match(STATUS_OR_ARTICLE_ID_RE)
+    if (match) ids.push(match[1])
+  }
+
+  return ids
+}
+
 /**
  * 从按钮的 aria-label 属性中正则提取书签数量
  * 支持例如：

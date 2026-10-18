@@ -4,6 +4,7 @@ import { getStorage } from '../utilities/storage'
 import {
   extractBookmarkFromAriaLabel,
   formatBookmarkCount,
+  getBookmarkOwnerIds,
 } from '../../shared/bookmark-interceptor'
 
 /**
@@ -175,39 +176,7 @@ function ensureBookmarkCounterStyles() {
  * 从当前 DOM 上下文中提取推文或长文的所有候选 ID（包括推文自身 ID 与卡片内挂载的长文 ID）
  */
 export function getContextCandidateIds(bookmarkBtn: Element): string[] {
-  const ids: string[] = []
-  const article =
-    bookmarkBtn.closest('article[data-testid="tweet"]') ||
-    bookmarkBtn.closest('article') ||
-    bookmarkBtn.closest('[data-testid="twitterArticleReadView"]')
-
-  if (article) {
-    const timeLink = article.querySelector('time')?.closest<HTMLAnchorElement>('a')
-    if (timeLink) {
-      const match = (timeLink.getAttribute('href') || '').match(/\/(?:status|article)\/(\d+)/)
-      if (match && match[1] && !ids.includes(match[1])) {
-        ids.push(match[1])
-      }
-    }
-
-    const allLinks = article.querySelectorAll<HTMLAnchorElement>(
-      'a[href*="/status/"], a[href*="/article/"]',
-    )
-    for (const link of Array.from(allLinks)) {
-      const href = link.getAttribute('href') || ''
-      const match = href.match(/\/(?:status|article)\/(\d+)/)
-      if (match && match[1] && !ids.includes(match[1])) {
-        ids.push(match[1])
-      }
-    }
-  }
-
-  const pathMatch = window.location.pathname.match(/\/(?:status|article)\/(\d+)/)
-  if (pathMatch && pathMatch[1] && !ids.includes(pathMatch[1])) {
-    ids.push(pathMatch[1])
-  }
-
-  return ids
+  return getBookmarkOwnerIds(bookmarkBtn, window.location.pathname)
 }
 
 /**

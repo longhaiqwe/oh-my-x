@@ -53,6 +53,7 @@ import {
 import {
   isTweetOrArticleUrl,
   extractBookmarkMetrics,
+  getBookmarkOwnerIds,
 } from '../shared/bookmark-interceptor'
 import {
   isCreateTweetUrl,
@@ -1176,50 +1177,18 @@ export default defineContentScript({
         )
 
         bookmarkButtons.forEach((btn) => {
-          // 1. 尝试从所属推文/卡片的链接提取 ID，若接口缓存中已有则直接使用
-          const article =
-            btn.closest('article[data-testid="tweet"]') ||
-            btn.closest('article') ||
-            btn.closest('[data-testid="twitterArticleReadView"]')
+          // 1. 取按钮所属推文自己的 ID（跳过长文正文里嵌入的推文和引用推文），接口缓存中已有则直接使用
+          const candidateIds = getBookmarkOwnerIds(btn)
+          const matchedId =
+            candidateIds.find((id) => typeof bookmarkMetricsCache[id] === 'number') ??
+            candidateIds[0]
 
-          let matchedId: string | undefined
-          let countFromCache: number | undefined
-
-          if (article) {
-            // 优先检查 time 标签内部或包裹的链接
-            const timeLink = article.querySelector('time')?.closest<HTMLAnchorElement>('a')
-            if (timeLink) {
-              const href = timeLink.getAttribute('href') || ''
-              const m = href.match(/\/(?:status|article)\/(\d+)/)
-              if (m && m[1]) {
-                matchedId = m[1]
-                if (typeof bookmarkMetricsCache[matchedId] === 'number') {
-                  countFromCache = bookmarkMetricsCache[matchedId]
-                }
-              }
-            }
-
-            if (typeof countFromCache !== 'number') {
-              const links = article.querySelectorAll<HTMLAnchorElement>(
-                'a[href*="/status/"], a[href*="/article/"]',
-              )
-              for (const link of Array.from(links)) {
-                const href = link.getAttribute('href') || ''
-                const m = href.match(/\/(?:status|article)\/(\d+)/)
-                if (m && m[1]) {
-                  if (!matchedId) matchedId = m[1]
-                  if (typeof bookmarkMetricsCache[m[1]] === 'number') {
-                    countFromCache = bookmarkMetricsCache[m[1]]
-                    matchedId = m[1]
-                    break
-                  }
-                }
-              }
-            }
-          }
-
-          let finalCount = countFromCache
+          let finalCount = matchedId !== undefined ? bookmarkMetricsCache[matchedId] : undefined
           if (typeof finalCount !== 'number') {
+            const article =
+              btn.closest('article[data-testid="tweet"]') ||
+              btn.closest('article') ||
+              btn.closest('[data-testid="twitterArticleReadView"]')
             const fiberCount =
               extractBookmarkFromFiber(btn) ||
               extractBookmarkFromFiber(btn.closest('[role="group"]')) ||

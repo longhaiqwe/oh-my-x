@@ -4,6 +4,7 @@ import {
   extractBookmarkMetrics,
   extractBookmarkFromAriaLabel,
   formatBookmarkCount,
+  getBookmarkOwnerIds,
 } from '../../shared/bookmark-interceptor'
 
 describe('bookmark-interceptor', () => {
@@ -254,6 +255,71 @@ describe('bookmark-interceptor', () => {
       expect(extractBookmarkFromAriaLabel('Bookmark')).toBeNull()
       expect(extractBookmarkFromAriaLabel('')).toBeNull()
       expect(extractBookmarkFromAriaLabel(null)).toBeNull()
+    })
+  })
+
+  describe('getBookmarkOwnerIds', () => {
+    // 按 2026-10-18 长文详情页的真实结构简化：顶部操作栏没有时间链接，正文里嵌着别人的推文
+    const LONG_ARTICLE_DETAIL = `
+      <article data-testid="tweet" role="article">
+        <article data-testid="twitterArticleReadView" role="article">
+          <a href="/me/article/111/media/900">封面</a>
+          <div role="group">
+            <a href="/me/status/111/analytics">1.2万</a>
+            <button data-testid="bookmark" id="top-bookmark" aria-label="书签"></button>
+          </div>
+          <div data-testid="twitterArticleRichTextView">
+            <a href="https://x.com/other/status/222" role="link">正文里的文字链接</a>
+            <div data-testid="simpleTweet">
+              <article data-testid="tweet" role="article">
+                <div data-testid="User-Name">
+                  <a href="/other/status/222" role="link"><time>9月5日</time></a>
+                </div>
+                <div role="group"><a href="/other/status/222/analytics">3万</a></div>
+              </article>
+            </div>
+          </div>
+        </article>
+        <a href="/me/status/111" role="link"><time>10月17日</time></a>
+        <div role="group">
+          <button data-testid="bookmark" id="bottom-bookmark" aria-label="108 书签。加入书签"></button>
+        </div>
+      </article>
+    `
+
+    it('长文顶部操作栏取本推文 ID，不取正文里嵌入推文和文字链接的 ID', () => {
+      document.body.innerHTML = LONG_ARTICLE_DETAIL
+      expect(getBookmarkOwnerIds(document.getElementById('top-bookmark')!)).toEqual(['111'])
+    })
+
+    it('长文底部操作栏没有浏览量链接时，用本推文的时间链接', () => {
+      document.body.innerHTML = LONG_ARTICLE_DETAIL
+      expect(getBookmarkOwnerIds(document.getElementById('bottom-bookmark')!)).toEqual(['111'])
+    })
+
+    it('跳过引用推文卡片和推文正文里的链接', () => {
+      document.body.innerHTML = `
+        <article data-testid="tweet" role="article">
+          <div data-testid="tweetText"><a href="/linked/status/777">正文链接</a></div>
+          <div role="link" tabindex="0">
+            <time>10月1日</time>
+            <a href="/quoted/status/333/photo/1">图片</a>
+          </div>
+          <a href="/me/status/444" role="link"><time>10月2日</time></a>
+          <div role="group"><button data-testid="bookmark" id="bm"></button></div>
+        </article>
+      `
+      expect(getBookmarkOwnerIds(document.getElementById('bm')!)).toEqual(['444'])
+    })
+
+    it('推文里找不到 ID 时才用地址栏里的 ID', () => {
+      document.body.innerHTML = `<div role="group"><button data-testid="bookmark" id="bm"></button></div>`
+      const btn = document.getElementById('bm')!
+      expect(getBookmarkOwnerIds(btn)).toEqual([])
+      expect(getBookmarkOwnerIds(btn, '/me/status/555')).toEqual(['555'])
+
+      document.body.innerHTML = LONG_ARTICLE_DETAIL
+      expect(getBookmarkOwnerIds(document.getElementById('top-bookmark')!, '/x/status/999')).not.toContain('999')
     })
   })
 
