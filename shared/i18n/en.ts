@@ -468,7 +468,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   'error.syncInvalid': 'Invalid sync data',
   'error.dbUpgrading': 'The local database is upgrading. Close other X tabs and try again',
   'error.dbWriteFailed': 'Could not write to the local cache',
-  'error.aiBadUrl': 'The AI address must be an HTTP or HTTPS address without a username or password',
+  'error.aiBadUrl': 'The AI address must be an HTTPS address without a username or password. HTTP works only for localhost and 127.0.0.1 on this computer',
   'error.backgroundDisconnected': 'Lost the connection to the extension background. Try again',
   'error.requestTimeout': 'Request timed out. Check your network and try again',
   'error.pageNotReady': 'Reload this page once before scanning',

@@ -44,7 +44,8 @@ export default defineConfig({
       'https://pro.x.com/*',
       'https://abs.twimg.com/*',
     ],
-    optional_host_permissions: ['https://*/*', 'http://*/*'],
+    // AI 服务地址：远程只允许 HTTPS，HTTP 只给本机服务（见 shared/ai-request.ts）
+    optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
     action: {
       default_title: 'oh-my-x',
       default_popup: 'popup.html',

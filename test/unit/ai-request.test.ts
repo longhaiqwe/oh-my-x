@@ -14,12 +14,22 @@ it.each([
   ['https://AI.example/v1/chat/completions', 'https://ai.example/*'],
   ['http://localhost:11434/v1', 'http://localhost/*'],
   ['http://127.0.0.1:8000/v1', 'http://127.0.0.1/*'],
+  ['http://127.0.0.1:8317', 'http://127.0.0.1/*'],
+  ['http://LOCALHOST:1234/v1', 'http://localhost/*'],
   ['', 'https://api.openai.com/*'],
 ])('requests a host-level pattern for %s', (url, expected) => {
   expect(aiPermissionOrigin(url)).toBe(expected)
 })
 
-it.each(['file:///tmp/test', 'javascript:alert(1)', 'https://user:pass@ai.example'])('rejects invalid credential destinations: %s', url => {
+it.each([
+  'file:///tmp/test',
+  'javascript:alert(1)',
+  'https://user:pass@ai.example',
+  'http://user:pass@localhost:8000',
+  'http://ai.example/v1',
+  'http://192.168.1.10:11434/v1',
+  'http://localhost.ai.example/v1',
+])('rejects invalid credential destinations: %s', url => {
   expect(() => aiPermissionOrigin(url)).toThrow()
 })
 

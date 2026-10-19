@@ -193,7 +193,7 @@ In the post and quote editors, click the AI draft button to the right of Everyon
 
 - Works with OpenAI-compatible APIs. Under Create → AI quote drafts, enter the base URL, API key, and model name, then click Authorize and test connection. The extension asks for access to that service address only; if you decline, no request is sent.
 - Set your own writing style: describe it under Style description, and paste 2 to 5 quote posts you wrote under Sample posts, separated by a line containing only `---`. If both are empty, a plain default style is used.
-- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Each request times out after 25 seconds. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. Use HTTPS for remote services.
+- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Each request times out after 25 seconds. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
 
 #### Schedule overview
 

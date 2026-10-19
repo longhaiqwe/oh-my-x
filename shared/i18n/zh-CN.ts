@@ -490,7 +490,7 @@ export const zhCN = {
   'error.syncInvalid': '无效的同步数据',
   'error.dbUpgrading': '本地数据库正在升级，请关闭其他 X 标签后重试',
   'error.dbWriteFailed': '本地缓存写入失败',
-  'error.aiBadUrl': 'AI 接口地址必须是不含用户名和密码的 HTTP/HTTPS 地址',
+  'error.aiBadUrl': 'AI 接口地址必须是 HTTPS 地址，且不含用户名和密码；HTTP 只能用于本机的 localhost 和 127.0.0.1',
   'error.backgroundDisconnected': '扩展后台连接已断开，请重试',
   'error.requestTimeout': '请求超时，请检查网络后重试',
   'error.pageNotReady': '当前页面需要刷新一次才能扫描，请刷新后重试',

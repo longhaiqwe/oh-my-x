@@ -25,7 +25,7 @@ Last updated: October 19, 2026
 - Generating repost options sends the selected source text (up to 12,000 characters, plus a truncation marker if necessary), available author name/handle and article title, your repost style (style description and sample posts, if you filled them in), your additional instructions, the extension's writing instructions, and model name to the configured OpenAI-compatible service. The API key is sent in the authorization header. Connection testing sends a short test message and model name with the API key, not the selected post.
 - This is an external transfer to the service you configure, unless you choose a local service. That service's retention, processing, and billing terms apply. Generated options are shown for you to choose; the AI feature does not publish posts automatically.
 - AI requests omit browser cookies and reject redirects. Each request has a 25-second timeout. Canceling or closing the requesting panel aborts the extension's request and discards late results. A provider may already have received or processed it; cancellation does not guarantee that provider-side processing or billing stops.
-- HTTP addresses are supported, including local services. HTTP does not encrypt transmitted text or API keys; use HTTPS for remote services.
+- Remote services must use HTTPS. HTTP is accepted only for local services at localhost and 127.0.0.1, so text and API keys sent over HTTP stay on this computer.
 
 ## 4. Permissions
 
@@ -37,7 +37,7 @@ Last updated: October 19, 2026
 | `downloads` | Save media when you select a download action. |
 | `scripting` | When you click Scan last 7 days in the popup on an X profile page and the page's content script does not respond (for example, after the extension was updated), run the extension's own scan function in that X tab, so the page does not need a reload. It is used only on the active X tab and only after that click. |
 | Required host access | `x.com`, `pro.x.com`, `twitter.com`, `mobile.twitter.com` for X features; `abs.twimg.com` for X's public client script. |
-| Optional host access | HTTP/HTTPS hosts for your chosen AI service, requested at runtime for the configured host. No blanket access to all websites is requested at installation. |
+| Optional host access | The HTTPS host of your chosen AI service, or http://localhost / http://127.0.0.1 for a local service, requested at runtime for the configured host. No blanket access to all websites is requested at installation. |
 
 Chrome site grants apply to a host and scheme rather than an individual API path or port. Previous grants can remain when you change an AI address; review or revoke site access in Chrome's extension settings. An upgrade does not promise to remove previously granted access.
 

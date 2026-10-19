@@ -19,9 +19,13 @@ export interface AiResponse extends Partial<AiRepostOptionsResult> {
   source?: RepostSourceInput | null
 }
 
+// 只有本机服务可以用 HTTP；要和 wxt.config.ts 的 optional_host_permissions 一致
+const AI_LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1']
+
 export function aiPermissionOrigin(baseUrl: string): string {
   const url = new URL(resolveChatCompletionsUrl(baseUrl))
-  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) {
+  const allowed = url.protocol === 'https:' || (url.protocol === 'http:' && AI_LOCAL_HTTP_HOSTS.includes(url.hostname))
+  if (!allowed || url.username || url.password) {
     throw new AppError('error.aiBadUrl')
   }
   // Chrome match patterns do not include ports; a host grant covers its ports.
