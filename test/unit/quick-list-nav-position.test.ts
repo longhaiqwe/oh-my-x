@@ -55,7 +55,7 @@ describe('Lists 导航入口位置', () => {
   })
 })
 
-describe('「我的 Lists」面板位置', () => {
+describe('「我的列表」面板位置', () => {
   const viewport = { width: 1200, height: 800 }
   const panel = { width: 300, height: 400 }
 

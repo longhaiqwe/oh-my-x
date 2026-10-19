@@ -187,7 +187,7 @@ describe('Quick List Helpers', () => {
 
       const navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement | null
       expect(navEntry).not.toBeNull()
-      expect(navEntry?.textContent).toContain('我的 Lists')
+      expect(navEntry?.textContent).toContain('我的列表')
       expect(navEntry?.getAttribute('aria-current')).toBeNull()
       expect(navEntry?.getAttribute('href')).toBe('/i/lists')
       expect(navEntry?.classList.contains('xf-sidebar-button')).toBe(true)
@@ -269,7 +269,7 @@ describe('Quick List Helpers', () => {
       let navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement | null
       expect(navEntry?.getAttribute('data-xf-mode')).toBe('expanded')
       expect(navEntry?.style.alignItems).toBe('flex-start')
-      expect(navEntry?.textContent).toContain('我的 Lists')
+      expect(navEntry?.textContent).toContain('我的列表')
 
       // 2. 模拟进入 Chat 路由并侧边栏收起
       window.history.pushState({}, '', '/messages')
@@ -300,7 +300,7 @@ describe('Quick List Helpers', () => {
       navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement | null
       expect(navEntry?.getAttribute('data-xf-mode')).toBe('expanded')
       expect(navEntry?.style.alignItems).toBe('flex-start')
-      expect(navEntry?.textContent).toContain('我的 Lists')
+      expect(navEntry?.textContent).toContain('我的列表')
       expect(textContainer?.style.display).toBe('')
     })
   })

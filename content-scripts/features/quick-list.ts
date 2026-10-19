@@ -205,7 +205,7 @@ function ensureStyles() {
       flex: none;
     }
 
-    /* 侧边栏「我的 Lists」面板：贴在入口右侧 */
+    /* 侧边栏「我的列表」面板：贴在入口右侧 */
     .xf-ql-nav-panel {
       animation-name: xf-ql-slide-in;
     }

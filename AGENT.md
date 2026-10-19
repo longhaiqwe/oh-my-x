@@ -79,7 +79,7 @@ oh-my-x/
 │   │   ├── quick-interaction.ts # 快捷键 1-4 + 底部悬浮条
 │   │   ├── reply-assistant.ts   # 直达回复区胶囊（可拖动，位置存 jumpRepliesPosition）
 │   │   ├── auto-like-reply.ts   # 回复后自动点赞
-│   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的 Lists」入口
+│   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的列表」入口
 │   │   └── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
 │   │
 │   ├── options/

@@ -517,7 +517,7 @@ export const zhCN = {
   'qlPage.followedFiltered': '已自动过滤关注列表（仅限自己创建的列表）',
   'qlPage.manageInPopup': '可在插件弹窗中增删或同步 Lists',
   'qlPage.addButtonTitle': '加入 List (@{handle})',
-  'qlPage.myLists': '我的 Lists',
+  'qlPage.myLists': '我的列表',
   'qlPage.loading': '加载中…',
   'qlPage.emptyFilter': '暂无对应分类的 List',
   'qlPage.ownerTitle': '创建者：@{handle}',

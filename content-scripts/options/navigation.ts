@@ -42,7 +42,7 @@ export const changeGrokButton = (state: string | number | boolean) => changeSide
 export const changeTopicsButton = (state: string | number | boolean) => changeSidebarSetting('topics', state, addTopicsButton)
 export const changeCommunitiesButton = (state: string | number | boolean) => changeSidebarSetting('communities', state, addCommunitiesButton)
 // 只管插件自己加的 Lists 按钮。X 原生的 Lists（左侧导航栏、「更多」菜单）不受插件设置影响，
-// 「我的 Lists」入口由 quick-list 功能单独控制
+// 「我的列表」入口由 quick-list 功能单独控制
 export const changeListsButton = (state: string | number | boolean) => {
   if (state === 'on') {
     addListsButton()

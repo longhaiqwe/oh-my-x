@@ -66,7 +66,7 @@ describe('「更多」菜单里的导航入口', () => {
     const nav = document.querySelector('nav[role="navigation"]')!
     nav.insertAdjacentHTML('afterbegin', `
       <a class="xf-sidebar-button" aria-label="Lists" href="/alice/lists"></a>
-      <a class="xf-sidebar-button xf-quick-list-nav-entry" aria-label="我的 Lists" href="/i/lists"></a>
+      <a class="xf-sidebar-button xf-quick-list-nav-entry" aria-label="我的列表" href="/i/lists"></a>
       <a role="link" aria-label="列表" href="/alice/lists" id="native"></a>
     `)
     changeListsButton('off')

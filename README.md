@@ -346,14 +346,14 @@ npm run build
 
 #### X Lists
 
-- 左侧导航栏加入「我的 Lists」入口，点击展开全部列表；位置可选「Home 上方」或「列表区」，切换后立即生效。
+- 左侧导航栏加入「我的列表」入口，点击展开全部列表；位置可选「Home 上方」或「列表区」，切换后立即生效。
 - 鼠标悬停在头像或用户名上时，资料卡里出现「+ List」按钮，点击后选择列表加入，不用进对方主页。
 - 在设置里同步当前账号已有的 Lists，或通过链接、ID 手动添加。
 
 <p align="center">
-  <img src="docs/images/engage-lists-nav.webp" width="49%" alt="左侧导航栏的「我的 Lists」入口" />
+  <img src="docs/images/engage-lists-nav.webp" width="49%" alt="左侧导航栏的「我的列表」入口" />
   <img src="docs/images/engage-lists-card.webp" width="49%" alt="资料卡里的「+ List」按钮" /><br>
-  <sub>左：导航栏的「我的 Lists」；右：资料卡里的「+ List」</sub>
+  <sub>左：导航栏的「我的列表」；右：资料卡里的「+ List」</sub>
 </p>
 
 ---
