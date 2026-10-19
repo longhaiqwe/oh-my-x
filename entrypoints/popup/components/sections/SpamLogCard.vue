@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { KeySpamLog } from '../../../../storage-keys'
-import { SPAM_CATEGORY_LABEL } from '../../../../shared/spam-types'
+import { spamCategoryLabel } from '../../../../shared/spam-types'
 import type { SpamLogEntry } from '../../../../shared/spam-types'
 import { readLog } from '../../../../shared/spam-logger'
 import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
+import { useI18n } from '../../composables/useI18n'
 import FeatureCard from '../ui/FeatureCard.vue'
 
 defineEmits<{ open: [] }>()
 
+const { t, locale } = useI18n()
 const recent = ref<SpamLogEntry[]>([])
 const snapshot = useStorageSnapshot([KeySpamLog])
 
 function fmtTime(ts: number) {
-  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return new Date(ts).toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 async function loadRecent() {
@@ -26,7 +28,7 @@ watch(() => snapshot[KeySpamLog], () => void loadRecent())
 </script>
 
 <template>
- <FeatureCard feature-id="spamLog" details-label="全部记录" details-as="page" @open-details="$emit('open')">
+ <FeatureCard feature-id="spamLog" :details-label="t('spamLog.all')" details-as="page" @open-details="$emit('open')">
   <ul v-if="recent.length" class="flex flex-col gap-1">
    <li
     v-for="entry in recent"
@@ -35,12 +37,12 @@ watch(() => snapshot[KeySpamLog], () => void loadRecent())
    >
     <span class="font-mono text-secondary-text shrink-0 w-9">{{ fmtTime(entry.timestamp) }}</span>
     <span class="px-2 py-0.5 rounded-full bg-sunken-bg text-secondary-text shrink-0 text-xs">
-     {{ SPAM_CATEGORY_LABEL[entry.category] }}
+     {{ spamCategoryLabel(entry.category, locale) }}
     </span>
     <span class="font-mono shrink-0">@{{ entry.authorHandle || 'unknown' }}</span>
-    <span class="truncate text-secondary-text">{{ entry.text || '(空)' }}</span>
+    <span class="truncate text-secondary-text">{{ entry.text || t('common.empty') }}</span>
    </li>
   </ul>
-  <p v-else class="text-xs text-muted-text">还没有拦截记录</p>
+  <p v-else class="text-xs text-muted-text">{{ t('spamLog.none') }}</p>
  </FeatureCard>
 </template>

@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from 'reka-ui'
 import Header from './components/sections/Header.vue'
 import { moduleComponents } from './modules'
+import { useI18n } from './composables/useI18n'
 
 import { KeyPopupActiveTab } from '../../storage-keys'
 import { getStorage, setStorage } from '../../content-scripts/utilities/storage'
@@ -24,6 +25,7 @@ function readCachedTab(): FeatureModuleId | null {
 // 同步从 localStorage 获取上次选中的模块，首屏即时渲染，杜绝异步 IPC 导致的闪烁与尺寸抖动；
 // 旧版标签 id 会映射到对应的新模块
 const activeTab = ref<FeatureModuleId>(readCachedTab() ?? DEFAULT_FEATURE_MODULE)
+const { t, moduleText } = useI18n()
 
 onMounted(async () => {
   // 仅在 localStorage 未命中缓存时回退异步从 chrome.storage.local 读取，消除每次打开的冗余 IPC
@@ -52,7 +54,7 @@ watch(
     <TabsRoot :model-value="activeTab" @update:model-value="(v) => activeTab = v as FeatureModuleId" class="flex flex-col gap-4">
      <TabsList
       class="flex gap-1 p-1 rounded-card bg-card-bg"
-      aria-label="功能模块"
+      :aria-label="t('app.modules')"
      >
       <TabsTrigger
        v-for="mod in FEATURE_MODULES"
@@ -64,7 +66,7 @@ watch(
         data-[state=inactive]:hover:bg-sunken-bg
         outline-none focus-visible:ring-2 focus-visible:ring-accent-ring cursor-pointer"
       >
-       {{ mod.tabLabel }}
+       {{ moduleText(mod.id, 'tab') }}
       </TabsTrigger>
      </TabsList>
 

@@ -1,6 +1,7 @@
 import { KeyQuickInteraction, KeyQuickInteractionDock } from '../../storage-keys'
 import { getStorage, setStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
+import { t } from '../../shared/i18n'
 
 const QUICK_INTERACTION_STYLES = `
 /* 快捷互动悬浮胶囊入口 */
@@ -588,31 +589,31 @@ export class QuickInteractionManager {
       const dock = document.createElement('div')
       dock.className = 'xf-quick-interaction-dock'
       dock.setAttribute('role', 'toolbar')
-      dock.setAttribute('aria-label', '快捷互动入口')
+      dock.setAttribute('aria-label', t('dockPage.label'))
 
       dock.innerHTML = `
-        <button type="button" class="xf-qi-btn xf-qi-btn-reply" title="按 1 评论">
+        <button type="button" class="xf-qi-btn xf-qi-btn-reply" title="${t('dockPage.replyTitle')}">
           <span class="xf-qi-kbd">1</span>
           ${SVG_ICONS.reply}
-          <span class="xf-qi-label">评论</span>
+          <span class="xf-qi-label">${t('dockPage.reply')}</span>
         </button>
-        <button type="button" class="xf-qi-btn xf-qi-btn-quote" title="按 2 引用">
+        <button type="button" class="xf-qi-btn xf-qi-btn-quote" title="${t('dockPage.quoteTitle')}">
           <span class="xf-qi-kbd">2</span>
           ${SVG_ICONS.quote}
-          <span class="xf-qi-label">引用</span>
+          <span class="xf-qi-label">${t('dockPage.quote')}</span>
         </button>
-        <button type="button" class="xf-qi-btn xf-qi-btn-like" title="按 3 点赞">
+        <button type="button" class="xf-qi-btn xf-qi-btn-like" title="${t('dockPage.likeTitle')}">
           <span class="xf-qi-kbd">3</span>
           <span class="xf-qi-icon-like">${SVG_ICONS.likeOutline}</span>
-          <span class="xf-qi-label xf-qi-label-like">点赞</span>
+          <span class="xf-qi-label xf-qi-label-like">${t('dockPage.like')}</span>
         </button>
-        <button type="button" class="xf-qi-btn xf-qi-btn-bookmark" title="按 4 收藏">
+        <button type="button" class="xf-qi-btn xf-qi-btn-bookmark" title="${t('dockPage.bookmarkTitle')}">
           <span class="xf-qi-kbd">4</span>
           <span class="xf-qi-icon-bookmark">${SVG_ICONS.bookmarkOutline}</span>
-          <span class="xf-qi-label xf-qi-label-bookmark">收藏</span>
+          <span class="xf-qi-label xf-qi-label-bookmark">${t('dockPage.bookmark')}</span>
         </button>
         <div class="xf-qi-divider"></div>
-        <button type="button" class="xf-qi-btn xf-qi-btn-close" title="关闭悬浮条（按键 1-4 仍可使用）" aria-label="关闭悬浮条">
+        <button type="button" class="xf-qi-btn xf-qi-btn-close" title="${t('dockPage.closeTitle')}" aria-label="${t('dockPage.closeLabel')}">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
             <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.38.38-1.02 0-1.4z"/>
           </svg>
@@ -675,11 +676,11 @@ export class QuickInteractionManager {
       if (isLiked) {
         likeBtn.classList.add('xf-liked')
         likeIconEl.innerHTML = SVG_ICONS.likeFilled
-        likeLabelEl.textContent = '已赞'
+        likeLabelEl.textContent = t('dockPage.liked')
       } else {
         likeBtn.classList.remove('xf-liked')
         likeIconEl.innerHTML = SVG_ICONS.likeOutline
-        likeLabelEl.textContent = '点赞'
+        likeLabelEl.textContent = t('dockPage.like')
       }
     }
 
@@ -691,11 +692,11 @@ export class QuickInteractionManager {
       if (isBookmarked) {
         bookmarkBtn.classList.add('xf-bookmarked')
         bookmarkIconEl.innerHTML = SVG_ICONS.bookmarkFilled
-        bookmarkLabelEl.textContent = '已收藏'
+        bookmarkLabelEl.textContent = t('dockPage.bookmarked')
       } else {
         bookmarkBtn.classList.remove('xf-bookmarked')
         bookmarkIconEl.innerHTML = SVG_ICONS.bookmarkOutline
-        bookmarkLabelEl.textContent = '收藏'
+        bookmarkLabelEl.textContent = t('dockPage.bookmark')
       }
     }
   }

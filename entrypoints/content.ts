@@ -16,6 +16,7 @@ import { scanProfileActivity } from '../content-scripts/options/profile-activity
 import constructNewData from '../content-scripts/utilities/constructNewData'
 import { getStorage } from '../content-scripts/utilities/storage'
 import { XF_BRIDGE_MARKER } from '../shared/bridge'
+import { initI18n } from '../shared/i18n'
 import { mergeSettings, normalizeSettings, type ExtensionSettings } from '../shared/settings'
 import {
   KeyExtensionStatus,
@@ -178,6 +179,7 @@ export default defineContentScript({
       // 通知 MAIN world：即便扩展关闭也发送，让拦截器停用
       notifyInterceptorEnabled(enabled)
       if (!enabled) return
+      await initI18n()
       await initializeExtension()
       startOwnPostSync()
       currentSettings = normalizeSettings(await getStorage([...allSettingsKeys]))

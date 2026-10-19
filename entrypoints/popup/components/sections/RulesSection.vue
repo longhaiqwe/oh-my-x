@@ -3,12 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { KeySpamRulesEnabled } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseEnabledRules, serializeEnabledRules } from '../../../../shared/spam-rules'
-import { SPAM_RULES } from '../../../../shared/spam-types'
+import { SPAM_RULES, spamRuleDescription, spamRuleLabel } from '../../../../shared/spam-types'
 import type { SpamRuleId } from '../../../../shared/spam-types'
-import { getFeature } from '../../../../shared/feature-registry'
+import { useI18n } from '../../composables/useI18n'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 
-const feature = getFeature('spamRules')
+const { t, featureText, locale } = useI18n()
 
 const enabledRules = ref<Record<SpamRuleId, boolean>>(
   Object.fromEntries(SPAM_RULES.map((r) => [r.id, true])) as Record<SpamRuleId, boolean>,
@@ -36,10 +36,10 @@ async function toggleRule(id: SpamRuleId, value: boolean) {
 <template>
  <div class="flex flex-col gap-1">
   <div class="flex items-baseline justify-between">
-   <p class="text-sm font-semibold text-text">{{ feature.label }}</p>
-   <span class="text-xs text-muted-text">已开启 {{ enabledCount }}/{{ SPAM_RULES.length }}</span>
+   <p class="text-sm font-semibold text-text">{{ featureText('spamRules', 'label') }}</p>
+   <span class="text-xs text-muted-text">{{ t('spamRules.enabledCount', { count: enabledCount, total: SPAM_RULES.length }) }}</span>
   </div>
-  <p class="text-xs text-secondary-text">{{ feature.description }}</p>
+  <p class="text-xs text-secondary-text">{{ featureText('spamRules', 'description') }}</p>
   <div class="flex flex-col rounded-control bg-sunken-bg px-3">
    <div
     v-for="rule in SPAM_RULES"
@@ -48,14 +48,14 @@ async function toggleRule(id: SpamRuleId, value: boolean) {
    >
     <div class="flex-1 min-w-0">
      <div class="text-sm leading-tight text-text">
-      {{ rule.label }}
+      {{ spamRuleLabel(rule.id, locale) }}
       <span class="text-xs text-muted-text ml-1">+{{ rule.defaultScore }}</span>
      </div>
-     <div class="text-xs text-muted-text leading-normal mt-1">{{ rule.description }}</div>
+     <div class="text-xs text-muted-text leading-normal mt-1">{{ spamRuleDescription(rule.id, locale) }}</div>
     </div>
     <SwitchToggle
      :model-value="enabledRules[rule.id] !== false"
-     :label="rule.label"
+     :label="spamRuleLabel(rule.id, locale)"
      @update:model-value="(v) => toggleRule(rule.id, v)"
     />
    </div>

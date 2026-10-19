@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import { getFeature, getModule } from '../../../../shared/feature-registry'
+import { ref, nextTick } from 'vue'
 import { getScrollContainer } from '../../modules'
+import { useI18n } from '../../composables/useI18n'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import SubPage from '../ui/SubPage.vue'
 import SpamFilterCard from '../sections/SpamFilterCard.vue'
@@ -16,9 +16,8 @@ import LogSection from '../sections/LogSection.vue'
 // 过滤页分两层：第一层是四张功能卡片，点「详细设置」等按钮进入对应的第二层页面
 type FilterPage = 'spamFilter' | 'tweetFilter' | 'spamAccountLists' | 'spamLog'
 
-const filterModule = getModule('filter')
+const { moduleText, featureText } = useI18n()
 const page = ref<FilterPage | null>(null)
-const pageFeature = computed(() => (page.value ? getFeature(page.value) : null))
 
 let overviewScrollTop = 0
 const scroller = getScrollContainer
@@ -46,10 +45,10 @@ async function back() {
 
 <template>
  <SubPage
-  v-if="page && pageFeature"
-  :parent-title="filterModule.title"
-  :title="pageFeature.label"
-  :description="pageFeature.description"
+  v-if="page"
+  :parent-title="moduleText('filter', 'title')"
+  :title="featureText(page, 'label') ?? ''"
+  :description="featureText(page, 'description')"
   @back="back"
  >
   <SpamFilterDetail v-if="page === 'spamFilter'" />

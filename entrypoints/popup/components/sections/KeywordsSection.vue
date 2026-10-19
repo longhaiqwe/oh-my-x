@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   KeySpamKeywordList,
-  defaultSpamKeywords,
+  getDefaultSpamKeywords,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseKeywordList } from '../../../../shared/spam-rules'
@@ -10,10 +10,12 @@ import {
   migrateSpamStorage,
   mergeDefaultKeywords,
 } from '../../../../shared/spam-migration'
-import { getFeature } from '../../../../shared/feature-registry'
+import { useI18n } from '../../composables/useI18n'
 import WhereLine from '../ui/WhereLine.vue'
 
-const feature = getFeature('spamKeywords')
+const { t, featureText, locale } = useI18n()
+// 「补充默认词」「恢复默认」按当前界面语言的默认词库
+const defaultKeywords = computed(() => getDefaultSpamKeywords(locale.value))
 
 let migrationChecked = false
 
@@ -35,8 +37,8 @@ const keywordCount = computed(() => parsedKeywords.value.length)
 
 const placeholderText = computed(() => {
   return parsedKeywords.value.length === 0
-    ? '输入词，按回车或逗号添加，也可以粘贴多行'
-    : '添加'
+    ? t('spamKeywords.placeholderEmpty')
+    : t('common.add')
 })
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -86,21 +88,21 @@ onBeforeUnmount(() => {
 
 function syncOfficialKeywords() {
   const currentList = [...parsedKeywords.value]
-  const { merged, added } = mergeDefaultKeywords(currentList)
+  const { merged, added } = mergeDefaultKeywords(currentList, locale.value)
   if (added.length === 0) {
-    showSyncMsg('已包含全部默认词')
+    showSyncMsg(t('spamKeywords.allIncluded'))
     return
   }
   void updateKeywords(merged.join('\n'))
-  showSyncMsg(`已补充 ${added.length} 个默认词`)
+  showSyncMsg(t('spamKeywords.added', { count: added.length }))
 }
 
 function resetToDefaults() {
-  if (!confirm(`恢复为默认词库（共 ${defaultSpamKeywords.length} 个词）？你添加的词会被删除。`)) return
+  if (!confirm(t('spamKeywords.confirmReset', { count: defaultKeywords.value.length }))) return
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
-  void updateKeywords(defaultSpamKeywords.join('\n'))
-  showSyncMsg('已恢复默认词库')
+  void updateKeywords(defaultKeywords.value.join('\n'))
+  showSyncMsg(t('spamKeywords.resetDone'))
 }
 
 function addWord(word: string) {
@@ -162,7 +164,7 @@ function focusInput() {
 }
 
 function clearAll() {
-  if (!confirm(`清空全部 ${keywordCount.value} 个词？`)) return
+  if (!confirm(t('spamKeywords.confirmClear', { count: keywordCount.value }))) return
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
   void updateKeywords('')
@@ -172,26 +174,26 @@ function clearAll() {
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-semibold text-text">{{ feature.label }}</p>
+      <p class="text-sm font-semibold text-text">{{ featureText('spamKeywords', 'label') }}</p>
       <div class="flex items-center gap-2">
         <span v-if="syncMessage" class="text-xs text-success" role="status">{{ syncMessage }}</span>
-        <span class="text-xs text-muted-text">{{ keywordCount }} 个词</span>
+        <span class="text-xs text-muted-text">{{ t('spamKeywords.count', { count: keywordCount }) }}</span>
       </div>
     </div>
-    <p class="text-xs text-secondary-text">回复命中第一个词加 35 分，多个词累加，最多 65 分。和正文屏蔽词分开管理。</p>
-    <WhereLine v-if="feature.where" :where="feature.where" />
+    <p class="text-xs text-secondary-text">{{ t('spamKeywords.description') }}</p>
+    <WhereLine v-if="featureText('spamKeywords', 'where')" :where="featureText('spamKeywords', 'where')!" />
     <div class="flex items-center justify-end gap-1">
       <button type="button"
         class="text-xs text-accent-text hover:bg-accent-subtle min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-        title="把新版本加入的默认词补进来，保留你添加的词"
-        @click="syncOfficialKeywords">补充默认词</button>
+        :title="t('spamKeywords.addDefaultsTitle')"
+        @click="syncOfficialKeywords">{{ t('spamKeywords.addDefaults') }}</button>
       <button type="button"
         class="text-xs text-secondary-text hover:text-text hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-        title="把词库恢复为默认词"
-        @click="resetToDefaults">恢复默认</button>
+        :title="t('spamKeywords.resetTitle')"
+        @click="resetToDefaults">{{ t('common.resetDefaults') }}</button>
       <button v-if="keywordCount > 0" type="button"
         class="text-xs text-danger hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-        @click="clearAll">清空</button>
+        @click="clearAll">{{ t('common.clear') }}</button>
     </div>
 
     <!-- 标签编辑器 -->
@@ -204,7 +206,7 @@ function clearAll() {
           <span>{{ word }}</span>
           <button type="button"
             class="w-0 opacity-0 ml-0 group-hover:w-4 group-hover:opacity-100 group-hover:ml-1 focus-visible:w-4 focus-visible:opacity-100 focus-visible:ml-1 h-4 flex items-center justify-center rounded-full text-muted-text hover:text-danger cursor-pointer text-xs transition-all duration-150 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-            :aria-label="`删除 ${word}`"
+            :aria-label="t('common.remove', { name: word })"
             @click.stop="removeWord(idx)">
             ✕
           </button>
@@ -218,11 +220,11 @@ function clearAll() {
     </div>
 
     <p class="text-xs text-secondary-text leading-relaxed">
-      选词按钮的样式是
+      {{ t('spamKeywords.pickerBefore') }}
       <span class="inline-flex items-center justify-center bg-sunken-bg rounded-sm p-0.5 align-middle mx-1">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h8q.425 0 .713.288T14 4t-.288.713T13 5H5v14h14v-8q0-.425.288-.712T20 10t.713.288T21 11v8q0 .825-.587 1.413T19 21zm4-4q-.425 0-.712-.288T8 16t.288-.712T9 15h6q.425 0 .713.288T16 16t-.288.713T15 17zm0-3q-.425 0-.712-.288T8 13t.288-.712T9 12h6q.425 0 .713.288T16 13t-.288.713T15 14zm0-3q-.425 0-.712-.288T8 10t.288-.712T9 9h6q.425 0 .713.288T16 10t-.288.713T15 11zm9-2q-.425 0-.712-.288T17 8V7h-1q-.425 0-.712-.288T15 6t.288-.712T16 5h1V4q0-.425.288-.712T18 3t.713.288T19 4v1h1q.425 0 .713.288T21 6t-.288.713T20 7h-1v1q0 .425-.288.713T18 9"/></svg>
       </span>
-      ，点击后可以从昵称或回复中选词加入词库。
+      {{ t('spamKeywords.pickerAfter') }}
     </p>
   </div>
 </template>

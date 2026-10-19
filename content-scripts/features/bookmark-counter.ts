@@ -1,3 +1,4 @@
+import { getLocale } from '../../shared/i18n'
 import { BOOKMARK_METRICS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
 import { KeyBookmarkCount } from '../../storage-keys'
 import { getStorage } from '../utilities/storage'
@@ -285,7 +286,7 @@ export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
   setTrackedStyle(containerParent, 'align-items', 'center')
 
   let counterEl = btn.querySelector<HTMLElement>(`.${COUNTER_CLASS}`)
-  const displayStr = formatBookmarkCount(count)
+  const displayStr = formatBookmarkCount(count, getLocale())
 
   if (!displayStr) {
     if (counterEl) counterEl.style.display = 'none'

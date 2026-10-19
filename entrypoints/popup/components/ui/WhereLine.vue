@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from '../../composables/useI18n'
+
 defineProps<{ where: string }>()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -9,6 +12,6 @@ defineProps<{ where: string }>()
    <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
    <circle cx="12" cy="9.5" r="2.5" />
   </svg>
-  <span>在哪用：{{ where }}</span>
+  <span>{{ t('common.where', { where }) }}</span>
  </p>
 </template>

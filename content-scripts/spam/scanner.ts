@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n'
 import { evaluateSpam } from '../../shared/spam-rules'
 import { recordIntercept } from '../../shared/spam-logger'
 import { extractTweetInfo } from '../../shared/parse-tweet'
@@ -51,7 +52,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
     article.setAttribute(PROCESSED_ATTR, '1')
     const evaluation: SpamEvaluation = {
       score: 999,
-      hits: [{ id: 'marketing_keyword' as SpamRuleId, label: '用户黑名单', score: 999 }],
+      hits: [{ id: 'marketing_keyword' as SpamRuleId, label: t('spamHit.blocklist'), score: 999, detail: { blocklist: true } }],
       category: 'marketing',
       text: info.text,
       authorHandle: info.authorHandle,

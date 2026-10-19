@@ -2,6 +2,8 @@
 import { useStorageKey } from '../../composables/useStorageKey'
 import { KeyExtensionStatus } from '../../../../storage-keys'
 import SwitchToggle from '../ui/SwitchToggle.vue'
+import LanguageMenu from '../ui/LanguageMenu.vue'
+import { useI18n } from '../../composables/useI18n'
 
 import pkg from '../../../../package.json'
 import type { FeatureModuleId } from '../../../../shared/feature-registry'
@@ -9,6 +11,7 @@ import type { FeatureModuleId } from '../../../../shared/feature-registry'
 const props = defineProps<{ currentModule?: FeatureModuleId }>()
 
 const { value, loaded, setValue } = useStorageKey(KeyExtensionStatus)
+const { t } = useI18n()
 const version = pkg.version
 
 // 在新标签页打开完整设置页，并定位到弹窗当前所在的模块
@@ -31,8 +34,8 @@ const iconButton =
    target="_blank"
    rel="noreferrer"
    :class="iconButton"
-   aria-label="X 的静音和屏蔽设置"
-   title="X 的静音和屏蔽设置"
+   :aria-label="t('header.muteSettings')"
+   :title="t('header.muteSettings')"
   >
    <svg class="fill-current" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
     <path d="M18 6.59V1.2L8.71 7H5.5A2.5 2.5 0 003 9.5v5A2.5 2.5 0 005.5 17h2.09l-2.3 2.29 1.42 1.42 15.5-15.5-1.42-1.42L18 6.59zm-8 8V8.55l6-3.75v3.79l-6 6zM5 9.5c0-.28.22-.5.5-.5H8v6H5.5c-.28 0-.5-.22-.5-.5v-5zm6.5 9.24l1.45-1.45L16 19.2V14l2 .02v8.78l-6.5-4.06z" />
@@ -52,13 +55,14 @@ const iconButton =
    </h1>
   </div>
 
-  <!-- 右：完整设置 + 插件总开关 -->
+  <!-- 右：界面语言 + 完整设置 + 插件总开关 -->
   <div class="flex items-center gap-1">
+   <LanguageMenu :trigger-class="iconButton" />
    <button
     type="button"
     :class="iconButton"
-    aria-label="在新标签页打开完整设置"
-    title="完整设置"
+    :aria-label="t('header.openFullSettings')"
+    :title="t('app.fullSettings')"
     @click="openFullSettings"
    >
     <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -67,7 +71,7 @@ const iconButton =
      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
     </svg>
    </button>
-   <SwitchToggle v-if="loaded" :model-value="value" label="启用插件" @update:model-value="setValue" />
+   <SwitchToggle v-if="loaded" :model-value="value" :label="t('app.enableExtension')" @update:model-value="setValue" />
   </div>
  </header>
 </template>

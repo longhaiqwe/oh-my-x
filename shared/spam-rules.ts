@@ -1,11 +1,13 @@
-import { defaultSpamKeywords } from '../storage-keys'
+import { getDefaultSpamKeywords } from '../storage-keys'
+import { getLocale } from './i18n'
 import type {
   RuleHit,
+  RuleHitDetail,
   SpamCategory,
   SpamEvaluation,
   SpamRuleId,
 } from './spam-types'
-import { SPAM_RULES } from './spam-types'
+import { SPAM_RULES, formatRuleHit } from './spam-types'
 
 export interface RuleContext {
   text: string
@@ -15,6 +17,12 @@ export interface RuleContext {
   /** 与 keywords 按索引对应的预 normalize 结果；由调用方缓存，避免每次扫描重复正则 */
   normalizedKeywords: string[]
   enabledRules: Set<SpamRuleId>
+}
+
+
+/** 命中项：细节和语言无关，label 按当前语言拼好（显示时可用 formatRuleHit 换语言重拼） */
+function ruleHit(id: SpamRuleId, score: number, detail: RuleHitDetail = {}): RuleHit {
+  return { id, label: formatRuleHit({ id, detail }), score, detail }
 }
 
 function getRuleMeta(id: SpamRuleId) {
@@ -61,7 +69,7 @@ function checkMarketingNickname(ctx: RuleContext): RuleHit | null {
     return raw.includes(kwLower) || (kwNorm.length >= 2 && norm.includes(kwNorm))
   })
   if (!matched) return null
-  return { id: meta.id, label: `${meta.label}（"${matched}"）`, score: meta.defaultScore }
+  return ruleHit(meta.id, meta.defaultScore, { quote: matched })
 }
 
 function checkEmojiRatio(ctx: RuleContext): RuleHit | null {
@@ -75,19 +83,25 @@ function checkEmojiRatio(ctx: RuleContext): RuleHit | null {
   if (codePointLen === 0) return null
   const ratio = emojiCount / codePointLen
   if (ratio < 0.5) return null
-  return {
-    id: meta.id,
-    label: `${meta.label}（${Math.round(ratio * 100)}%）`,
-    score: meta.defaultScore,
-  }
+  return ruleHit(meta.id, meta.defaultScore, { percent: Math.round(ratio * 100) })
 }
+
+/** 中日韩文字：一个字的信息量接近英文一个词，按字数算 */
+const CJK_TEXT = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/
 
 function checkShortText(ctx: RuleContext): RuleHit | null {
   const meta = getRuleMeta('short_text')
   const stripped = ctx.text.trim()
-  if (stripped.length >= 8) return null
   if (stripped.length === 0) return null
-  return { id: meta.id, label: meta.label, score: meta.defaultScore }
+  if (CJK_TEXT.test(stripped) || !/[\p{L}\p{N}]/u.test(stripped)) {
+    // 中日韩文字按字数算；纯 emoji、符号也按字数算（全是 emoji 的由「纯 Emoji 评论」规则处理）
+    if (stripped.length >= 8) return null
+  } else {
+    // 英文等用空格分词的语言按词数算：少于 2 个词才算过短
+    const words = stripped.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word))
+    if (words.length >= 2) return null
+  }
+  return ruleHit(meta.id, meta.defaultScore)
 }
 
 function checkRandomUsername(ctx: RuleContext): RuleHit | null {
@@ -124,7 +138,7 @@ function checkRandomUsername(ctx: RuleContext): RuleHit | null {
 
   if (suspicion >= 60) {
     const score = suspicion >= 80 ? 25 : 15
-    return { id: meta.id, label: meta.label, score }
+    return ruleHit(meta.id, score)
   }
   return null
 }
@@ -158,16 +172,7 @@ function checkMarketingKeyword(ctx: RuleContext): RuleHit | null {
   const extraCount = matchedKeywords.length - 1
   const score = Math.min(65, meta.defaultScore + extraCount * 15)
 
-  const preview =
-    matchedKeywords.length === 1
-      ? `"${matchedKeywords[0]}"`
-      : `"${matchedKeywords.slice(0, 2).join('", "')}"等${matchedKeywords.length}个`
-
-  return {
-    id: meta.id,
-    label: `${meta.label}（${preview}）`,
-    score,
-  }
+  return ruleHit(meta.id, score, { words: matchedKeywords.slice(0, 2), count: matchedKeywords.length })
 }
 
 function checkMentionReferral(ctx: RuleContext): RuleHit | null {
@@ -175,26 +180,18 @@ function checkMentionReferral(ctx: RuleContext): RuleHit | null {
   const text = ctx.text.trim()
   if (!text) return null
 
-  // 1. 显式引流前缀：如 "看@", "主页@", "👉@", "找@" 等
-  const directReferralPattern = /(?:看|找|戳|关注|主页|私信|👉|👇|👆|☞)\s*@([a-zA-Z0-9_]{3,20})/u
+  // 1. 显式引流前缀：如 "看@", "主页@", "👉@", "找@"，英文的 "visit @"、"go to @"
+  const directReferralPattern = /(?:看|找|戳|关注|主页|私信|👉|👇|👆|☞|\bvisit\s|\bgo\s+to\s)\s*@([a-zA-Z0-9_]{3,20})/iu
   const dirMatch = text.match(directReferralPattern)
   if (dirMatch) {
-    return {
-      id: meta.id,
-      label: `${meta.label}（引流 @${dirMatch[1]}）`,
-      score: meta.defaultScore,
-    }
+    return ruleHit(meta.id, meta.defaultScore, { referral: 'prefix', handle: dirMatch[1] })
   }
 
   // 2. 尾部 @账号 伴随随机防重字符或单个/少量 emoji（现代黄推矩阵特征，如 "@yzjddb 0I", "@Tuya1su 🫣😡"）
   const tailNoisePattern = /@([a-zA-Z0-9_]{3,20})\s+([a-zA-Z0-9]{1,4}|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]{1,4})\s*$/u
   const tailMatch = text.match(tailNoisePattern)
   if (tailMatch) {
-    return {
-      id: meta.id,
-      label: `${meta.label}（导流 @${tailMatch[1]}）`,
-      score: meta.defaultScore,
-    }
+    return ruleHit(meta.id, meta.defaultScore, { referral: 'tail', handle: tailMatch[1] })
   }
 
   return null
@@ -208,7 +205,7 @@ function checkPureEmoji(ctx: RuleContext): RuleHit | null {
     .replace(/[\u200C\u200D\u2060\uFEFF]/g, '')
     .trim()
   if (remaining !== '') return null
-  return { id: meta.id, label: meta.label, score: meta.defaultScore }
+  return ruleHit(meta.id, meta.defaultScore)
 }
 
 function checkDecoratedNickname(ctx: RuleContext): RuleHit | null {
@@ -219,11 +216,7 @@ function checkDecoratedNickname(ctx: RuleContext): RuleHit | null {
   // 满足 2 个以上 emoji，或者包含指向性引流装饰符号（如 👉/👇/👆/☞）
   const hasReferralPointing = /(?:👉|👇|👆|☞)/u.test(name)
   if (emojiCount < 2 && !hasReferralPointing) return null
-  return {
-    id: meta.id,
-    label: `${meta.label}（${emojiCount || 1}个）`,
-    score: meta.defaultScore,
-  }
+  return ruleHit(meta.id, meta.defaultScore, { count: emojiCount || 1 })
 }
 
 function checkRepeatedChars(ctx: RuleContext): RuleHit | null {
@@ -242,11 +235,7 @@ function checkRepeatedChars(ctx: RuleContext): RuleHit | null {
 
   const match = text.match(pattern)!
   const preview = match[0].length > 5 ? match[0].slice(0, 5) + '…' : match[0]
-  return {
-    id: meta.id,
-    label: `${meta.label}（"${preview}"）`,
-    score: meta.defaultScore,
-  }
+  return ruleHit(meta.id, meta.defaultScore, { quote: preview })
 }
 
 const RULE_CHECKS: Record<SpamRuleId, (ctx: RuleContext) => RuleHit | null> = {
@@ -284,7 +273,7 @@ export function evaluateSpam(input: {
 }): SpamEvaluation {
   const enabledRules =
     input.enabledRules ?? new Set(SPAM_RULES.map((r) => r.id))
-  const keywords = input.keywords ?? defaultSpamKeywords
+  const keywords = input.keywords ?? getDefaultSpamKeywords(getLocale())
   const ctx: RuleContext = {
     text: input.text,
     authorName: input.authorName,

@@ -1,3 +1,4 @@
+import { getLocale, t } from '../../shared/i18n'
 import { getStorage } from '../utilities/storage'
 import {
   KeyViralRadarEnabled,
@@ -284,7 +285,7 @@ export async function runViralRadar(force = false) {
       return
     }
 
-    const formattedVelocity = formatVelocityBadge(velocity)
+    const formattedVelocity = formatVelocityBadge(velocity, getLocale())
     const iconMap = {
       normal: '🌱',
       potential: '🚀',
@@ -333,7 +334,7 @@ export async function runViralRadar(force = false) {
     }
 
     // 设置 Hover 提示 (e.g. "121,756 次浏览 · 🔥 12.5万/h")
-    badgeContainer.title = `${views.toLocaleString('zh-CN')} 次浏览 · ${labelText}`
+    badgeContainer.title = t('viralPage.title', { views: views.toLocaleString(getLocale()), label: labelText })
     badgeContainer.textContent = labelText
 
     // 标记该推文已处理（携带身份 key），后续轮询命中即跳过，除非 force 或换了推文

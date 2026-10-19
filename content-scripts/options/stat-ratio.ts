@@ -1,5 +1,6 @@
 import selectors from '../selectors'
 import addStyles from '../utilities/addStyles'
+import { getLocale, t } from '../../shared/i18n'
 
 /**
  * 格式化中英文数字字符串（如 "100", "1.2万", "3.5K", "367,602"）为数值
@@ -122,15 +123,15 @@ export interface LevelConfig {
  */
 export function getImpressionsRatioLevel(ratio: number): LevelConfig {
   if (ratio < 0.3) {
-    return { label: '差', color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
+    return { label: t('ratio.poor'), color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
   } else if (ratio < 1.0) {
-    return { label: '普通', color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
+    return { label: t('ratio.fair'), color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
   } else if (ratio < 5.0) {
-    return { label: '良好', color: '#00ba7c', bg: 'rgba(0, 186, 124, 0.18)' }
+    return { label: t('ratio.good'), color: '#00ba7c', bg: 'rgba(0, 186, 124, 0.18)' }
   } else if (ratio < 20.0) {
-    return { label: '优秀', color: '#ff7a00', bg: 'rgba(255, 122, 0, 0.18)' }
+    return { label: t('ratio.great'), color: '#ff7a00', bg: 'rgba(255, 122, 0, 0.18)' }
   } else {
-    return { label: '爆火', color: '#f91880', bg: 'rgba(249, 24, 128, 0.18)' }
+    return { label: t('ratio.top'), color: '#f91880', bg: 'rgba(249, 24, 128, 0.18)' }
   }
 }
 
@@ -139,15 +140,15 @@ export function getImpressionsRatioLevel(ratio: number): LevelConfig {
  */
 export function getEngagementRatioLevel(ratio: number): LevelConfig {
   if (ratio < 0.005) { // < 0.5%
-    return { label: '差', color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
+    return { label: t('ratio.poor'), color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
   } else if (ratio < 0.02) { // 0.5% ~ 2%
-    return { label: '普通', color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
+    return { label: t('ratio.fair'), color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
   } else if (ratio < 0.05) { // 2% ~ 5%
-    return { label: '良好', color: '#00ba7c', bg: 'rgba(0, 186, 124, 0.18)' }
+    return { label: t('ratio.good'), color: '#00ba7c', bg: 'rgba(0, 186, 124, 0.18)' }
   } else if (ratio < 0.20) { // 5% ~ 20%
-    return { label: '优秀', color: '#ff7a00', bg: 'rgba(255, 122, 0, 0.18)' }
+    return { label: t('ratio.great'), color: '#ff7a00', bg: 'rgba(255, 122, 0, 0.18)' }
   } else { // >= 20%
-    return { label: '爆火', color: '#f91880', bg: 'rgba(249, 24, 128, 0.18)' }
+    return { label: t('ratio.top'), color: '#f91880', bg: 'rgba(249, 24, 128, 0.18)' }
   }
 }
 
@@ -434,10 +435,10 @@ export function addStatRatioBadges(targetUsername = '*') {
       if (type === 'analytics') {
         const ratio = count / followers
         level = getImpressionsRatioLevel(ratio)
-        const ratioDisplay = ratio.toFixed(2) + '倍'
+        const ratioDisplay = t('ratio.multiple', { value: ratio.toFixed(2) })
         const pctDisplay = (ratio * 100).toFixed(1) + '%'
-        mainTitle = `曝光 / 粉丝: ${ratioDisplay} (${pctDisplay})`
-        subDetails = `曝光量: ${count.toLocaleString()} |  粉丝数: ${followers.toLocaleString()}`
+        mainTitle = t('ratioPage.reachTitle', { ratio: ratioDisplay, pct: pctDisplay })
+        subDetails = t('ratioPage.reachDetail', { views: count.toLocaleString(getLocale()), followers: followers.toLocaleString(getLocale()) })
       } else {
         const ratio = count / followers
         level = getEngagementRatioLevel(ratio)
@@ -446,18 +447,18 @@ export function addStatRatioBadges(targetUsername = '*') {
         let extraImpStr = ''
         if (impressionsCount > 0) {
           const impPct = ((count / impressionsCount) * 100).toFixed(2) + '%'
-          extraImpStr = ` | 占曝光 ${impPct}`
+          extraImpStr = t('ratioPage.shareOfViews', { pct: impPct })
         }
 
         const typeNameMap: Record<string, string> = {
-          reply: '回复',
-          retweet: '转帖',
-          like: '喜欢',
-          bookmark: '书签',
+          reply: t('ratioPage.reply'),
+          retweet: t('ratioPage.retweet'),
+          like: t('ratioPage.like'),
+          bookmark: t('ratioPage.bookmark'),
         }
-        const name = typeNameMap[type] || '互动'
-        mainTitle = `${name} / 粉丝: ${pctDisplay}`
-        subDetails = `${count.toLocaleString()} / ${followers.toLocaleString()}${extraImpStr}`
+        const name = typeNameMap[type] || t('ratioPage.engagement')
+        mainTitle = t('ratioPage.engageTitle', { name, pct: pctDisplay })
+        subDetails = `${count.toLocaleString(getLocale())} / ${followers.toLocaleString(getLocale())}${extraImpStr}`
       }
 
       // 寻找放置 Badge 的挂载节点

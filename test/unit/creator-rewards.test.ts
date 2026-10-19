@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import { scanCreatorRewardsFromDom } from '../../content-scripts/features/creator-rewards'
 import {
   isCreatorRewardsUrl,
   parseNumberWithUnit,
@@ -122,6 +123,57 @@ describe('creator-rewards 单元测试', () => {
     it('当数据无关或为空时安全返回 null', () => {
       expect(parseCreatorRewardsPayload('')).toBeNull()
       expect(parseCreatorRewardsPayload('unrelated content without metrics')).toBeNull()
+    })
+
+    it('解析 X 英文界面的接口返回（文字取自 2026-10-18 英文账号的真实响应，含分隔字节）', () => {
+      const text =
+        'Check back later\u0003\u0001\u0004\u0000' +
+        'Be at least 18 years old\u0000$Have at least 500 Verified followers\u0003\u0003\u0002\f' +
+        '\u0000IHave at least 500K Verified Home Timeline impressions in the last 90 days\u0003\u0001\u0004\u0000' +
+        '\u0000\u0006224.6K\u0003\u0001\u0004\u0000\u0000\u0000\u0000' +
+        '\u0000\u0018Does not include replies\u0003\u0001\u0006'
+      const result = parseCreatorRewardsPayload(new TextEncoder().encode(text))
+      expect(result?.impressionsText).toBe('224.6K')
+      expect(result?.impressionsCount).toBe(224600)
+      expect(result?.progressPercent).toBe(44.9)
+    })
+
+    it('英文说明文字本身就能定位曝光数字，不依赖目标值 500K 出现在文本里', () => {
+      const text = 'Total 1.2M\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nVerified Home Timeline impressions\n224.6K\nDoes not include replies'
+      const result = parseCreatorRewardsPayload(text)
+      expect(result?.impressionsText).toBe('224.6K')
+    })
+  })
+
+  describe('scanCreatorRewardsFromDom 页面备用读取', () => {
+    const originalPath = window.location.pathname
+
+    function renderRewardsPage(text: string) {
+      window.history.pushState({}, '', '/i/jf/creators/original_content_rewards')
+      // jsdom 没有实现 innerText，用 textContent 代替
+      Object.defineProperty(document.body, 'innerText', { configurable: true, get: () => text })
+    }
+
+    afterEach(() => {
+      delete (document.body as any).innerText
+      window.history.pushState({}, '', originalPath)
+    })
+
+    it('X 英文界面：读到曝光数字', () => {
+      renderRewardsPage(
+        'Check back later\nHave at least 500K Verified Home Timeline impressions in the last 90 days\n224.6K\nDoes not include replies',
+      )
+      expect(scanCreatorRewardsFromDom()).toBe(true)
+    })
+
+    it('X 中文界面：读到曝光数字', () => {
+      renderRewardsPage('稍后再查看\n过去 90 天内，累积至少 50 万次已验证首页时间线曝光\n224.6K\n回复不计入曝光')
+      expect(scanCreatorRewardsFromDom()).toBe(true)
+    })
+
+    it('页面上没有奖励说明文字时不读取', () => {
+      renderRewardsPage('Check back later')
+      expect(scanCreatorRewardsFromDom()).toBe(false)
     })
   })
 

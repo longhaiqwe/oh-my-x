@@ -29,14 +29,14 @@ describe('own posts fetcher', () => {
   })
   it('rejects an account switch instead of fetching the wrong author', async () => {
     const { fetch, load } = setup()
-    await expect(load({ handle: 'other', query: '' })).rejects.toThrow('账号')
+    await expect(load({ handle: 'other', query: '' })).rejects.toMatchObject({ code: 'error.accountChangedReopen' })
     expect(fetch).not.toHaveBeenCalled()
   })
   it('reports 429 and respects the server cooldown', async () => {
     const { fetch, load } = setup()
     fetch.mockResolvedValue(new Response('', { status: 429, headers: { 'retry-after': '60' } }))
-    await expect(load({ handle: 'me', query: '' })).rejects.toThrow('频繁')
-    await expect(load({ handle: 'me', query: '' })).rejects.toThrow('频繁')
+    await expect(load({ handle: 'me', query: '' })).rejects.toMatchObject({ code: 'error.tooFrequent' })
+    await expect(load({ handle: 'me', query: '' })).rejects.toMatchObject({ code: 'error.tooFrequent' })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
   it('does not report a GraphQL failure as an empty list', async () => {

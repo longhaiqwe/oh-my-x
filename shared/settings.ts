@@ -5,6 +5,7 @@ import {
   KeyChatMoneyButton,
   KeyExploreButton,
   KeyExtensionStatus,
+  KeyUiLanguage,
   KeyGrokButton,
   KeyHomeButton,
   KeyJobsButton,
@@ -66,6 +67,7 @@ import {
   allSettingsKeys,
   defaultPreferences,
 } from '../storage-keys'
+import { normalizeLanguageSetting, type LanguageSetting } from './i18n'
 
 export type ToggleValue = 'on' | 'off'
 export type NavigationLabelMode = 'always' | 'hover' | 'never'
@@ -77,6 +79,7 @@ export type UserFollowerCountMode = 'all' | 'list' | 'off'
 
 export interface ExtensionSettings {
   [KeyExtensionStatus]: ToggleValue
+  [KeyUiLanguage]: LanguageSetting
   [KeyTimelineWidth]: number
   [KeyNavigationButtonsLabels]: NavigationLabelMode
   [KeyNavigationWidth]: number
@@ -307,6 +310,8 @@ export function normalizeSettings(raw: Partial<Record<string, unknown>> = {}): E
       key === KeyViralViralThreshold
     ) {
       result[key] = normalizeNumber(value, fallback as number, NUMERIC_RANGES[key])
+    } else if (key === KeyUiLanguage) {
+      result[key] = normalizeLanguageSetting(value)
     } else if (key === KeyNavigationButtonsLabels) {
       result[key] = normalizeNavLabels(value, fallback as NavigationLabelMode)
     } else if (key === KeyViralHighlightStyle) {

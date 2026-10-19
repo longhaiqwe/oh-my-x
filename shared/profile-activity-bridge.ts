@@ -1,4 +1,5 @@
 import type { ProfileActivityEntry } from './profile-activity'
+import type { ErrorPayload, TransferableError } from './coded-error'
 import {
   XF_BRIDGE_MARKER,
   PROFILE_ACTIVITY_FETCH_REQ_TYPE,
@@ -16,17 +17,18 @@ export interface ProfileActivityBridgeOptions {
   /** 拦截器在这段时间内没回「收到」，就当页面里没有拦截器 */
   ackTimeoutMs: number
   timeoutMs: number
-  notReadyMessage: string
+  notReadyError: ErrorPayload
 }
 
 export interface ProfileActivityBridgeResult {
   ok: boolean
   entries?: ProfileActivityEntry[]
-  error?: string
+  /** 错误代号或原文，显示时用 errorText() 翻译 */
+  error?: TransferableError
 }
 
 /** 拦截器只在页面加载时注入，页面里没有它时只能靠刷新补上 */
-export const PROFILE_ACTIVITY_PAGE_NOT_READY = '当前页面需要刷新一次才能扫描，请刷新后重试'
+export const PROFILE_ACTIVITY_PAGE_NOT_READY: ErrorPayload = { code: 'error.pageNotReady' }
 
 export function createProfileActivityBridgeOptions(
   profileHandle: string,
@@ -41,7 +43,7 @@ export function createProfileActivityBridgeOptions(
     days,
     ackTimeoutMs: 5000,
     timeoutMs: 120000,
-    notReadyMessage: PROFILE_ACTIVITY_PAGE_NOT_READY,
+    notReadyError: PROFILE_ACTIVITY_PAGE_NOT_READY,
   }
 }
 
@@ -67,7 +69,7 @@ export function requestProfileActivityFromPage(
         finish({
           ok: data.ok === true,
           entries: Array.isArray(data.entries) ? (data.entries as ProfileActivityEntry[]) : undefined,
-          error: typeof data.error === 'string' ? data.error : undefined,
+          error: typeof data.error === 'string' || (data.error && typeof data.error.code === 'string') ? data.error : undefined,
         })
       }
     }
@@ -80,8 +82,9 @@ export function requestProfileActivityFromPage(
     }
 
     window.addEventListener('message', listener)
-    const ackTimer = setTimeout(() => finish({ ok: false, error: options.notReadyMessage }), options.ackTimeoutMs)
-    const timer = setTimeout(() => finish({ ok: false, error: '后台抓取响应超时' }), options.timeoutMs)
+    const ackTimer = setTimeout(() => finish({ ok: false, error: options.notReadyError }), options.ackTimeoutMs)
+    // 注入的函数不能引用其他模块，报错代号直接写成对象
+    const timer = setTimeout(() => finish({ ok: false, error: { code: 'error.pageFetchTimeout' } }), options.timeoutMs)
 
     window.postMessage(
       {

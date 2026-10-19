@@ -1,3 +1,4 @@
+import { AppError, hasErrorCode, isErrorPayload, type TransferableError } from './errors'
 import { normalizeOwnPostThumbnail, type OwnPost } from './own-posts'
 
 export const LIBRARY_MESSAGE = 'XF_OWN_POST_LIBRARY'
@@ -17,7 +18,8 @@ export interface LibraryMeta {
   nextRun: number
   retryAt: number
   paused: boolean
-  error: string
+  /** 上次同步失败的原因：错误代号或原文；'' 表示没有（旧数据是中文字符串） */
+  error: TransferableError
   lease?: { token: string; expires: number }
 }
 export interface LibraryState {
@@ -40,11 +42,17 @@ export interface LibraryRequest {
   token?: string
   posts?: OwnPost[]
   cursor?: string | null
-  error?: string
+  error?: TransferableError
 }
 export function emptyLibrary(account: string): LibraryState {
   return { account, posts: {}, meta: { thumbnailVersion:1, historyCursor:null, historyDone:false, refreshing:false, refreshCursor:null,
     refreshBoundary:'0', lastRefresh:0, lastWrite:0, nextRun:0, retryAt:0, paused:false, error:'' } }
+}
+/** 被 X 限流：按错误代号判断；旧数据和 X 给的原文按字符串判断 */
+function isRateLimited(error: TransferableError): boolean {
+  if (hasErrorCode(error, 'error.tooFrequent') || hasErrorCode(error, 'error.rateLimited')) return true
+  if (isErrorPayload(error)) return error.params?.status === 429
+  return /频繁|429/.test(error)
 }
 const normalize = (text: string) => text.normalize('NFKC').toLocaleLowerCase()
 const compareId = (a: string, b: string) => a.length - b.length || a.localeCompare(b)
@@ -56,7 +64,7 @@ function next(state: LibraryState) {
 export function createLibraryService(repo: LibraryRepository, now = Date.now) {
   return async (request: LibraryRequest): Promise<any> => {
     const { account, handle, action } = request
-    if (!/^\d{1,30}$/.test(account) || !/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error('无法识别当前账号')
+    if (!/^\d{1,30}$/.test(account) || !/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new AppError('error.accountUnknown')
     if (action === 'search') {
       const state = await repo.read(account)
       const words = normalize((request.query || '').slice(0,200)).split(/\s+/).filter(Boolean)
@@ -94,16 +102,16 @@ export function createLibraryService(repo: LibraryRepository, now = Date.now) {
         meta.error = ''
         return { ...next(state), token:meta.lease.token, meta }
       }
-      if (!meta.lease || meta.lease.token !== request.token || meta.lease.expires < now()) throw new Error('同步已结束，请重新开始')
+      if (!meta.lease || meta.lease.token !== request.token || meta.lease.expires < now()) throw new AppError('error.syncEnded')
       if (action === 'finish') {
         delete meta.lease
-        meta.error = (request.error || '').slice(0,300)
-        if (meta.error) meta.retryAt = now() + (/频繁|429/.test(meta.error) ? 15*60_000 : 2*60_000)
+        meta.error = isErrorPayload(request.error) ? request.error : typeof request.error === 'string' ? request.error.slice(0,300) : ''
+        if (meta.error) meta.retryAt = now() + (isRateLimited(meta.error) ? 15*60_000 : 2*60_000)
         meta.nextRun = Math.max(meta.retryAt, now() + (meta.historyDone && !meta.refreshing ? REFRESH_INTERVAL : 60_000))
         return { ok:true }
       }
       if (action !== 'page' || !Array.isArray(request.posts) || request.posts.length>200 ||
-          (request.cursor != null && (typeof request.cursor !== 'string' || request.cursor.length>4096))) throw new Error('无效的同步数据')
+          (request.cursor != null && (typeof request.cursor !== 'string' || request.cursor.length>4096))) throw new AppError('error.syncInvalid')
       const posts = request.posts.filter(p => p && /^\d{1,30}$/.test(p.id) && p.handle?.toLowerCase()===handle.toLowerCase() &&
         typeof p.text==='string' && typeof p.title==='string')
       const old = posts.filter(p => state.posts[p.id] && compareId(p.id,meta.refreshBoundary)<=0)

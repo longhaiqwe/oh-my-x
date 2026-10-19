@@ -139,12 +139,17 @@ export function classifyTweetVelocity(
 
 /**
  * 格式化每小时流速显示文本
- * e.g. 500 -> "500/h", 1200 -> "1.2k/h", 15800 -> "15.8k/h", 1200000 -> "1.2m/h"
+ * 中文：500 -> "500/h", 1200 -> "1.2k/h", 15800 -> "1.6万/h"
+ * 其他语言：15800 -> "15.8k/h", 1200000 -> "1.2m/h"
  */
-export function formatVelocityBadge(viewsPerHour: number): string {
-  if (viewsPerHour >= 10000) {
+export function formatVelocityBadge(viewsPerHour: number, locale = 'zh-CN'): string {
+  if (viewsPerHour >= 10000 && locale.startsWith('zh')) {
     const wan = (viewsPerHour / 10000).toFixed(1).replace(/\.0$/, '')
     return `${wan}万/h`
+  }
+  if (viewsPerHour >= 1000000) {
+    const m = (viewsPerHour / 1000000).toFixed(1).replace(/\.0$/, '')
+    return `${m}m/h`
   }
   if (viewsPerHour >= 1000) {
     const k = (viewsPerHour / 1000).toFixed(1).replace(/\.0$/, '')

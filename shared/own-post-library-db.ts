@@ -1,3 +1,4 @@
+import { AppError } from './errors'
 import { emptyLibrary, type LibraryRepository, type LibraryState } from './own-post-library'
 
 /** Extension-origin database: page scripts cannot read it, and no credentials are stored. */
@@ -8,7 +9,7 @@ export function createLibraryRepository(name = 'oh-my-x-own-posts'): LibraryRepo
     request.onupgradeneeded = () => request.result.createObjectStore('accounts',{keyPath:'account'})
     request.onsuccess = () => { request.result.onversionchange=()=>{request.result.close();opening=undefined};resolve(request.result) }
     request.onerror = () => { opening=undefined;reject(request.error) }
-    request.onblocked = () => { opening=undefined;reject(new Error('本地数据库正在升级，请关闭其他 X 标签后重试')) }
+    request.onblocked = () => { opening=undefined;reject(new AppError('error.dbUpgrading')) }
   })
   const transaction = async <T>(account: string, mode: IDBTransactionMode, change: (state: LibraryState)=>T): Promise<T> => {
     const db = await open()
@@ -21,7 +22,7 @@ export function createLibraryRepository(name = 'oh-my-x-own-posts'): LibraryRepo
         catch(error){failure=error;tx.abort()}
       }
       tx.oncomplete=()=>resolve(result)
-      tx.onabort=tx.onerror=()=>reject(failure || tx.error || new Error('本地缓存写入失败'))
+      tx.onabort=tx.onerror=()=>reject(failure || tx.error || new AppError('error.dbWriteFailed'))
     })
   }
   return {read:account=>transaction(account,'readonly',s=>s),update:(account,change)=>transaction(account,'readwrite',change)}

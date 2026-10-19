@@ -10,6 +10,10 @@ import {
 } from '../../../../shared/profile-activity-bridge'
 import FeatureCard from '../ui/FeatureCard.vue'
 import { useSettingsSurface } from '../../modules'
+import { useI18n } from '../../composables/useI18n'
+import { errorText, type TransferableError } from '../../../../shared/errors'
+
+const { t } = useI18n()
 
 // 扫描依赖“当前标签页是博主主页”，只能在弹窗里使用
 const inPopup = useSettingsSurface() === 'popup'
@@ -67,19 +71,25 @@ async function detectCurrentTabHandle() {
   } catch {}
 }
 
-type ScanResponse = { ok?: boolean; error?: string; stats?: ProfileActivitySummary }
+type ScanResponse = { ok?: boolean; error?: TransferableError; stats?: ProfileActivitySummary }
 
 // 插件更新或重新加载后，已打开页面里的旧内容脚本收不到弹窗消息，但页面里的拦截器还在：
 // 直接把抓取请求注入页面，用户不用手动刷新
+// 只往 X 页面注入；授权过的 AI 服务网址也能拿到 url，要排除
+const X_HOSTS = new Set(['x.com', 'pro.x.com', 'twitter.com', 'mobile.twitter.com'])
+
 async function scanViaInjectedRequest(tabId: number, url: string | undefined, days: number): Promise<ScanResponse> {
-  const route = url ? getProfileActivityRoute(new URL(url).pathname) : null
-  if (!route) return { ok: false, error: '请在博主个人主页使用此功能' }
+  const parsed = url ? new URL(url) : null
+  const route = parsed && parsed.protocol === 'https:' && X_HOSTS.has(parsed.hostname)
+    ? getProfileActivityRoute(parsed.pathname)
+    : null
+  if (!route) return { ok: false, error: { code: 'error.useOnProfile' } }
   const [injection] = await browser.scripting.executeScript({
     target: { tabId },
     func: requestProfileActivityFromPage,
     args: [createProfileActivityBridgeOptions(route.profileHandle, days)],
   })
-  if (!injection?.result) throw new Error('注入的抓取请求没有返回结果')
+  if (!injection?.result) throw new Error(t('activity.noInjectionResult'))
   return saveProfileActivityScan(route.profileHandle, injection.result, days)
 }
 
@@ -92,7 +102,7 @@ async function triggerProfileScan() {
     const tabs = await browser.tabs.query({ active: true, currentWindow: true })
     const activeTab = tabs[0]
     if (!activeTab?.id) {
-      scanFeedback.value = '没有找到当前标签页'
+      scanFeedback.value = t('activity.noTab')
       return
     }
     let res: ScanResponse | undefined
@@ -107,15 +117,15 @@ async function triggerProfileScan() {
 
     if (res?.ok && res.stats) {
       profileActivity.value = res.stats
-      scanFeedback.value = '已更新近 7 天活动'
+      scanFeedback.value = t('activity.updated')
       setTimeout(() => {
         scanFeedback.value = null
       }, 3000)
     } else {
-      scanFeedback.value = res?.error || '扫描未完成，请确认当前页面是博主主页'
+      scanFeedback.value = errorText(res?.error) || t('activity.incomplete')
     }
   } catch {
-    scanFeedback.value = '无法连接当前页面，请刷新后重试'
+    scanFeedback.value = t('activity.cannotConnect')
   } finally {
     scanning.value = false
   }
@@ -149,20 +159,20 @@ onMounted(async () => {
     :disabled="scanning"
     class="h-8 px-3 text-xs font-semibold rounded-control border border-border-strong text-accent-text hover:border-accent hover:bg-accent-subtle disabled:opacity-50 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
    >
-    {{ scanning ? '扫描中…' : '扫描近 7 天' }}
+    {{ scanning ? t('activity.scanning') : t('activity.scan') }}
    </button>
   </template>
 
-  <p v-if="!inPopup" class="text-xs text-secondary-text">在博主主页打开插件弹窗，就可以扫描这位博主近 7 天的活动。</p>
+  <p v-if="!inPopup" class="text-xs text-secondary-text">{{ t('activity.optionsHint') }}</p>
 
   <div v-else class="flex items-center justify-between gap-3">
    <p class="text-xs text-secondary-text">
-    <template v-if="currentTabHandle">@{{ currentTabHandle }} · {{ isCurrentProfileActive ? '近 7 天' : '未扫描' }}</template>
-    <template v-else>当前页面不是博主主页</template>
+    <template v-if="currentTabHandle">@{{ currentTabHandle }} · {{ isCurrentProfileActive ? t('activity.last7') : t('activity.notScanned') }}</template>
+    <template v-else>{{ t('activity.notProfile') }}</template>
    </p>
    <div v-if="!scanning && isCurrentProfileActive && profileActivity" class="flex gap-3 text-right">
-    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.posts }}</p><p class="text-xs text-muted-text mt-1">帖子</p></div>
-    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.replies }}</p><p class="text-xs text-muted-text mt-1">回复</p></div>
+    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.posts }}</p><p class="text-xs text-muted-text mt-1">{{ t('activity.posts') }}</p></div>
+    <div><p class="text-base font-semibold leading-none text-text">{{ profileActivity.replies }}</p><p class="text-xs text-muted-text mt-1">{{ t('activity.replies') }}</p></div>
    </div>
   </div>
 
@@ -171,15 +181,15 @@ onMounted(async () => {
   <template v-if="inPopup">
   <div v-if="!scanning && isCurrentProfileActive && profileActivityDays.length" class="rounded-control bg-sunken-bg overflow-hidden">
    <div class="grid grid-cols-[1fr_3rem_3rem] gap-1 px-3 py-1 text-xs text-muted-text border-b border-border">
-    <span>日期</span><span class="text-right">帖子</span><span class="text-right">回复</span>
+    <span>{{ t('activity.date') }}</span><span class="text-right">{{ t('activity.posts') }}</span><span class="text-right">{{ t('activity.replies') }}</span>
    </div>
    <div v-for="day in profileActivityDays" :key="day.date" class="grid grid-cols-[1fr_3rem_3rem] gap-1 px-3 py-1 text-xs text-text border-b border-border last:border-0">
     <span class="font-mono">{{ day.date }}</span><span class="text-right">{{ day.posts }}</span><span class="text-right">{{ day.replies }}</span>
    </div>
   </div>
-  <p v-else-if="scanning" class="text-xs text-secondary-text">正在读取近 7 天的帖子和回复…</p>
-  <p v-else-if="currentTabHandle" class="text-xs text-secondary-text">点击「扫描近 7 天」统计这位博主的帖子数和回复数。</p>
-  <p v-else class="text-xs text-secondary-text">打开一位博主的主页后可以扫描。</p>
+  <p v-else-if="scanning" class="text-xs text-secondary-text">{{ t('activity.reading') }}</p>
+  <p v-else-if="currentTabHandle" class="text-xs text-secondary-text">{{ t('activity.clickScan') }}</p>
+  <p v-else class="text-xs text-secondary-text">{{ t('activity.openProfile') }}</p>
   </template>
  </FeatureCard>
 </template>

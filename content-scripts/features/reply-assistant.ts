@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n'
 import { KeyJumpRepliesPosition, KeyJumpToReplies } from '../../storage-keys'
 import { getStorage, setStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
@@ -376,14 +377,14 @@ export class ReplyAssistant {
       btn.className = 'xf-jump-replies-btn'
       btn.setAttribute('role', 'button')
       btn.setAttribute('tabindex', '0')
-      btn.title = '点击跳转，按住可以拖动位置'
+      btn.title = t('jumpPage.title')
       btn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           <path d="M12 8v6"></path>
           <path d="M9 11l3 3 3-3"></path>
         </svg>
-        <span class="xf-jump-text">直达回复</span>
+        <span class="xf-jump-text">${t('jumpPage.toReplies')}</span>
       `
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -510,7 +511,7 @@ export class ReplyAssistant {
     const textEl = this.jumpButton.querySelector('.xf-jump-text')
     const svgEl = this.jumpButton.querySelector('svg')
     if (this.isAtReplies) {
-      if (textEl) textEl.textContent = '回到正文'
+      if (textEl) textEl.textContent = t('jumpPage.backToPost')
       if (svgEl) {
         svgEl.innerHTML = `
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -519,7 +520,7 @@ export class ReplyAssistant {
         `
       }
     } else {
-      if (textEl) textEl.textContent = '直达回复'
+      if (textEl) textEl.textContent = t('jumpPage.toReplies')
       if (svgEl) {
         svgEl.innerHTML = `
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>

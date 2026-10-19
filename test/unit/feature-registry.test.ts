@@ -4,17 +4,21 @@ import {
   FEATURE_MODULES,
   GLOBAL_STORAGE_KEYS,
   UNLISTED_STORAGE_KEYS,
+  featureText,
   getFeature,
   getFeaturesByModule,
+  moduleText,
   resolvePopupModule,
 } from '../../shared/feature-registry'
+import { zhCN } from '../../shared/i18n/zh-CN'
 import { allSettingsKeys } from '../../storage-keys'
 import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 
 describe('feature registry', () => {
   it('按文章顺序定义五个模块', () => {
     expect(FEATURE_MODULES.map((m) => m.id)).toEqual(['layout', 'filter', 'insight', 'create', 'engage'])
-    expect(FEATURE_MODULES.map((m) => m.tabLabel)).toEqual(['界面', '过滤', '数据', '创作', '互动'])
+    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab'))).toEqual(['界面', '过滤', '数据', '创作', '互动'])
+    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab', 'en'))).toEqual(['Layout', 'Filter', 'Insights', 'Create', 'Engage'])
   })
 
   it('功能 id 不重复，且都属于已定义的模块', () => {
@@ -28,14 +32,29 @@ describe('feature registry', () => {
     for (const m of FEATURE_MODULES) expect(getFeaturesByModule(m.id).length).toBeGreaterThan(0)
   })
 
-  it('名称和说明都不为空', () => {
-    for (const m of FEATURE_MODULES) {
-      expect(m.title.trim()).not.toBe('')
-      expect(m.description.trim()).not.toBe('')
+  it('中英文的名称和说明都不为空', () => {
+    for (const locale of ['zh-CN', 'en'] as const) {
+      for (const m of FEATURE_MODULES) {
+        for (const field of ['tab', 'title', 'description'] as const) {
+          const text = moduleText(m.id, field, locale)
+          expect(text.trim(), `${m.id}.${field}`).not.toBe('')
+          expect(text, `${m.id}.${field}`).not.toBe(`module.${m.id}.${field}`)
+        }
+      }
+      for (const f of FEATURES) {
+        expect(featureText(f.id, 'label', locale)?.trim(), `${f.id}.label`).toBeTruthy()
+        expect(featureText(f.id, 'description', locale)?.trim(), `${f.id}.description`).toBeTruthy()
+      }
     }
-    for (const f of FEATURES) {
-      expect(f.label.trim()).not.toBe('')
-      expect(f.description.trim()).not.toBe('')
+  })
+
+  it('文案表里的 module.* / feature.* 条目都对应已有的模块和功能', () => {
+    const moduleIds = new Set(FEATURE_MODULES.map((m) => m.id as string))
+    const featureIds = new Set(FEATURES.map((f) => f.id))
+    for (const key of Object.keys(zhCN)) {
+      const [scope, id] = key.split('.')
+      if (scope === 'module') expect(moduleIds.has(id), key).toBe(true)
+      if (scope === 'feature') expect(featureIds.has(id), key).toBe(true)
     }
   })
 

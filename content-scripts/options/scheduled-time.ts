@@ -1,10 +1,11 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import 'dayjs/locale/zh-cn'
 import { KeyScheduledPostsCache, KeyScheduledPanorama } from '../../storage-keys'
 import { XF_BRIDGE_MARKER, SCHEDULED_TWEETS_TYPE, SCHEDULED_FETCH_REQ_TYPE, SCHEDULED_FETCH_RES_TYPE } from '../../shared/bridge'
 import { getStorage, setStorage } from '../utilities/storage'
 import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
+import { t } from '../../shared/i18n'
+import { AppError, fromTransferable } from '../../shared/errors'
 
 dayjs.extend(relativeTime)
 
@@ -32,7 +33,7 @@ export interface PersistedScheduledItem {
  */
 export function formatRelativePublishTime(targetDate: Date, now: Date = new Date()): string {
   const diffMs = targetDate.getTime() - now.getTime()
-  if (diffMs <= 0) return '即将发布'
+  if (diffMs <= 0) return t('time.soon')
 
   const totalMinutes = Math.floor(diffMs / (60 * 1000))
   const days = Math.floor(totalMinutes / (24 * 60))
@@ -40,15 +41,15 @@ export function formatRelativePublishTime(targetDate: Date, now: Date = new Date
   const mins = totalMinutes % 60
 
   if (days > 0) {
-    return hours > 0 ? `${days}天${hours}小时后` : `${days}天后`
+    return hours > 0 ? t('time.inDaysHours', { days, hours }) : t('time.inDays', { days })
   }
   if (hours > 0) {
-    return mins > 0 ? `${hours}小时${mins}分钟后` : `${hours}小时后`
+    return mins > 0 ? t('time.inHoursMinutes', { hours, mins }) : t('time.inHours', { hours })
   }
   if (mins > 0) {
-    return `${mins}分钟后`
+    return t('time.inMinutes', { mins })
   }
-  return '1分钟内'
+  return t('time.withinMinute')
 }
 
 /**
@@ -76,12 +77,12 @@ export function formatDurationGap(ms: number): string {
   const mins = totalMinutes % 60
 
   if (days > 0) {
-    return hours > 0 ? `${days}天${hours}小时` : `${days}天`
+    return hours > 0 ? t('gap.daysHours', { days, hours }) : t('gap.days', { days })
   }
   if (hours > 0) {
-    return mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`
+    return mins > 0 ? t('gap.hoursMinutes', { hours, mins }) : t('gap.hours', { hours })
   }
-  return `${mins}分钟`
+  return t('gap.minutes', { mins })
 }
 
 /**
@@ -93,7 +94,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
     if (hoursFromNow <= 2) {
       return {
         category: 'first_soon',
-        label: '即将发布',
+        label: t('sched.firstSoon'),
         bg: 'rgba(16, 185, 129, 0.08)',
         accentColor: 'rgb(16, 185, 129)',
         borderColor: '#10b981',
@@ -102,7 +103,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
     }
     return {
       category: 'first_normal',
-      label: '首条排期',
+      label: t('sched.first'),
       bg: 'rgba(14, 165, 233, 0.07)',
       accentColor: 'rgb(14, 165, 233)',
       borderColor: '#0ea5e9',
@@ -116,7 +117,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
     // 间隔过密 (< 2 小时) -> 警示琥珀橙
     return {
       category: 'tight',
-      label: '间隔过密',
+      label: t('sched.tight'),
       bg: 'rgba(245, 158, 11, 0.09)',
       accentColor: 'rgb(245, 158, 11)',
       borderColor: '#f59e0b',
@@ -128,7 +129,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
     // 正常间隔 (2 - 8 小时) -> 清新蓝
     return {
       category: 'normal',
-      label: '正常间隔',
+      label: t('sched.normal'),
       bg: 'rgba(59, 130, 246, 0.07)',
       accentColor: 'rgb(59, 130, 246)',
       borderColor: '#3b82f6',
@@ -140,7 +141,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
     // 半天/跨夜 (8 - 24 小时) -> 靛蓝
     return {
       category: 'moderate',
-      label: '半天/跨夜',
+      label: t('sched.moderate'),
       bg: 'rgba(99, 102, 241, 0.07)',
       accentColor: 'rgb(99, 102, 241)',
       borderColor: '#6366f1',
@@ -151,7 +152,7 @@ export function getIntervalTheme(isFirst: boolean, gapMs: number): IntervalTheme
   // 跨日间隔 (>= 24 小时) -> 紫罗兰
   return {
     category: 'long',
-    label: '跨日间隔',
+    label: t('sched.long'),
     bg: 'rgba(168, 85, 247, 0.08)',
     accentColor: 'rgb(168, 85, 247)',
     borderColor: '#a855f7',
@@ -346,7 +347,7 @@ export function requestScheduledRefresh(timeoutMs = 45_000): Promise<PersistedSc
     }
     const timer = setTimeout(() => {
       cleanup()
-      reject(new Error('读取超时，请稍后重试'))
+      reject(new AppError('error.readTimeoutLater'))
     }, timeoutMs)
     function onMessage(event: MessageEvent) {
       if (event.source !== window) return
@@ -354,7 +355,7 @@ export function requestScheduledRefresh(timeoutMs = 45_000): Promise<PersistedSc
       if (!data || data.__xf !== XF_BRIDGE_MARKER || data.type !== SCHEDULED_FETCH_RES_TYPE || data.requestId !== requestId) return
       cleanup()
       if (data.ok) resolve(normalizeScheduledItems(data.items))
-      else reject(new Error(typeof data.error === 'string' && data.error ? data.error : '读取失败，请重试'))
+      else reject(fromTransferable(data.error, 'error.readFailed'))
     }
     window.addEventListener('message', onMessage)
     window.postMessage({ type: SCHEDULED_FETCH_REQ_TYPE, requestId, __xf: XF_BRIDGE_MARKER }, location.origin)
@@ -516,7 +517,7 @@ export async function addScheduledRelativeTimes(state?: string | number | boolea
               gapBadge.className = 'xf-scheduled-gap-badge'
               rightBox.appendChild(gapBadge)
             }
-            const gapText = theme.category === 'tight' ? `⚠️ 距上一条 ${gapStr}` : `距上一条 ${gapStr}`
+            const gapText = theme.category === 'tight' ? `⚠️ ${t('sched.sincePrevious', { gap: gapStr })}` : t('sched.sincePrevious', { gap: gapStr })
             gapBadge.style.cssText = `
               display: inline-block !important;
               font-size: 11px !important;
@@ -577,6 +578,50 @@ export function getPickedTimeFromModal(modal: Element): Date | null {
   }
 }
 
+/** 本地时区的全称，如「中国标准时间」「Pacific Daylight Time」；X 的排期弹窗按 X 界面语言显示这个名称 */
+function localTimeZoneNames(dates: Date[]): string[] {
+  const names = new Set<string>()
+  for (const lang of [document.documentElement.lang, 'zh-CN', 'en']) {
+    if (!lang) continue
+    for (const date of dates) {
+      try {
+        const name = new Intl.DateTimeFormat(lang, { timeZoneName: 'long' })
+          .formatToParts(date)
+          .find((part) => part.type === 'timeZoneName')?.value
+        if (name) names.add(name)
+      } catch {}
+    }
+  }
+  return [...names]
+}
+
+/**
+ * 找到排期弹窗里「时区」那一块（标签 + 时区名称），排期全景插在它后面。
+ * 英文界面的时区名称随地区和夏令时变化（如 British Summer Time），不能只认「Standard Time」；
+ * 按名称找不到时，取「时间」下拉框所在块之后第一个有文字、不含表单控件的块。
+ */
+export function findTimezoneSection(modal: Element): HTMLElement | null {
+  const pickedDate = getPickedTimeFromModal(modal)
+  const names = localTimeZoneNames(pickedDate ? [new Date(), pickedDate] : [new Date()])
+  const timezoneLeaf = Array.from(modal.querySelectorAll('span, div')).find((el) => {
+    if (el.children.length !== 0) return false
+    const text = el.textContent?.trim() || ''
+    return names.includes(text) || text.includes('Standard Time') || text === '时区'
+  })
+  if (timezoneLeaf) {
+    return (timezoneLeaf.closest('.r-7sv4c2') || timezoneLeaf.parentElement?.parentElement) as HTMLElement | null
+  }
+
+  let block: Element | null = modal.querySelector('#SELECTOR_4, input[type="time"]')
+  while (block && block !== modal) {
+    const next = block.nextElementSibling
+    const hasControl = next?.matches('select, input') || next?.querySelector('select, input')
+    if (next instanceof HTMLElement && !hasControl && next.textContent?.trim()) return next
+    block = block.parentElement
+  }
+  return null
+}
+
 /**
  * 在“安排表”选时间弹窗下装载“排期全景 (全景分布看板)”
  */
@@ -596,12 +641,7 @@ export async function attachSchedulePickerOverview() {
 
     if (!scheduleModal) return
 
-    // 寻找“中国标准时间”对应的容器
-    const timezoneSpan = Array.from(scheduleModal.querySelectorAll('span, div')).find((el) => {
-      return el.children.length === 0 && (el.textContent?.includes('中国标准时间') || el.textContent?.includes('Standard Time') || el.textContent?.includes('时区'))
-    })
-
-    const timezoneSection = (timezoneSpan?.closest('.r-7sv4c2') || timezoneSpan?.parentElement?.parentElement) as HTMLElement | null
+    const timezoneSection = findTimezoneSection(scheduleModal)
     if (!timezoneSection) return
 
     let overviewContainer = scheduleModal.querySelector('.xf-schedule-picker-overview') as HTMLElement | null
@@ -693,7 +733,7 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
     nodes.push({
       date: pickedDate,
       isNewPicked: true,
-      text: '[本次拟安排推文]',
+      text: t('sched.thisPostPlaceholder'),
     })
   }
 
@@ -736,7 +776,7 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
         <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:${accentAlpha(0.14)}; border:2px solid ${ACCENT}; border-radius:10px; box-shadow: 0 2px 8px ${accentAlpha(0.2)};">
           <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; flex:1; overflow:hidden;">
             <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: ${ACCENT} !important; background: ${accentAlpha(0.2)} !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid ${accentAlpha(0.4)} !important; white-space: nowrap !important;">${relTime}</span>
-            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: ${ACCENT_TEXT} !important; background: ${ACCENT} !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid ${ACCENT} !important; white-space: nowrap !important;">本次拟发</span>
+            <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 22px !important; box-sizing: border-box !important; font-size: 12px !important; font-weight: 700 !important; color: ${ACCENT_TEXT} !important; background: ${ACCENT} !important; padding: 0 8px !important; border-radius: 10px !important; border: 1px solid ${ACCENT} !important; white-space: nowrap !important;">${t('sched.thisPost')}</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;">
             ${chipPos}
@@ -773,29 +813,29 @@ async function renderSchedulePickerOverview(modal: HTMLElement, container: HTMLE
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M7 4V3h2v1h6V3h2v1h1.5C19.89 4 21 5.12 21 6.5v12c0 1.38-1.11 2.5-2.5 2.5h-13C4.12 21 3 19.88 3 18.5v-12C3 5.12 4.12 4 5.5 4H7zm0 2H5.5c-.27 0-.5.22-.5.5v12c0 .28.23.5.5.5h13c.28 0 .5-.22.5-.5v-12c0-.28-.22-.5-.5-.5H17v1h-2V6H9v1H7V6z"/>
         </svg>
-        <span>排期全景</span>
+        <span>${t('feature.scheduledPanorama.label')}</span>
       </div>
       <span style="font-size: 12px; font-weight: 600; color: #8b98a5; background: rgba(255, 255, 255, 0.08); padding: 3px 10px; border-radius: 12px; white-space: nowrap;">
-        共 ${cachedItems.length}${pickedDate ? ` <span style="color: ${ACCENT}; font-weight: 700; background: ${accentAlpha(0.18)}; padding: 1px 6px; border-radius: 8px; margin: 0 2px;">+1</span>` : ''} 条
+        ${t('sched.total', { count: `${cachedItems.length}${pickedDate ? ` <span style="color: ${ACCENT}; font-weight: 700; background: ${accentAlpha(0.18)}; padding: 1px 6px; border-radius: 8px; margin: 0 2px;">+1</span>` : ''}` })}
       </span>
     </div>
 
     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:3px; margin-bottom:6px; padding:0 2px;">
-      <span style="font-size:10px; color:#8b98a5; font-weight:600; margin-right:2px; white-space:nowrap;">间隔阈值</span>
+      <span style="font-size:10px; color:#8b98a5; font-weight:600; margin-right:2px; white-space:nowrap;">${t('sched.legendTitle')}</span>
       <span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; color:rgb(245,158,11); white-space:nowrap;">
-        <span style="width:7px; height:7px; border-radius:50%; background:rgb(245,158,11); display:inline-block; flex-shrink:0;"></span>过密 &lt;2h
+        <span style="width:7px; height:7px; border-radius:50%; background:rgb(245,158,11); display:inline-block; flex-shrink:0;"></span>${t('sched.legendTight')}
       </span>
       <span style="color:#ccc; font-size:10px; line-height:1;">·</span>
       <span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; color:rgb(59,130,246); white-space:nowrap;">
-        <span style="width:7px; height:7px; border-radius:50%; background:rgb(59,130,246); display:inline-block; flex-shrink:0;"></span>正常 2–8h
+        <span style="width:7px; height:7px; border-radius:50%; background:rgb(59,130,246); display:inline-block; flex-shrink:0;"></span>${t('sched.legendNormal')}
       </span>
       <span style="color:#ccc; font-size:10px; line-height:1;">·</span>
       <span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; color:rgb(99,102,241); white-space:nowrap;">
-        <span style="width:7px; height:7px; border-radius:50%; background:rgb(99,102,241); display:inline-block; flex-shrink:0;"></span>跨夜 8–24h
+        <span style="width:7px; height:7px; border-radius:50%; background:rgb(99,102,241); display:inline-block; flex-shrink:0;"></span>${t('sched.legendModerate')}
       </span>
       <span style="color:#ccc; font-size:10px; line-height:1;">·</span>
       <span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; color:rgb(168,85,247); white-space:nowrap;">
-        <span style="width:7px; height:7px; border-radius:50%; background:rgb(168,85,247); display:inline-block; flex-shrink:0;"></span>跨日 ≥24h
+        <span style="width:7px; height:7px; border-radius:50%; background:rgb(168,85,247); display:inline-block; flex-shrink:0;"></span>${t('sched.legendLong')}
       </span>
     </div>
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import interceptorScript from '../../entrypoints/interceptor.content'
 import { PROFILE_ACTIVITY_FETCH_ACK_TYPE, PROFILE_ACTIVITY_FETCH_REQ_TYPE, PROFILE_ACTIVITY_FETCH_RES_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
+import { errorText } from '../../shared/errors'
 
 const recent = '2026-10-15T10:00:00Z'
 function tweet(id: string, created_at = recent, reply = false) {
@@ -133,8 +134,8 @@ describe('profile activity scan completeness', () => {
     nativeFetch.mockImplementation(async () => new Response('', { status: 429, headers: { 'x-rate-limit-reset': String(reset) } }))
     const first = await scan()
     expect(first.ok).toBe(false)
-    expect(first.error).toContain('请求次数已用尽')
-    expect(first.error).toContain(new Date(reset * 1000).toLocaleTimeString('zh-CN', { hour12: false }))
+    expect(errorText(first.error)).toContain('请求次数已用尽')
+    expect(errorText(first.error)).toContain(new Date(reset * 1000).toLocaleTimeString('zh-CN', { hour12: false }))
     post.mockClear()
     const second = await scan()
     expect(second.ok).toBe(false)

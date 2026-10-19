@@ -3,6 +3,7 @@ import addStyles, { removeStyles, stylesExist } from '../utilities/addStyles'
 import waitForElement from '../utilities/waitForElement'
 import { syncRadarPageMarker } from './radar'
 import { extractTweetInfoFromDom, type DomTweetInfo } from '../../shared/tweet-media'
+import { t, type MessageKey } from '../../shared/i18n'
 
 /**
  * 在 <body> 上维护一个标记属性，供 CSS 排除账号分析页面（/i/account_analytics）
@@ -212,6 +213,8 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
   // 根据界面已有文本探测语言
   const dropdownText = dropdown.textContent || ''
   const isZh = /复制|分享|发送|收藏/i.test(dropdownText)
+  // 这些选项插在 X 自己的分享菜单里，跟 X 菜单用同一种语言，不跟插件语言
+  const menuText = (key: MessageKey, params?: Record<string, string | number>) => t(key, params, isZh ? 'zh-CN' : 'en')
 
   // 1. 如果有视频；X 已经自带「下载视频」时（自己发的视频）不再重复加
   if (info.hasVideo && !hasNativeVideoDownload(dropdown)) {
@@ -219,9 +222,9 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
       id: 'xf-download-video-btn',
       dropdown,
       template,
-      label: isZh ? '下载视频 (MP4)' : 'Download video (MP4)',
+      label: menuText('mediaPage.downloadVideo'),
       onClick: async (btnTextEl) => {
-        btnTextEl.textContent = isZh ? '正在解析视频...' : 'Resolving video...'
+        btnTextEl.textContent = menuText('mediaPage.resolvingVideo')
         try {
           const res = await browser.runtime.sendMessage({
             type: 'XF_GET_TWEET_MEDIA',
@@ -230,19 +233,19 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           const videoItem = res?.media?.videos?.[0]
           const mp4Url = videoItem?.bestMp4Url
           if (!mp4Url) {
-            btnTextEl.textContent = isZh ? '未获取到视频直链' : 'Video URL not found'
+            btnTextEl.textContent = menuText('mediaPage.videoUrlMissing')
             return
           }
-          btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
+          btnTextEl.textContent = menuText('mediaPage.downloading')
           const filename = `x_${info!.authorHandle || 'video'}_${info!.tweetId || Date.now()}.mp4`
           await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = menuText('mediaPage.started')
         } catch {
-          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = menuText('mediaPage.failed')
         }
       },
     })
@@ -254,9 +257,9 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
       id: 'xf-download-gif-btn',
       dropdown,
       template,
-      label: isZh ? '下载 GIF (MP4)' : 'Download GIF (MP4)',
+      label: menuText('mediaPage.downloadGif'),
       onClick: async (btnTextEl) => {
-        btnTextEl.textContent = isZh ? '正在解析 GIF...' : 'Resolving GIF...'
+        btnTextEl.textContent = menuText('mediaPage.resolvingGif')
         try {
           const res = await browser.runtime.sendMessage({
             type: 'XF_GET_TWEET_MEDIA',
@@ -265,19 +268,19 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           const gifItem = res?.media?.gifs?.[0] || res?.media?.videos?.[0]
           const mp4Url = gifItem?.bestMp4Url
           if (!mp4Url) {
-            btnTextEl.textContent = isZh ? '未获取到动图源' : 'GIF URL not found'
+            btnTextEl.textContent = menuText('mediaPage.gifUrlMissing')
             return
           }
-          btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
+          btnTextEl.textContent = menuText('mediaPage.downloading')
           const filename = `x_${info!.authorHandle || 'gif'}_${info!.tweetId || Date.now()}.mp4`
           await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = menuText('mediaPage.started')
         } catch {
-          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = menuText('mediaPage.failed')
         }
       },
     })
@@ -288,12 +291,8 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
     const count = info.photos.length
     const label =
       count > 1
-        ? isZh
-          ? `下载全部图片 (${count}张)`
-          : `Download all images (${count})`
-        : isZh
-          ? '下载图片'
-          : 'Download image'
+        ? menuText('mediaPage.downloadAllImages', { count })
+        : menuText('mediaPage.downloadImage')
 
     createDownloadOption({
       id: 'xf-download-photo-btn',
@@ -301,7 +300,7 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
       template,
       label,
       onClick: async (btnTextEl) => {
-        btnTextEl.textContent = isZh ? '正在下载...' : 'Downloading...'
+        btnTextEl.textContent = menuText('mediaPage.downloading')
         try {
           for (let i = 0; i < info!.photos.length; i++) {
             const photo = info!.photos[i]
@@ -314,9 +313,9 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
               filename,
             })
           }
-          btnTextEl.textContent = isZh ? '已开始下载' : 'Download started'
+          btnTextEl.textContent = menuText('mediaPage.started')
         } catch {
-          btnTextEl.textContent = isZh ? '下载失败' : 'Download failed'
+          btnTextEl.textContent = menuText('mediaPage.failed')
         }
       },
     })

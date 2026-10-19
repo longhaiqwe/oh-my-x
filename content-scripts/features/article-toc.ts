@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n'
 import { extractHeadingsFromArticle, type TocHeadingItem } from '../../shared/toc-parser'
 import { KeyArticleToc, KeyJumpToReplies } from '../../storage-keys'
 import { ReplyAssistant } from './reply-assistant'
@@ -514,7 +515,7 @@ class ArticleTocManager {
     // 3. 追加「直达回复区」入口
     const replyItem = document.createElement('a')
     replyItem.className = 'xf-toc-item xf-toc-reply-jump'
-    replyItem.setAttribute('title', '跳转到评论与回复区')
+    replyItem.setAttribute('title', t('tocPage.toRepliesTitle'))
     replyItem.href = 'javascript:void(0)'
     replyItem.style.marginTop = '4px'
     replyItem.style.borderTop = '1px dashed rgba(128, 128, 128, 0.2)'
@@ -522,7 +523,7 @@ class ArticleTocManager {
     replyItem.style.color = ACCENT
     replyItem.innerHTML = `
       <span class="xf-toc-level-tag" style="background: ${accentAlpha(0.15)}; color: ${ACCENT};">💬</span>
-      <span class="xf-toc-item-text" style="font-weight: 600;">直达回复区</span>
+      <span class="xf-toc-item-text" style="font-weight: 600;">${t('tocPage.toReplies')}</span>
     `
     replyItem.addEventListener('click', (e) => {
       e.preventDefault()
@@ -534,7 +535,7 @@ class ArticleTocManager {
     // 更新数量角标
     const countBadge = this.container?.querySelector('.xf-toc-count')
     if (countBadge) {
-      countBadge.textContent = `${this.headings.length} 节`
+      countBadge.textContent = t('tocPage.sections', { count: this.headings.length })
     }
 
     this.updateActiveItem(0)
@@ -550,7 +551,7 @@ class ArticleTocManager {
       <div class="xf-toc-detailed-wrapper" style="display: none;">
         <div class="xf-toc-detailed">
           <div class="xf-toc-header">
-            <span class="xf-toc-title">📑 目录导航</span>
+            <span class="xf-toc-title">📑 ${t('tocPage.title')}</span>
             <span class="xf-toc-count"></span>
           </div>
           <div class="xf-toc-items"></div>

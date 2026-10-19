@@ -4,7 +4,11 @@ import { KeyCreatorRewardsStats } from '../../../../storage-keys'
 import { getStorage } from '../../../../content-scripts/utilities/storage'
 import type { CreatorRewardsStats } from '../../../../shared/creator-rewards'
 import { isCreatorRewardsStale } from '../../../../shared/creator-rewards'
+import { useI18n } from '../../composables/useI18n'
+import { errorText } from '../../../../shared/errors'
 import FeatureCard from '../ui/FeatureCard.vue'
+
+const { t } = useI18n()
 
 const stats = ref<CreatorRewardsStats | null>(null)
 const loading = ref(false)
@@ -18,11 +22,11 @@ const progressPercent = computed(() => {
 const remainingText = computed(() => {
   if (!stats.value) return ''
   const diff = stats.value.targetImpressionsCount - stats.value.impressionsCount
-  if (diff <= 0) return '已达成 50 万次目标'
+  if (diff <= 0) return t('rewards.reached')
   if (diff >= 1000) {
-    return `还差 ${(diff / 1000).toFixed(1)}K 达成目标`
+    return t('rewards.remaining', { count: `${(diff / 1000).toFixed(1)}K` })
   }
-  return `还差 ${diff} 达成目标`
+  return t('rewards.remaining', { count: diff })
 })
 
 const lastUpdatedText = computed(() => {
@@ -38,7 +42,7 @@ const lastUpdatedText = computed(() => {
     d.getDate() === now.getDate()
 
   if (isSameDay) {
-    return `今天 ${timeStr}`
+    return t('common.today', { time: timeStr })
   }
 
   const yesterday = new Date(now)
@@ -49,7 +53,7 @@ const lastUpdatedText = computed(() => {
     d.getDate() === yesterday.getDate()
 
   if (isYesterday) {
-    return `昨天 ${timeStr}`
+    return t('common.yesterday', { time: timeStr })
   }
 
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${timeStr}`
@@ -101,10 +105,10 @@ async function refreshData() {
     if (response?.ok && response?.stats) {
       stats.value = response.stats as CreatorRewardsStats
     } else {
-      errorMsg.value = response?.error || '获取数据失败，请确认已在当前浏览器登录 X'
+      errorMsg.value = errorText(response?.error) || t('rewards.fetchFailed')
     }
   } catch (e: any) {
-    errorMsg.value = e?.message || '请求失败，请稍后重试'
+    errorMsg.value = e?.message || t('rewards.requestFailed')
   } finally {
     loading.value = false
   }
@@ -123,15 +127,15 @@ onMounted(() => {
   <FeatureCard feature-id="creatorRewards">
     <template #control>
       <div class="flex items-center gap-1">
-        <span v-if="lastUpdatedText" class="text-xs text-muted-text mr-1" title="每天北京时间 10:30 自动更新">
+        <span v-if="lastUpdatedText" class="text-xs text-muted-text mr-1" :title="t('rewards.updateSchedule')">
           {{ lastUpdatedText }}
         </span>
         <button
           type="button"
           :disabled="loading"
           @click="refreshData"
-          title="刷新数据"
-          aria-label="刷新数据"
+          :title="t('rewards.refresh')"
+          :aria-label="t('rewards.refresh')"
           class="flex items-center justify-center w-7 h-7 rounded-control text-secondary-text hover:text-text hover:bg-sunken-bg transition-colors disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         >
           <svg
@@ -153,8 +157,8 @@ onMounted(() => {
         <button
           type="button"
           @click="openRewardsPage"
-          title="在 X 中打开"
-          aria-label="在 X 中打开奖励计划页面"
+          :title="t('rewards.openInX')"
+          :aria-label="t('rewards.openInXLabel')"
           class="flex items-center justify-center w-7 h-7 rounded-control text-secondary-text hover:text-text hover:bg-sunken-bg transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -177,11 +181,11 @@ onMounted(() => {
           {{ progressPercent }}%
         </span>
       </div>
-      <div class="w-full bg-accent-track rounded-full h-2 overflow-hidden" role="progressbar" :aria-valuenow="progressPercent" aria-valuemin="0" aria-valuemax="100" aria-label="曝光进度">
+      <div class="w-full bg-accent-track rounded-full h-2 overflow-hidden" role="progressbar" :aria-valuenow="progressPercent" aria-valuemin="0" aria-valuemax="100" :aria-label="t('rewards.progressLabel')">
         <div class="bg-accent h-2 rounded-full transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
       </div>
       <div class="flex items-center justify-between text-xs text-muted-text">
-        <span>回复不计入曝光</span>
+        <span>{{ t('rewards.noReplies') }}</span>
         <span>{{ remainingText }}</span>
       </div>
 
@@ -191,46 +195,46 @@ onMounted(() => {
           <span :class="stats.requirements.premium ? 'text-success' : 'text-secondary-text'">
             {{ stats.requirements.premium ? '✓' : '⊗' }}
           </span>
-          <span class="text-secondary-text">Premium 订阅</span>
+          <span class="text-secondary-text">{{ t('rewards.reqPremium') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <span :class="stats.requirements.age18 ? 'text-success' : 'text-secondary-text'">
             {{ stats.requirements.age18 ? '✓' : '⊗' }}
           </span>
-          <span class="text-secondary-text">年满 18 岁</span>
+          <span class="text-secondary-text">{{ t('rewards.reqAge') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <span :class="stats.requirements.verifiedFollowers ? 'text-success' : 'text-secondary-text'">
             {{ stats.requirements.verifiedFollowers ? '✓' : '⊗' }}
           </span>
-          <span class="text-secondary-text">500 验证粉丝</span>
+          <span class="text-secondary-text">{{ t('rewards.reqFollowers') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <span :class="stats.requirements.impressionsMet ? 'text-success' : 'text-warning'">
             {{ stats.requirements.impressionsMet ? '✓' : '⊗' }}
           </span>
           <span :class="stats.requirements.impressionsMet ? 'text-secondary-text' : 'text-text font-semibold'">
-            50 万验证曝光
+            {{ t('rewards.reqImpressions') }}
           </span>
         </div>
       </div>
 
       <div class="flex items-center justify-between text-xs text-muted-text">
-        <span>每天 10:30 自动更新</span>
-        <span>按天统计</span>
+        <span>{{ t('rewards.updateSchedule') }}</span>
+        <span>{{ t('rewards.byDay') }}</span>
       </div>
     </template>
 
     <!-- 无数据 -->
     <div v-else class="flex flex-col items-center justify-center py-1 text-center">
-      <p class="text-xs text-secondary-text mb-3">还没有数据。点击下方按钮从 X 获取。</p>
+      <p class="text-xs text-secondary-text mb-3">{{ t('rewards.noData') }}</p>
       <button
         type="button"
         :disabled="loading"
         @click="refreshData"
         class="inline-flex items-center gap-2 h-8 px-4 text-xs font-semibold rounded-control bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
       >
-        {{ loading ? '获取中…' : '获取数据' }}
+        {{ loading ? t('rewards.fetching') : t('rewards.fetch') }}
       </button>
     </div>
 

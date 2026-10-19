@@ -13,6 +13,8 @@ import { getPrecomposeUrl } from '../options/precompose'
 import addStyles from '../utilities/addStyles'
 import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
 import { getStorage, setStorage } from '../utilities/storage'
+import { getLocale, t } from '../../shared/i18n'
+import { errorText, type TransferableError } from '../../shared/errors'
 
 const STYLE_ID = 'xf-ai-repost-styles'
 
@@ -713,7 +715,7 @@ async function resolveFullRepostSource(modalEl: HTMLElement, signal: AbortSignal
     return localSource
   }
 
-  throw new Error('未在当前弹窗或页面检测到被转发的推文/文章内容')
+  throw new Error(t('aiPage.sourceMissing'))
 }
 
 /**
@@ -770,13 +772,13 @@ function openOrUpdateRepostPanel(
     if (closed || !panel.isConnected) return
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
-        <span class="xf-ai-repost-title">配置 AI 接口（OpenAI 兼容）</span>
+        <span class="xf-ai-repost-title">${t('aiPage.configTitle')}</span>
         <div class="xf-ai-repost-actions">
-          <button type="button" class="xf-ai-repost-action-btn" data-action="close">关闭</button>
+          <button type="button" class="xf-ai-repost-action-btn" data-action="close">${t('aiPage.close')}</button>
         </div>
       </div>
       ${errorNotice ? `<div class="xf-ai-repost-status xf-ai-repost-error">${escapeHtml(errorNotice)}</div>` : ''}
-      <div class="xf-ai-repost-status">生成会将原文、作者信息和补充要求发送到你配置的 AI 服务。首次使用或更换地址，请先在扩展设置 → 视图中授权并测试连接。</div>
+      <div class="xf-ai-repost-status">${t('aiPage.privacy')}</div>
       <div class="xf-ai-repost-config">
         <div class="xf-ai-repost-config-row">
           <label>Base URL</label>
@@ -791,8 +793,8 @@ function openOrUpdateRepostPanel(
           <input type="text" class="xf-ai-repost-input" data-field="model" value="${escapeHtml(model)}" placeholder="gpt-4o-mini / deepseek-chat" />
         </div>
         <div class="xf-ai-repost-config-actions">
-          <button type="button" class="xf-ai-repost-save-btn" data-action="save-and-run">保存并生成</button>
-          <button type="button" class="xf-ai-repost-test-btn" data-action="test-connection">测试连接</button>
+          <button type="button" class="xf-ai-repost-save-btn" data-action="save-and-run">${t('aiPage.saveAndRun')}</button>
+          <button type="button" class="xf-ai-repost-test-btn" data-action="test-connection">${t('aiPage.test')}</button>
         </div>
         <div class="xf-ai-repost-test-feedback" data-field="test-feedback"></div>
       </div>
@@ -820,7 +822,7 @@ function openOrUpdateRepostPanel(
       if (!testApiKey) {
         if (feedbackEl) {
           feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-          feedbackEl.textContent = '请先填写 API Key'
+          feedbackEl.textContent = t('aiPage.needKey')
         }
         return
       }
@@ -828,7 +830,7 @@ function openOrUpdateRepostPanel(
       if (testBtn) testBtn.disabled = true
       if (feedbackEl) {
         feedbackEl.className = 'xf-ai-repost-test-feedback'
-        feedbackEl.textContent = '正在测试连接...'
+        feedbackEl.textContent = t('aiPage.testing')
       }
 
       const request = beginRequest()
@@ -840,25 +842,25 @@ function openOrUpdateRepostPanel(
             apiKey: testApiKey,
             model: testModel,
           },
-        }, request.signal)) as { ok?: boolean; error?: string; model?: string } | undefined
+        }, request.signal)) as { ok?: boolean; error?: TransferableError; model?: string } | undefined
         if (!isCurrent(request)) return
 
         if (res?.ok) {
           if (feedbackEl) {
             feedbackEl.className = 'xf-ai-repost-test-feedback is-ok'
-            feedbackEl.textContent = `✓ 接口连接可用（模型：${res.model || testModel}）`
+            feedbackEl.textContent = t('aiPage.connected', { model: res.model || testModel })
           }
         } else {
           if (feedbackEl) {
             feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-            feedbackEl.textContent = `✕ 连接失败：${res?.error || '未收到响应，请检查插件后台与网络'}`
+            feedbackEl.textContent = t('aiPage.connectFailed', { reason: errorText(res?.error) || t('aiPage.noResponseCheck') })
           }
         }
       } catch (err: any) {
         if (!isCurrent(request)) return
         if (feedbackEl) {
           feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-          feedbackEl.textContent = `✕ 异常：${err?.message || String(err)}`
+          feedbackEl.textContent = t('aiPage.exception', { reason: errorText(err) || String(err) })
         }
       } finally {
         if (isCurrent(request) && testBtn) testBtn.disabled = false
@@ -877,7 +879,7 @@ function openOrUpdateRepostPanel(
         String(defaultPreferences[KeyAiRepostModel])
 
       if (!newApiKey) {
-        void renderConfigView('请填写有效的 API Key')
+        void renderConfigView(t('aiPage.validKey'))
         return
       }
 
@@ -900,25 +902,25 @@ function openOrUpdateRepostPanel(
     if (closed || !panel.isConnected) return
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
-        <span class="xf-ai-repost-title">点击任一选项填入编辑框（可随时切换）</span>
+        <span class="xf-ai-repost-title">${t('aiPage.pickTitle')}</span>
         <div class="xf-ai-repost-actions">
-          <button type="button" class="xf-ai-repost-action-btn" data-action="regenerate">重写</button>
-          <button type="button" class="xf-ai-repost-action-btn" data-action="config">设置</button>
-          <button type="button" class="xf-ai-repost-action-btn" data-action="close">关闭</button>
+          <button type="button" class="xf-ai-repost-action-btn" data-action="regenerate">${t('aiPage.rewrite')}</button>
+          <button type="button" class="xf-ai-repost-action-btn" data-action="config">${t('aiPage.settings')}</button>
+          <button type="button" class="xf-ai-repost-action-btn" data-action="close">${t('aiPage.close')}</button>
         </div>
       </div>
       <div class="xf-ai-repost-options">
         <div class="xf-ai-repost-card" data-option="A" role="button" tabindex="0">
           <div class="xf-ai-repost-card-tag">
-            <span>选项 1 · 干货脱水总结</span>
-            <span class="xf-ai-repost-pick-hint">点击选用</span>
+            <span>${t('aiPage.optionA')}</span>
+            <span class="xf-ai-repost-pick-hint">${t('aiPage.pick')}</span>
           </div>
           <div class="xf-ai-repost-card-body">${escapeHtml(options.optionA)}</div>
         </div>
         <div class="xf-ai-repost-card" data-option="B" role="button" tabindex="0">
           <div class="xf-ai-repost-card-tag">
-            <span>选项 2 · 观点共鸣与延伸</span>
-            <span class="xf-ai-repost-pick-hint">点击选用</span>
+            <span>${t('aiPage.optionB')}</span>
+            <span class="xf-ai-repost-pick-hint">${t('aiPage.pick')}</span>
           </div>
           <div class="xf-ai-repost-card-body">${escapeHtml(options.optionB)}</div>
         </div>
@@ -938,7 +940,7 @@ function openOrUpdateRepostPanel(
           const isCurrent = c === card
           c.classList.toggle('is-selected', isCurrent)
           const hint = c.querySelector('.xf-ai-repost-pick-hint')
-          if (hint) hint.textContent = isCurrent ? '已填入' : '点击选用'
+          if (hint) hint.textContent = isCurrent ? t('aiPage.picked') : t('aiPage.pick')
         })
       })
     })
@@ -970,19 +972,19 @@ function openOrUpdateRepostPanel(
     if (!isCurrent(request)) return
     const currentKey = overrideConfig?.apiKey ?? String(stored[KeyAiRepostApiKey] || '').trim()
     if (!currentKey) {
-      await renderConfigView('首次使用请先配置 OpenAI 兼容接口与 API Key')
+      await renderConfigView(t('aiPage.firstUse'))
       return
     }
 
     triggerBtn.disabled = true
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
-        <span class="xf-ai-repost-title">正在提取原文并生成两个选项...</span>
+        <span class="xf-ai-repost-title">${t('aiPage.generatingTitle')}</span>
         <div class="xf-ai-repost-actions">
-          <button type="button" class="xf-ai-repost-action-btn" data-action="close">取消</button>
+          <button type="button" class="xf-ai-repost-action-btn" data-action="close">${t('aiPage.cancel')}</button>
         </div>
       </div>
-      <div class="xf-ai-repost-status">正在生成两条转发草稿，请稍候…</div>
+      <div class="xf-ai-repost-status">${t('aiPage.generatingStatus')}</div>
     `
     panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -1002,21 +1004,20 @@ function openOrUpdateRepostPanel(
         type: 'XF_GENERATE_REPOST_OPTIONS',
         source,
         overrideConfig,
-      }, request.signal)) as ({ ok?: boolean; error?: string } & Partial<AiRepostOptionsResult>) | undefined
+        locale: getLocale(),
+      }, request.signal)) as ({ ok?: boolean; error?: TransferableError } & Partial<AiRepostOptionsResult>) | undefined
       if (!isCurrent(request)) return
 
       if (response === undefined) {
-        throw new Error(
-          '未收到扩展后台响应。请在 chrome://extensions 页面点击「重新加载」刷新插件，并刷新当前网页后重试。',
-        )
+        throw new Error(t('aiPage.noBackground'))
       }
 
       if (!response.ok) {
-        throw new Error(response.error || 'AI 接口调用未成功，请检查接口配置与网络连通性')
+        throw new Error(errorText(response.error) || t('aiPage.callFailed'))
       }
 
       if (!response.optionA || !response.optionB) {
-        throw new Error('AI 未能返回完整的两个选项，请点击重试')
+        throw new Error(t('aiPage.incomplete'))
       }
 
       renderOptionsView({
@@ -1025,16 +1026,16 @@ function openOrUpdateRepostPanel(
       })
     } catch (err: any) {
       if (!isCurrent(request)) return
-      const errMsg = err?.message || String(err)
+      const errMsg = errorText(err) || String(err)
       console.error('[oh-my-x AI Repost] 生成出错:', err)
       if (closed || !panel.isConnected) return
       panel.innerHTML = `
         <div class="xf-ai-repost-header">
-          <span class="xf-ai-repost-title">生成未完成</span>
+          <span class="xf-ai-repost-title">${t('aiPage.notFinished')}</span>
           <div class="xf-ai-repost-actions">
-            <button type="button" class="xf-ai-repost-action-btn" data-action="retry">重试</button>
-            <button type="button" class="xf-ai-repost-action-btn" data-action="config">接口设置</button>
-            <button type="button" class="xf-ai-repost-action-btn" data-action="close">关闭</button>
+            <button type="button" class="xf-ai-repost-action-btn" data-action="retry">${t('aiPage.retry')}</button>
+            <button type="button" class="xf-ai-repost-action-btn" data-action="config">${t('aiPage.serviceSettings')}</button>
+            <button type="button" class="xf-ai-repost-action-btn" data-action="close">${t('aiPage.close')}</button>
           </div>
         </div>
         <div class="xf-ai-repost-status xf-ai-repost-error">${escapeHtml(errMsg)}</div>
@@ -1124,12 +1125,12 @@ export async function updateAiRepostComposerButton() {
       triggerBtn.type = 'button'
       triggerBtn.className = 'xf-ai-repost-trigger'
       triggerBtn.setAttribute('data-testid', 'xf-ai-repost-trigger')
-      triggerBtn.setAttribute('aria-label', 'AI 总结转发')
+      triggerBtn.setAttribute('aria-label', t('aiPage.triggerLabel'))
       triggerBtn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path>
         </svg>
-        <span>AI 总结</span>
+        <span>${t('aiPage.trigger')}</span>
       `
 
       const audienceBtn = findAudienceButtonInModal(modalEl)

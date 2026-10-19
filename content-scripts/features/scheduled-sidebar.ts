@@ -14,6 +14,8 @@ import selectors from '../selectors'
 import addStyles, { removeStyles, stylesExist } from '../utilities/addStyles'
 import { ACCENT, accentAlpha, getThemeColors } from '../utilities/colors'
 import { getStorage, setStorage } from '../utilities/storage'
+import { getLocale, t } from '../../shared/i18n'
+import { errorText } from '../../shared/errors'
 
 /**
  * 右侧栏排期面板：放在搜索框下面，按天列出待发布的定时帖和相邻两条的间隔。
@@ -58,20 +60,23 @@ export interface ScheduleDayGroup {
   note: { text: string; color: string } | null
 }
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+/** 星期的短名按语言取：中文「周二」，英文「Tue」 */
+function weekdayName(date: Date): string {
+  return new Intl.DateTimeFormat(getLocale(), { weekday: 'short' }).format(date)
+}
 
 export function formatScheduleDayLabel(date: Date, now: Date = new Date()): string {
   const day = dayjs(date).startOf('day')
   const diff = day.diff(dayjs(now).startOf('day'), 'day')
-  const name = diff === 0 ? '今天' : diff === 1 ? '明天' : diff === 2 ? '后天' : WEEKDAYS[day.day()]
+  const name = diff === 0 ? t('day.today') : diff === 1 ? t('day.tomorrow') : diff === 2 ? t('day.dayAfterTomorrow') : weekdayName(day.toDate())
   const dateText = day.year() === dayjs(now).year() ? day.format('MM-DD') : day.format('YYYY-MM-DD')
   return `${name} · ${dateText}`
 }
 
 /** 跨天的间隔：不到 2 小时算过密，不到 24 小时算跨夜，再长算跨日 */
 function crossDayLabel(gapMs: number): string {
-  if (gapMs < TIGHT_GAP_MS) return '过密'
-  return gapMs < DAY_MS ? '跨夜' : '跨日'
+  if (gapMs < TIGHT_GAP_MS) return t('sidebar.gapTight')
+  return gapMs < DAY_MS ? t('sidebar.gapOvernight') : t('sidebar.gapOverDay')
 }
 
 /** 只保留还没到发布时间的定时帖，按天分组，并算出每条与上一条的间隔 */
@@ -96,7 +101,7 @@ export function buildScheduleDayGroups(items: PersistedScheduledItem[], now: Dat
         label: formatScheduleDayLabel(date, now),
         rows: [],
         note: index === 0
-          ? { text: `下一条 ${formatRelativePublishTime(date, now)}`, color: theme.accentColor }
+          ? { text: t('sidebar.next', { time: formatRelativePublishTime(date, now) }), color: theme.accentColor }
           : { text: `${crossDayLabel(gapMs)} ${formatDurationGap(gapMs)}`, color: theme.accentColor },
       }
       groups.push(group)
@@ -109,7 +114,7 @@ export function buildScheduleDayGroups(items: PersistedScheduledItem[], now: Dat
       theme,
       gap: startsDay
         ? null
-        : { label: tight ? '过密' : '间隔', text: formatDurationGap(gapMs), tight, color: theme.accentColor },
+        : { label: tight ? t('sidebar.gapTight') : t('sidebar.gap'), text: formatDurationGap(gapMs), tight, color: theme.accentColor },
     })
   })
   return groups
@@ -341,7 +346,7 @@ export async function refreshScheduledSidebar(): Promise<void> {
   try {
     setItems(await requestScheduledRefresh())
   } catch (e) {
-    state.error = e instanceof Error && e.message ? e.message : '读取失败，请重试'
+    state.error = errorText(e) || t('error.readFailed')
   } finally {
     state.refreshing = false
     rerender()
@@ -379,7 +384,7 @@ function createPanel(): HTMLElement {
   const panel = el('div', 'xf-sched-side')
   panel.id = SCHEDULED_SIDEBAR_ID
   panel.setAttribute('role', 'region')
-  panel.setAttribute('aria-label', '排期全景')
+  panel.setAttribute('aria-label', t('feature.scheduledPanorama.label'))
   panel.addEventListener('click', (event) => {
     const action = (event.target as Element | null)?.closest<HTMLElement>('[data-action]')?.dataset.action
     if (action === 'refresh') void refreshScheduledSidebar()
@@ -429,31 +434,31 @@ function renderHead(total: number): HTMLElement {
   const head = el('div', 'xf-sched-side-head')
 
   const title = el('span', 'xf-sched-side-title')
-  title.append(icon(ICON_CALENDAR), el('span', undefined, '排期全景'))
+  title.append(icon(ICON_CALENDAR), el('span', undefined, t('feature.scheduledPanorama.label')))
 
   const link = el('a', 'xf-sched-side-link')
   link.href = SCHEDULED_LIST_PATH
-  link.title = '打开 X 的定时帖列表'
-  link.setAttribute('aria-label', '排期列表')
-  link.append(icon(ICON_OPEN), el('span', 'xf-sched-side-link-text', '排期列表'))
+  link.title = t('sidebar.openListTitle')
+  link.setAttribute('aria-label', t('sidebar.openList'))
+  link.append(icon(ICON_OPEN), el('span', 'xf-sched-side-link-text', t('sidebar.openList')))
 
   const refresh = el('button', 'xf-sched-side-icon')
   refresh.type = 'button'
   refresh.dataset.action = 'refresh'
   refresh.disabled = state.refreshing
   refresh.classList.toggle('is-spinning', state.refreshing)
-  refresh.setAttribute('aria-label', state.refreshing ? '正在读取排期' : '重新读取排期')
-  refresh.title = state.refreshing ? '正在读取排期' : '从 X 重新读取排期'
+  refresh.setAttribute('aria-label', state.refreshing ? t('sidebar.reading') : t('sidebar.reload'))
+  refresh.title = state.refreshing ? t('sidebar.reading') : t('sidebar.reloadTitle')
   refresh.append(icon(ICON_REFRESH))
 
-  const count = el('span', 'xf-sched-side-count', `${total} 条`)
+  const count = el('span', 'xf-sched-side-count', t('sidebar.count', { count: total }))
 
   const toggle = el('button', 'xf-sched-side-toggle')
   toggle.type = 'button'
   toggle.dataset.action = 'toggle'
   toggle.setAttribute('aria-expanded', String(!state.collapsed))
-  toggle.setAttribute('aria-label', state.collapsed ? '展开排期' : '收起排期')
-  toggle.append(el('span', 'xf-sched-side-toggle-text', state.collapsed ? '展开' : '收起'), icon(state.collapsed ? ICON_DOWN : ICON_UP))
+  toggle.setAttribute('aria-label', state.collapsed ? t('sidebar.expandLabel') : t('sidebar.collapseLabel'))
+  toggle.append(el('span', 'xf-sched-side-toggle-text', state.collapsed ? t('sidebar.expand') : t('sidebar.collapse')), icon(state.collapsed ? ICON_DOWN : ICON_UP))
 
   head.append(title, link, refresh, el('span', 'xf-sched-side-spacer'), count, toggle)
   return head
@@ -462,12 +467,12 @@ function renderHead(total: number): HTMLElement {
 function renderBody(groups: ScheduleDayGroup[], now: Date): HTMLElement {
   const body = el('div', 'xf-sched-side-body')
   if (state.error) {
-    const error = el('p', 'xf-sched-side-error', `读取失败：${state.error}`)
+    const error = el('p', 'xf-sched-side-error', t('sidebar.readFailed', { reason: state.error }))
     error.setAttribute('role', 'status')
     body.append(error)
   }
   if (!groups.length) {
-    body.append(el('p', 'xf-sched-side-empty', state.refreshing ? '正在读取排期…' : '没有待发布的定时帖'))
+    body.append(el('p', 'xf-sched-side-empty', state.refreshing ? t('sidebar.readingEllipsis') : t('sidebar.empty')))
     return body
   }
 
@@ -477,7 +482,7 @@ function renderBody(groups: ScheduleDayGroup[], now: Date): HTMLElement {
     const dayHead = el('div', 'xf-sched-side-day-head')
     dayHead.append(
       el('span', 'xf-sched-side-day-label', group.label),
-      el('span', 'xf-sched-side-day-count', `(${group.rows.length}条)`),
+      el('span', 'xf-sched-side-day-count', t('sidebar.dayCount', { count: group.rows.length })),
       el('span', 'xf-sched-side-day-rule'),
     )
     if (group.note) {
@@ -513,7 +518,7 @@ function renderItem(row: ScheduleRow, now: Date): HTMLElement {
   item.append(
     el('span', 'xf-sched-side-time', row.time),
     el('span', 'xf-sched-side-sep'),
-    el('span', 'xf-sched-side-text', text || '（只有图片或视频）'),
+    el('span', 'xf-sched-side-text', text || t('sidebar.mediaOnly')),
   )
   return item
 }

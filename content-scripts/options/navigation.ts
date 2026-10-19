@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n'
 import type { NavIconId } from '../../shared/navItems'
 import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 import selectors from '../selectors'
@@ -96,7 +97,7 @@ export function ensureCustomTweetButton() {
   const customBtn = document.createElement('a')
   customBtn.className = 'xf-custom-tweet-button'
   customBtn.setAttribute('role', 'button')
-  customBtn.setAttribute('aria-label', nativeBtn.getAttribute('aria-label') || '发帖')
+  customBtn.setAttribute('aria-label', nativeBtn.getAttribute('aria-label') || t('navPage.post'))
   customBtn.href = nativeBtn.getAttribute('href') || '/compose/post'
   customBtn.innerHTML = TWEET_BUTTON_SVG
   customBtn.addEventListener('click', (e) => {

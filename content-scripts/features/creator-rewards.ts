@@ -4,6 +4,7 @@ import { setStorage } from '../utilities/storage'
 import {
   parseCreatorRewardsPayload,
   parseNumberWithUnit,
+  REWARDS_PAGE_MARKERS,
   TARGET_IMPRESSIONS_COUNT,
   TARGET_IMPRESSIONS_TEXT,
   type CreatorRewardsStats,
@@ -44,16 +45,16 @@ export function scanCreatorRewardsFromDom(): boolean {
   }
 
   try {
-    // 寻找包含"回复不计入曝光"或"已验证首页时间线曝光"的上下文容器
+    // 页面上要有曝光数字旁的说明文字（中文或英文界面）
     const bodyText = document.body.innerText || ''
-    if (!bodyText.includes('回复不计入曝光') && !bodyText.includes('已验证首页时间线曝光')) {
+    if (!REWARDS_PAGE_MARKERS.some((marker) => bodyText.includes(marker))) {
       return false
     }
 
     // 匹配页面中紧邻进度条的曝光数值（例如 "219.6K", "217.6K"）
     const match = bodyText.match(
-      /(?:已验证首页时间线曝光|时间线曝光|回复不计入曝光)[\s\S]{0,100}?(\d+(?:\.\d+)?\s*[KM万])/,
-    ) || bodyText.match(/(\d+(?:\.\d+)?\s*[KM万])[\s\S]{0,80}?(?:回复不计入曝光)/)
+      /(?:已验证首页时间线曝光|时间线曝光|回复不计入曝光|Verified Home Timeline impressions)[\s\S]{0,100}?(\d+(?:\.\d+)?\s*[KM万])/,
+    ) || bodyText.match(/(\d+(?:\.\d+)?\s*[KM万])[\s\S]{0,80}?(?:回复不计入曝光|Does not include replies)/)
 
     if (match && match[1]) {
       const impressionsText = match[1].trim()

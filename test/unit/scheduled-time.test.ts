@@ -6,6 +6,7 @@ import {
   formatDurationGap,
   getIntervalTheme,
   getPickedTimeFromModal,
+  findTimezoneSection,
   attachSchedulePickerOverview,
   addScheduledRelativeTimes,
   removeScheduledPanorama,
@@ -117,6 +118,59 @@ describe('scheduled-time utility & Schedule Picker Overview', () => {
       removeScheduledPanorama()
       expect(document.querySelector('.xf-schedule-picker-overview')).toBeNull()
       expect(document.querySelector('.xf-modal-header-right-badge')).toBeNull()
+    })
+  })
+
+  describe('findTimezoneSection 英文界面的时区区块', () => {
+    // 结构对照 2026-10-18 X 排期弹窗的真实层级：正文 4 块（将于… / 日期 / 时间 / 时区）
+    function renderEnglishModal(timezoneLabel: string, timezoneName: string) {
+      document.body.innerHTML = `
+        <div role="dialog" aria-modal="true">
+          <div>
+            <h2 id="modal-header"><span>Schedule</span></h2>
+            <div id="modal-body">
+              <div><div dir="ltr"><span>Will send on Sun, Oct 18, 2026 at 3:47 PM</span></div></div>
+              <div><div role="group">
+                <div><span>Date</span></div>
+                <div>
+                  <div><span>Month</span><select id="SELECTOR_1"><option value="10" selected>October</option></select></div>
+                  <div><span>Day</span><select id="SELECTOR_2"><option value="18" selected>18</option></select></div>
+                  <div><span>Year</span><select id="SELECTOR_3"><option value="2026" selected>2026</option></select></div>
+                </div>
+              </div></div>
+              <div><div role="group">
+                <div><span>Time</span></div>
+                <div>
+                  <div><span>Hour</span><select id="SELECTOR_4"><option value="15" selected>3</option></select><svg></svg></div>
+                  <div><span>Minute</span><select id="SELECTOR_5"><option value="47" selected>47</option></select></div>
+                </div>
+              </div><div></div></div>
+              <div id="tz-section"><div dir="ltr"><span>${timezoneLabel}</span></div><div dir="ltr"><span>${timezoneName}</span></div></div>
+            </div>
+          </div>
+        </div>
+      `
+      return document.querySelector('[role="dialog"]')!
+    }
+
+    it('时区名称是本机时区的英文全称时，按名称找到', () => {
+      const localName = new Intl.DateTimeFormat('en', { timeZoneName: 'long' })
+        .formatToParts(new Date())
+        .find((part) => part.type === 'timeZoneName')!.value
+      const modal = renderEnglishModal('Time zone', localName)
+      expect(findTimezoneSection(modal)?.id).toBe('tz-section')
+    })
+
+    it('夏令时名称（如 British Summer Time）认不出时，按位置找到「时间」后面那一块', () => {
+      const modal = renderEnglishModal('Time zone', 'British Summer Time')
+      expect(findTimezoneSection(modal)?.id).toBe('tz-section')
+    })
+
+    it('排期全景插在英文时区区块后面', async () => {
+      renderEnglishModal('Time zone', 'Pacific Daylight Time')
+      await attachSchedulePickerOverview()
+      expect(document.getElementById('tz-section')?.nextElementSibling?.classList.contains('xf-schedule-picker-overview')).toBe(true)
+      removeScheduledPanorama()
     })
   })
 

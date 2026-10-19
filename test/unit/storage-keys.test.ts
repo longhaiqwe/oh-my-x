@@ -44,6 +44,8 @@ describe('storage defaults', () => {
         expect(String(value).split(',')).toEqual(['potential', 'viral'])
       } else if (key === KeyUserFollowerCount) {
         expect(['all', 'list', 'off']).toContain(value)
+      } else if (key === 'uiLanguage') {
+        expect(['auto', 'zh-CN', 'en']).toContain(value)
       } else if (
         typeof value === 'string' &&
         key !== 'spamKeywordList' &&

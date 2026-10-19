@@ -3,6 +3,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { KeySpamWhitelist, KeySpamBlacklist } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseHandleList } from '../../../../shared/spam-rules'
+import { useI18n } from '../../composables/useI18n'
+
+const { t } = useI18n()
 
 function getInitialList(key: string): string {
   try {
@@ -79,15 +82,15 @@ onBeforeUnmount(() => {
  <div class="flex flex-col gap-2">
   <div>
    <p class="text-sm font-semibold text-text flex justify-between">
-    白名单
-    <span class="font-normal text-secondary-text">{{ parsedWhitelist.length }} 个</span>
+    {{ t('accountLists.allow') }}
+    <span class="font-normal text-secondary-text">{{ t('common.count', { count: parsedWhitelist.length }) }}</span>
    </p>
-   <p class="text-xs text-muted-text mt-1">这些作者的回复不会被隐藏。每行一个用户名</p>
+   <p class="text-xs text-muted-text mt-1">{{ t('accountLists.allowHint') }}</p>
   </div>
   <textarea
    class="w-full min-h-20 rounded-control border border-border-strong bg-sunken-bg p-2 text-xs font-mono focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none resize-y text-text"
    :value="whitelist"
-   aria-label="白名单"
+   :aria-label="t('accountLists.allow')"
    @input="(e: Event) => updateWhitelist((e.target as HTMLTextAreaElement).value)"
    @blur="flushList(KeySpamWhitelist)"
    placeholder="@example"
@@ -102,15 +105,15 @@ onBeforeUnmount(() => {
 
   <div class="pt-4 border-t border-border">
    <p class="text-sm font-semibold text-text flex justify-between">
-    黑名单
-    <span class="font-normal text-secondary-text">{{ parsedBlacklist.length }} 个</span>
+    {{ t('accountLists.block') }}
+    <span class="font-normal text-secondary-text">{{ t('common.count', { count: parsedBlacklist.length }) }}</span>
    </p>
-   <p class="text-xs text-muted-text mt-1">这些作者的回复全部隐藏。每行一个用户名</p>
+   <p class="text-xs text-muted-text mt-1">{{ t('accountLists.blockHint') }}</p>
   </div>
   <textarea
    class="w-full min-h-20 rounded-control border border-border-strong bg-sunken-bg p-2 text-xs font-mono focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none resize-y text-text"
    :value="blacklist"
-   aria-label="黑名单"
+   :aria-label="t('accountLists.block')"
    @input="(e: Event) => updateBlacklist((e.target as HTMLTextAreaElement).value)"
    @blur="flushList(KeySpamBlacklist)"
    placeholder="@example"

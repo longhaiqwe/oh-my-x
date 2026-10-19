@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
 import { defaultPreferences } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+import { useI18n } from '../../composables/useI18n'
 
 // 宽度滑块（时间线宽度、导航栏宽度共用）。
 // 值同时缓存到 localStorage，弹窗打开时先显示上次的值，不会从默认值跳过来
@@ -13,6 +14,7 @@ const props = defineProps<{
   step: number
   label: string
 }>()
+const { t } = useI18n()
 
 function getInitialWidth(): number {
   try {
@@ -66,7 +68,7 @@ onMounted(async () => {
      :min="min"
      :max="max"
      :step="step"
-     :aria-label="`${label}滑块`"
+     :aria-label="t('common.slider', { label })"
      class="relative flex items-center select-none touch-none w-full h-5 cursor-pointer"
     >
      <SliderTrack class="bg-accent-track relative flex-grow rounded-full h-1">

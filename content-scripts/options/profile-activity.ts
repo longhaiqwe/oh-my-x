@@ -1,3 +1,4 @@
+import { errorPayload, type TransferableError } from '../../shared/coded-error'
 import {
   collectProfileActivity,
   getOldestActivityTimestamp,
@@ -56,10 +57,10 @@ export function updateProfileActivityStats(days = 7): ProfileActivitySummary | n
  */
 export async function scanProfileActivity(
   days = 7,
-): Promise<{ ok: boolean; error?: string; stats?: ProfileActivitySummary }> {
+): Promise<{ ok: boolean; error?: TransferableError; stats?: ProfileActivitySummary }> {
   const route = getProfileActivityRoute(window.location.pathname)
   if (!route) {
-    return { ok: false, error: '请在博主个人主页使用此功能' }
+    return { ok: false, error: errorPayload('error.useOnProfile') }
   }
 
   const bgResult = await requestProfileActivityFromPage(
@@ -75,7 +76,7 @@ export async function saveProfileActivityScan(
   profileHandle: string,
   bgResult: ProfileActivityBridgeResult,
   days: number,
-): Promise<{ ok: boolean; error?: string; stats?: ProfileActivitySummary }> {
+): Promise<{ ok: boolean; error?: TransferableError; stats?: ProfileActivitySummary }> {
   if (bgResult.ok && bgResult.entries) {
     // 纯粹以完整的后台数据为准，不与局部 DOM 碎片混合
     const summary = summarizeProfileActivity(profileHandle, bgResult.entries, {
@@ -92,7 +93,7 @@ export async function saveProfileActivityScan(
   }
 
   // 后台未成功返回时不滚动页面，直接向用户返回清晰说明
-  const errorMsg = bgResult.error || '后台数据请求未响应，请按 F5 刷新网页后重试'
-  console.warn('[oh-my-x] 后台抓取未成功:', errorMsg)
-  return { ok: false, error: errorMsg }
+  const error = bgResult.error || errorPayload('error.backgroundNoResponse')
+  console.warn('[oh-my-x] 后台抓取未成功:', error)
+  return { ok: false, error }
 }

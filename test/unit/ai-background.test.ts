@@ -42,7 +42,7 @@ describe('AI background requests', () => {
     permissions.contains.mockResolvedValue(false)
     const { server } = start()
     await flushMicrotasks()
-    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('授权') }))
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: { code: 'error.aiNotAuthorized' } }))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -71,12 +71,27 @@ describe('AI background requests', () => {
     expect(system).toContain('样本 1：\n我的一条转发')
   })
 
+  it('按请求带来的界面语言组装提示词：英文界面写英文', async () => {
+    const { server } = start({ ...generate, locale: 'en' })
+    await flushMicrotasks()
+    const [system, user] = JSON.parse(fetchMock.mock.calls[0][1].body).messages
+    expect(system.content).toContain('write 2 English quote-post options')
+    expect(user.content).toContain('Original content:\n"""\n原文内容\n"""')
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: true, optionA: '总结一' }))
+  })
+
+  it('请求没带语言时按后台读到的插件语言（测试环境是中文）', async () => {
+    start()
+    await flushMicrotasks()
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('中文转发总结选项')
+  })
+
   it.each(['XF_GENERATE_REPOST_OPTIONS', 'XF_TEST_AI_CONNECTION'])('times out and aborts a stalled %s fetch', async type => {
     fetchMock.mockImplementation(() => new Promise(() => {}))
     const { server } = start({ ...generate, type, config: { apiKey: 'test-key', baseUrl: 'https://ai.example/v1', model: 'model' } })
     await flushMicrotasks()
     await vi.advanceTimersByTimeAsync(25_000)
-    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('超时') }))
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'error.aiTimeout' }) }))
     expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true)
   })
 
@@ -85,7 +100,7 @@ describe('AI background requests', () => {
     const { server } = start()
     await flushMicrotasks()
     await vi.advanceTimersByTimeAsync(25_000)
-    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('超时') }))
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'error.aiTimeout' }) }))
     expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true)
   })
 
@@ -119,7 +134,7 @@ describe('AI background requests', () => {
     fetchMock.mockResolvedValue(new Response('{"error":{"message":"额度不足"}}', { status: 429 }))
     const { server } = start()
     await flushMicrotasks()
-    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('429') }))
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'error.aiHttp', params: expect.objectContaining({ status: 429 }) }) }))
     expect(vi.getTimerCount()).toBe(0)
   })
 

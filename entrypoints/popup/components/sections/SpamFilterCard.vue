@@ -7,11 +7,12 @@ import {
   KeySpamKeywordList,
   KeySpamStats,
 } from '../../../../storage-keys'
-import { SPAM_CATEGORY_LABEL, SPAM_RULES } from '../../../../shared/spam-types'
+import { SPAM_RULES, spamCategoryLabel } from '../../../../shared/spam-types'
 import type { SpamCategory } from '../../../../shared/spam-types'
 import { parseEnabledRules, parseKeywordList } from '../../../../shared/spam-rules'
 import { getTodayStats } from '../../../../shared/spam-logger'
 import { useStorageKey } from '../../composables/useStorageKey'
+import { useI18n } from '../../composables/useI18n'
 import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
 import FeatureCard from '../ui/FeatureCard.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
@@ -19,6 +20,7 @@ import SwitchToggle from '../ui/SwitchToggle.vue'
 defineEmits<{ open: [] }>()
 
 const { value: enabled, setValue: setEnabled } = useStorageKey(KeySpamFilterEnabled)
+const { t, featureText, locale } = useI18n()
 
 // 状态行只读展示；在详细设置页修改后，这里随存储变化更新
 const snapshot = useStorageSnapshot([KeySpamThreshold, KeySpamRulesEnabled, KeySpamKeywordList, KeySpamStats])
@@ -37,7 +39,7 @@ const todayByCategory = ref<Record<SpamCategory, number>>({
 const order: SpamCategory[] = ['porn_spam', 'marketing', 'bot', 'low_quality']
 const categoryRows = computed(() =>
   order
-    .map((c) => ({ category: c, label: SPAM_CATEGORY_LABEL[c], count: todayByCategory.value[c] || 0 }))
+    .map((c) => ({ category: c, label: spamCategoryLabel(c, locale.value), count: todayByCategory.value[c] || 0 }))
     .filter((r) => r.count > 0),
 )
 
@@ -56,18 +58,18 @@ watch(() => snapshot[KeySpamStats], () => void loadToday())
  <FeatureCard
   feature-id="spamFilter"
   :enabled="enabled"
-  details-label="详细设置"
+  :details-label="t('spamFilter.settings')"
   details-as="page"
   @open-details="$emit('open')"
  >
   <template #control>
-   <SwitchToggle :model-value="enabled" label="垃圾回复过滤" @update:model-value="setEnabled" />
+   <SwitchToggle :model-value="enabled" :label="featureText('spamFilter', 'label')" @update:model-value="setEnabled" />
   </template>
 
   <!-- 今日拦截 -->
   <div class="flex items-center justify-between gap-2 rounded-control bg-sunken-bg px-3 py-2">
-   <p class="flex items-baseline gap-2 text-xs text-secondary-text">
-    今日拦截 <span class="text-base font-semibold leading-none text-text">{{ todayTotal }}</span>
+   <p class="flex items-baseline gap-2 text-xs text-secondary-text whitespace-nowrap">
+    {{ t('spamFilter.today') }} <span class="text-base font-semibold leading-none text-text">{{ todayTotal }}</span>
    </p>
    <div v-if="categoryRows.length" class="flex flex-wrap justify-end gap-1">
     <span
@@ -76,11 +78,11 @@ watch(() => snapshot[KeySpamStats], () => void loadToday())
      class="px-2 py-0.5 rounded-full bg-card-bg text-xs text-secondary-text"
     >{{ row.label }} {{ row.count }}</span>
    </div>
-   <p v-else class="text-xs text-muted-text">今天还没有拦截</p>
+   <p v-else class="text-xs text-muted-text">{{ t('spamFilter.noneToday') }}</p>
   </div>
 
   <template #status>
-   阈值 {{ threshold }} · 规则 {{ enabledRuleCount }}/{{ SPAM_RULES.length }} · 垃圾词库 {{ keywordCount }} 个
+   {{ t('spamFilter.status', { threshold, rules: enabledRuleCount, total: SPAM_RULES.length, words: keywordCount }) }}
   </template>
  </FeatureCard>
 </template>

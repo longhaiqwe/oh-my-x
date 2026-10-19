@@ -2,6 +2,7 @@ import { KeySpamWhitelist, KeySpamBlacklist } from '../../../storage-keys'
 import { getStorage, setStorage } from '../../utilities/storage'
 import { parseHandleList } from '../../../shared/spam-rules'
 import { getThemeColors } from '../../utilities/colors'
+import { t } from '../../../shared/i18n'
 
 // ─── 状态 ──────────────────────────────────────────
 
@@ -63,7 +64,8 @@ interface MenuOption {
   label: string
   color: string
   bgColor: string
-  action: () => Promise<string>
+  /** 返回提示文字；ok 为 false（名单里本来就没有）时用次要色 */
+  action: () => Promise<{ text: string; ok: boolean }>
 }
 
 export async function showListDropdown(article: HTMLElement, anchor: HTMLElement) {
@@ -86,44 +88,44 @@ export async function showListDropdown(article: HTMLElement, anchor: HTMLElement
   let menuOptions: MenuOption[]
   if (whitelist.has(h)) {
     menuOptions = [{
-      label: '➖ 移出白名单',
+      label: `➖ ${t('listPage.removeAllow')}`,
       color: c.fgSecondary,
       bgColor: c.hoverBg,
       action: async () => {
         const r = await removeFromList(KeySpamWhitelist, handle)
-        return r === 'removed' ? '已移出白名单' : '不在白名单'
+        return r === 'removed' ? { text: t('listPage.removedAllow'), ok: true } : { text: t('listPage.notInAllow'), ok: false }
       },
     }]
   } else if (blacklist.has(h)) {
     menuOptions = [{
-      label: '➖ 移出黑名单',
+      label: `➖ ${t('listPage.removeBlock')}`,
       color: c.fgSecondary,
       bgColor: c.hoverBg,
       action: async () => {
         const r = await removeFromList(KeySpamBlacklist, handle)
-        return r === 'removed' ? '已移出黑名单' : '不在黑名单'
+        return r === 'removed' ? { text: t('listPage.removedBlock'), ok: true } : { text: t('listPage.notInBlock'), ok: false }
       },
     }]
   } else {
     menuOptions = [
       {
-        label: '➕ 加入白名单',
+        label: `➕ ${t('listPage.addAllow')}`,
         color: c.accent,
         bgColor: c.accentBg,
         action: async () => {
           await removeFromList(KeySpamBlacklist, handle)
           const r = await addToList(KeySpamWhitelist, handle)
-          return r === 'added' ? '已加入白名单' : '已在白名单'
+          return { text: r === 'added' ? t('listPage.addedAllow') : t('listPage.alreadyAllow'), ok: true }
         },
       },
       {
-        label: '➕ 加入黑名单',
+        label: `➕ ${t('listPage.addBlock')}`,
         color: c.black,
         bgColor: c.blackBg,
         action: async () => {
           await removeFromList(KeySpamWhitelist, handle)
           const r = await addToList(KeySpamBlacklist, handle)
-          return r === 'added' ? '已加入黑名单' : '已在黑名单'
+          return { text: r === 'added' ? t('listPage.addedBlock') : t('listPage.alreadyBlock'), ok: true }
         },
       },
     ]
@@ -177,10 +179,10 @@ export async function showListDropdown(article: HTMLElement, anchor: HTMLElement
       e.stopPropagation()
       e.preventDefault()
       item.disabled = true
-      item.textContent = '处理中…'
-      const msg = await opt.action()
-      item.textContent = msg
-      item.style.color = msg.startsWith('已') ? c.green : c.fgSecondary
+      item.textContent = t('listPage.working')
+      const result = await opt.action()
+      item.textContent = result.text
+      item.style.color = result.ok ? c.green : c.fgSecondary
       listBtnTimeoutId = setTimeout(() => closeDropdown(), 2000)
     })
 

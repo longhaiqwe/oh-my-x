@@ -1,4 +1,6 @@
 import type { SpamEvaluation } from '../../shared/spam-types'
+import { formatRuleHit } from '../../shared/spam-types'
+import { t } from '../../shared/i18n'
 
 export function buildPlaceholder(evaluation: SpamEvaluation): HTMLElement {
   const wrap = document.createElement('div')
@@ -20,7 +22,7 @@ export function buildPlaceholder(evaluation: SpamEvaluation): HTMLElement {
   icon.textContent = '🚫'
   line.appendChild(icon)
   const text = document.createElement('span')
-  text.textContent = '已隐藏 — 疑似垃圾评论'
+  text.textContent = t('spamPage.hiddenPlaceholder')
   line.appendChild(text)
   const score = document.createElement('span')
   score.style.cssText = 'margin-left:auto;font-size:11px;opacity:0.7;'
@@ -31,7 +33,7 @@ export function buildPlaceholder(evaluation: SpamEvaluation): HTMLElement {
   if (evaluation.hits.length) {
     const hits = document.createElement('div')
     hits.style.cssText = 'font-size:12px;color:rgb(113,118,123);'
-    hits.textContent = evaluation.hits.map((h) => `✓ ${h.label}`).join(' · ')
+    hits.textContent = evaluation.hits.map((h) => `✓ ${formatRuleHit(h)}`).join(' · ')
     wrap.appendChild(hits)
   }
 

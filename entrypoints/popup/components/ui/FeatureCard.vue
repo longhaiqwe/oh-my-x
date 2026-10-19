@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
-import { getFeature } from '../../../../shared/feature-registry'
+import { useI18n } from '../../composables/useI18n'
 import WhereLine from './WhereLine.vue'
 
 // 功能卡片的统一写法：
@@ -29,9 +29,13 @@ const emit = defineEmits<{ openDetails: [] }>()
 const open = defineModel<boolean>('open', { default: false })
 const slots = useSlots()
 
-const feature = computed(() => (props.featureId ? getFeature(props.featureId) : undefined))
-const title = computed(() => props.title ?? feature.value?.label ?? '')
-const description = computed(() => props.description ?? feature.value?.description ?? '')
+const { t, featureText } = useI18n()
+const featureField = (field: 'label' | 'description' | 'note' | 'where') =>
+ props.featureId ? featureText(props.featureId, field) : undefined
+const title = computed(() => props.title ?? featureField('label') ?? '')
+const description = computed(() => props.description ?? featureField('description') ?? '')
+const note = computed(() => featureField('note'))
+const where = computed(() => featureField('where'))
 const showFooter = computed(() => props.enabled && (Boolean(slots.status) || Boolean(props.detailsLabel)))
 const isPage = computed(() => props.detailsAs === 'page')
 
@@ -53,8 +57,8 @@ function onDetailsClick() {
      <slot name="badge" />
     </div>
     <p v-if="description" class="text-xs leading-normal text-secondary-text">{{ description }}</p>
-    <p v-if="feature?.note" class="text-xs leading-normal text-muted-text">{{ feature.note }}</p>
-    <WhereLine v-if="feature?.where" :where="feature.where" />
+    <p v-if="note" class="text-xs leading-normal text-muted-text">{{ note }}</p>
+    <WhereLine v-if="where" :where="where" />
    </div>
    <div v-if="$slots.control" class="shrink-0">
     <slot name="control" />
@@ -76,7 +80,7 @@ function onDetailsClick() {
     :data-details-for="featureId"
     @click="onDetailsClick"
    >
-    {{ !isPage && open ? '收起' : detailsLabel }}
+    {{ !isPage && open ? t('common.collapse') : detailsLabel }}
     <svg
      class="w-3 h-3 transition-transform duration-150"
      :class="!isPage && open ? 'rotate-180' : ''"

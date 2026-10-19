@@ -1,4 +1,6 @@
 import type { SpamEvaluation } from '../../shared/spam-types'
+import { formatRuleHit } from '../../shared/spam-types'
+import { t } from '../../shared/i18n'
 import {
   DEBUG_BAR_ID,
   DEBUG_BAR_VERSION,
@@ -80,7 +82,7 @@ export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HT
   const firstRow = document.createElement('div')
   firstRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-weight:700;flex-wrap:wrap;'
   const prediction = document.createElement('span')
-  prediction.textContent = wouldHide ? '🚫 会被隐藏' : '✅ 通过'
+  prediction.textContent = wouldHide ? `🚫 ${t('spamPage.wouldHide')}` : `✅ ${t('spamPage.pass')}`
   firstRow.appendChild(prediction)
   const sep = document.createElement('span')
   sep.style.cssText = 'font-weight:400;opacity:0.5;'
@@ -94,7 +96,7 @@ export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HT
 
   if (evaluation.hits.length) {
     const list = document.createElement('div')
-    list.textContent = evaluation.hits.map((h) => `✓ ${h.label}`).join(' · ')
+    list.textContent = evaluation.hits.map((h) => `✓ ${formatRuleHit(h)}`).join(' · ')
     bar.appendChild(list)
   }
 

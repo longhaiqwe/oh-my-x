@@ -273,10 +273,15 @@ export function formatFollowerCount(count: number, locale = 'zh'): string {
 /**
  * 生成鼠标悬停 (hover) 时的详细数据提示文案
  */
-export function formatFollowerTooltip(metrics: UserMetrics): string {
-  const followerStr = `粉丝: ${metrics.followersCount.toLocaleString('zh-CN')}`
+export function formatFollowerTooltip(
+  metrics: UserMetrics,
+  // 这个模块也被页面拦截器引用，不直接读文案表；显示的一方按语言传入文字
+  labels: { followers: string; following: string } = { followers: '粉丝', following: '关注' },
+  locale = 'zh-CN',
+): string {
+  const followerStr = `${labels.followers}: ${metrics.followersCount.toLocaleString(locale)}`
   if (typeof metrics.followingCount === 'number' && metrics.followingCount >= 0) {
-    return `${followerStr} · 关注: ${metrics.followingCount.toLocaleString('zh-CN')}`
+    return `${followerStr} · ${labels.following}: ${metrics.followingCount.toLocaleString(locale)}`
   }
   return followerStr
 }

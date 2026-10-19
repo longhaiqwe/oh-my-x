@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getModule, type FeatureModuleId } from '../../../../shared/feature-registry'
+import type { FeatureModuleId } from '../../../../shared/feature-registry'
+import { useI18n } from '../../composables/useI18n'
 
-const props = defineProps<{ moduleId: FeatureModuleId }>()
-const mod = computed(() => getModule(props.moduleId))
+defineProps<{ moduleId: FeatureModuleId }>()
+const { moduleText } = useI18n()
 </script>
 
 <template>
  <div class="flex flex-col gap-1 px-1">
-  <h2 class="text-base font-semibold leading-tight text-text">{{ mod.title }}</h2>
-  <p class="text-xs leading-normal text-secondary-text">{{ mod.description }}</p>
+  <h2 class="text-base font-semibold leading-tight text-text">{{ moduleText(moduleId, 'title') }}</h2>
+  <p class="text-xs leading-normal text-secondary-text">{{ moduleText(moduleId, 'description') }}</p>
  </div>
 </template>

@@ -1,3 +1,4 @@
+import { getLocale, t } from '../../shared/i18n'
 import { extractTweetInfo } from '../../shared/parse-tweet'
 import {
   evaluateTweetFilter,
@@ -9,7 +10,7 @@ import {
   KeyTweetFilterAction,
   KeyTweetFilterEnabled,
   KeyTweetFilterKeywords,
-  defaultTweetFilterKeywords,
+  getDefaultTweetFilterKeywords,
 } from '../../storage-keys'
 import { getStorage } from '../utilities/storage'
 
@@ -51,7 +52,7 @@ export async function getTweetFilterConfig(): Promise<TweetFilterConfig> {
   const action = (values[KeyTweetFilterAction] === 'hide' ? 'hide' : 'collapse') as TweetFilterAction
   const rawKeywords = values[KeyTweetFilterKeywords] !== undefined
     ? String(values[KeyTweetFilterKeywords])
-    : defaultTweetFilterKeywords.join('\n')
+    : getDefaultTweetFilterKeywords(getLocale()).join('\n')
 
   const keywords = parseTweetFilterKeywords(rawKeywords)
   const normalizedKeywords = keywords.map((kw) => normalizeForTweetFilter(kw))
@@ -182,12 +183,12 @@ export function buildTweetFilterPlaceholder(
 
   const title = document.createElement('span')
   title.className = 'xf-tf-placeholder-title'
-  title.textContent = '推文已过滤'
+  title.textContent = t('tweetFilterPage.filtered')
   left.appendChild(title)
 
   const tag = document.createElement('span')
   tag.className = 'xf-tf-placeholder-tag'
-  tag.textContent = `· 命中「${keyword}」`
+  tag.textContent = `· ${t('tweetFilterPage.matched', { keyword })}`
   left.appendChild(tag)
 
   wrap.appendChild(left)
@@ -195,7 +196,7 @@ export function buildTweetFilterPlaceholder(
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.className = 'xf-tf-placeholder-btn'
-  btn.textContent = '展开查看'
+  btn.textContent = t('tweetFilterPage.show')
   btn.addEventListener('click', (e) => {
     e.stopPropagation()
     onExpand()
@@ -213,13 +214,13 @@ export function buildExpandedBar(
   bar.className = 'xf-tf-expanded-bar'
 
   const msg = document.createElement('span')
-  msg.textContent = `⚠️ 已临时展开（命中「${keyword}」）`
+  msg.textContent = `⚠️ ${t('tweetFilterPage.shownTemporarily', { keyword })}`
   bar.appendChild(msg)
 
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.className = 'xf-tf-expanded-btn'
-  btn.textContent = '重新收起'
+  btn.textContent = t('tweetFilterPage.collapseAgain')
   btn.addEventListener('click', (e) => {
     e.stopPropagation()
     onCollapse()

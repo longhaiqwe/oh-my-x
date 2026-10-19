@@ -1,16 +1,20 @@
+import { AppError, type TransferableError } from './errors'
 import { resolveChatCompletionsUrl, type AiRepostOptionsResult, type RepostSourceInput } from './ai-repost'
+import type { Locale } from './i18n'
 
 export const AI_REQUEST_PORT = 'XF_AI_REQUEST'
 // Stay below MV3's 30-second limit for receiving a fetch response.
 export const AI_REQUEST_TIMEOUT_MS = 25_000
 export interface AiConfig { baseUrl?: string; apiKey?: string; model?: string; customPrompt?: string }
 export type AiRequest =
-  | { type: 'XF_GENERATE_REPOST_OPTIONS'; source: RepostSourceInput; overrideConfig?: AiConfig }
+  /** locale：发起请求一方的插件界面语言，转发文案用这种语言写 */
+  | { type: 'XF_GENERATE_REPOST_OPTIONS'; source: RepostSourceInput; overrideConfig?: AiConfig; locale?: Locale }
   | { type: 'XF_TEST_AI_CONNECTION'; config: AiConfig }
   | { type: 'XF_FETCH_TWEET_FULL_TEXT'; tweetId: string }
 export interface AiResponse extends Partial<AiRepostOptionsResult> {
   ok: boolean
-  error?: string
+  /** 错误代号或原文，显示时用 errorText() 翻译 */
+  error?: TransferableError
   model?: string
   source?: RepostSourceInput | null
 }
@@ -18,7 +22,7 @@ export interface AiResponse extends Partial<AiRepostOptionsResult> {
 export function aiPermissionOrigin(baseUrl: string): string {
   const url = new URL(resolveChatCompletionsUrl(baseUrl))
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) {
-    throw new Error('AI 接口地址必须是不含用户名和密码的 HTTP/HTTPS 地址')
+    throw new AppError('error.aiBadUrl')
   }
   // Chrome match patterns do not include ports; a host grant covers its ports.
   return `${url.protocol}//${url.hostname}/*`
@@ -46,14 +50,14 @@ export function sendAiRequest(message: AiRequest, signal: AbortSignal): Promise<
       if (error) reject(error)
       else resolve(response!)
     }
-    const onAbort = () => finish(undefined, signal.reason || new Error('请求已取消'))
+    const onAbort = () => finish(undefined, signal.reason || new AppError('error.requestCancelled'))
     const onDisconnect = () => {
       // Read lastError to consume Chrome's disconnect error without exposing it or keys.
       void browser.runtime.lastError
-      finish(undefined, new Error('扩展后台连接已断开，请重试'))
+      finish(undefined, new AppError('error.backgroundDisconnected'))
     }
     const onMessage = (response: AiResponse) => finish(response)
-    const timer = setTimeout(() => finish(undefined, new Error('请求超时，请检查网络后重试')), AI_REQUEST_TIMEOUT_MS + 5_000)
+    const timer = setTimeout(() => finish(undefined, new AppError('error.requestTimeout')), AI_REQUEST_TIMEOUT_MS + 5_000)
     signal.addEventListener('abort', onAbort, { once: true })
     port.onMessage.addListener(onMessage)
     port.onDisconnect.addListener(onDisconnect)

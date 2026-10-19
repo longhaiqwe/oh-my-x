@@ -5,6 +5,7 @@ import { invalidateSpamConfig, runScan } from '../scanner'
 import { segmentText, type SegmentInfo } from '../keyword-segment'
 import { isDarkTheme } from './theme'
 import { ACCENT, ACCENT_TEXT, accentAlpha } from '../../utilities/colors'
+import { t } from '../../../shared/i18n'
 
 // ─── 状态 ──────────────────────────────────────────
 
@@ -104,7 +105,7 @@ export function showPickerPanel(article: HTMLElement) {
 
   const panel = document.createElement('div')
   panel.setAttribute('role', 'dialog')
-  panel.setAttribute('aria-label', '添加到垃圾词库')
+  panel.setAttribute('aria-label', t('pickerPage.title'))
   panel.style.cssText = [
     `background:${c.bg}`,
     `color:${c.fg}`,
@@ -130,11 +131,11 @@ export function showPickerPanel(article: HTMLElement) {
   header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;'
   const title = document.createElement('span')
   title.style.cssText = 'font-size:16px;font-weight:700;'
-  title.textContent = '添加到垃圾词库'
+  title.textContent = t('pickerPage.title')
   header.appendChild(title)
   const closeBtn = document.createElement('button')
   closeBtn.textContent = '✕'
-  closeBtn.ariaLabel = '关闭'
+  closeBtn.ariaLabel = t('pickerPage.close')
   closeBtn.style.cssText = [
     'background:none',
     'border:none',
@@ -154,7 +155,7 @@ export function showPickerPanel(article: HTMLElement) {
   // ── 提示 ──
   const hint = document.createElement('div')
   hint.style.cssText = `font-size:11px;color:${c.fgSecondary};margin-top:-4px;`
-  hint.textContent = '点击词语选中；Ctrl/Cmd+点击拼接到输入框，Enter 添加组合词'
+  hint.textContent = t('pickerPage.hint')
   panel.appendChild(hint)
 
   // 创建 chip
@@ -222,7 +223,7 @@ export function showPickerPanel(article: HTMLElement) {
   if (nameSegments.length > 0) {
     const nameLabel = document.createElement('div')
     nameLabel.style.cssText = `font-size:11px;font-weight:600;color:${c.fgSecondary};text-transform:uppercase;letter-spacing:0.5px;`
-    nameLabel.textContent = '昵称'
+    nameLabel.textContent = t('pickerPage.name')
     panel.appendChild(nameLabel)
 
     const nameChips = document.createElement('div')
@@ -248,7 +249,7 @@ export function showPickerPanel(article: HTMLElement) {
   if (textSegments.length > 0) {
     const textLabel = document.createElement('div')
     textLabel.style.cssText = `font-size:11px;font-weight:600;color:${c.fgSecondary};text-transform:uppercase;letter-spacing:0.5px;margin-top:${nameSegments.length > 0 ? '4px' : '0'};`
-    textLabel.textContent = '评论'
+    textLabel.textContent = t('pickerPage.reply')
     panel.appendChild(textLabel)
 
     const textChips = document.createElement('div')
@@ -273,12 +274,12 @@ export function showPickerPanel(article: HTMLElement) {
   // ── 手动输入 ──
   const manualLabel = document.createElement('div')
   manualLabel.style.cssText = `font-size:12px;color:${c.fgSecondary};`
-  manualLabel.textContent = '手动输入（逗号分隔，回车添加）:'
+  manualLabel.textContent = t('pickerPage.manual')
   panel.appendChild(manualLabel)
 
   const manualInput = document.createElement('input')
   manualInput.type = 'text'
-  manualInput.placeholder = '输入关键词后按 Enter 添加…'
+  manualInput.placeholder = t('pickerPage.manualPlaceholder')
   manualInput.style.cssText = [
     'width:100%',
     'padding:8px 12px',
@@ -326,7 +327,7 @@ export function showPickerPanel(article: HTMLElement) {
   // ── 已选区域 ──
   const selectedLabel = document.createElement('div')
   selectedLabel.style.cssText = `font-size:12px;font-weight:600;color:${c.fgSecondary};margin-top:8px;`
-  selectedLabel.textContent = '待添加 0 个词'
+  selectedLabel.textContent = t('pickerPage.selected', { count: 0 })
   panel.appendChild(selectedLabel)
 
   const selectedContainer = document.createElement('div')
@@ -342,7 +343,7 @@ export function showPickerPanel(article: HTMLElement) {
   panel.appendChild(selectedContainer)
 
   const emptyState = document.createElement('span')
-  emptyState.textContent = '暂无选词'
+  emptyState.textContent = t('pickerPage.empty')
   emptyState.style.cssText = `font-size:12px;color:${c.fgSecondary};padding:4px;text-align:center;margin: 4px auto;display:block;`
   selectedContainer.appendChild(emptyState)
 
@@ -358,7 +359,7 @@ export function showPickerPanel(article: HTMLElement) {
 
   function updateSelectedDisplay() {
     const count = selectedSet.size
-    selectedLabel.textContent = `待添加 ${count} 个词`
+    selectedLabel.textContent = t('pickerPage.selected', { count })
     selectedContainer.style.padding = count ? '8px' : '0'
     emptyState.style.display = count ? 'none' : 'block'
 
@@ -378,7 +379,7 @@ export function showPickerPanel(article: HTMLElement) {
       tag.textContent = text + ' ✕'
       tag.setAttribute('role', 'button')
       tag.setAttribute('tabindex', '0')
-      tag.ariaLabel = `移除 "${text}"`
+      tag.ariaLabel = t('pickerPage.removeWord', { word: text })
       tag.style.cssText = [
         'display:inline-flex',
         'align-items:center',
@@ -421,7 +422,7 @@ export function showPickerPanel(article: HTMLElement) {
   actions.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:4px;'
 
   const cancelBtn = document.createElement('button')
-  cancelBtn.textContent = '取消'
+  cancelBtn.textContent = t('pickerPage.cancel')
   cancelBtn.style.cssText = [
     'padding:8px 16px',
     'border-radius:9999px',
@@ -440,7 +441,7 @@ export function showPickerPanel(article: HTMLElement) {
   actions.appendChild(cancelBtn)
 
   const addBtn = document.createElement('button')
-  addBtn.textContent = '添加并扫描'
+  addBtn.textContent = t('pickerPage.addAndScan')
   addBtn.style.cssText = [
     'padding:8px 16px',
     'border-radius:9999px',
@@ -472,10 +473,10 @@ export function showPickerPanel(article: HTMLElement) {
 
     const added = await addKeywords([...selectedWords])
     if (added.length === 0) {
-      addBtn.textContent = '词已在词库中'
+      addBtn.textContent = t('pickerPage.alreadyIn')
       addBtn.style.background = 'rgb(83,100,113)'
     } else {
-      addBtn.textContent = `✓ 已添加 ${added.length} 个词`
+      addBtn.textContent = `✓ ${t('pickerPage.added', { count: added.length })}`
       addBtn.style.background = 'rgb(0,186,124)'
     }
     addBtn.disabled = true

@@ -52,6 +52,21 @@ jobs:
           2. 在 `chrome://extensions` 点 oh-my-x 卡片上的刷新按钮
 
           换文件夹位置，或点「移除」后重新加载，Chrome 会当成新扩展，设置和拦截记录都会清空。
+
+          ---
+
+          ## Install
+
+          1. Download `oh-my-x-chrome-mv3.zip` below and unzip it to get the `chrome-mv3` folder. Keep it in a fixed place and don't move it later
+          2. Open `chrome://extensions` and turn on Developer mode at the top right
+          3. Click Load unpacked and select the `chrome-mv3` folder
+
+          ## Update
+
+          1. Unzip the new version and overwrite the files in your existing `chrome-mv3` folder
+          2. Click the reload button on the oh-my-x card in `chrome://extensions`
+
+          If you move the folder, or click Remove and load it again, Chrome treats it as a new extension and clears your settings and block log.
           EOF
           gh release create "$GITHUB_REF_NAME" oh-my-x-chrome-mv3.zip \
             --title "$GITHUB_REF_NAME" \

@@ -71,7 +71,7 @@ describe('requestProfileActivityFromPage', () => {
     const result = await settled(requestProfileActivityFromPage(createProfileActivityBridgeOptions('alice', 7)))
     reply({ type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: sentRequest().requestId })
     await vi.advanceTimersByTimeAsync(120000)
-    expect(result()).toEqual({ ok: false, error: '后台抓取响应超时' })
+    expect(result()).toEqual({ ok: false, error: { code: 'error.pageFetchTimeout' } })
   })
 
   it('忽略其他请求或没有桥接标记的消息', async () => {

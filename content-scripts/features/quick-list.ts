@@ -13,6 +13,8 @@ import {
 } from '../../shared/quick-list'
 import { getStorage, setStorage } from '../utilities/storage'
 import { ACCENT, ACCENT_TEXT, getThemeColors } from '../utilities/colors'
+import { t } from '../../shared/i18n'
+import { errorText } from '../../shared/errors'
 
 const BTN_CLASS = 'xf-quick-list-btn'
 const NAV_CLASS = 'xf-quick-list-nav-entry'
@@ -366,10 +368,10 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
 
   panel.innerHTML = `
     <div class="xf-ql-panel-title">
-      <span>加入 @${escapeHtml(handle)} 到…</span>
+      <span>${t('qlPage.addTo', { handle: escapeHtml(handle) })}</span>
     </div>
     <div class="xf-ql-panel-body">
-      <div class="xf-ql-panel-loading">正在读取 Lists…</div>
+      <div class="xf-ql-panel-loading">${t('qlPage.reading')}</div>
     </div>
   `
   document.body.appendChild(panel)
@@ -394,9 +396,9 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
   if (!lists.length) {
     body.innerHTML = `
       <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); text-align: center;">
-        <div style="margin-bottom: 8px;">还没有配置 List</div>
+        <div style="margin-bottom: 8px;">${t('qlPage.noLists')}</div>
         <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: ${ACCENT}; color: ${ACCENT_TEXT}; border: none; cursor: pointer; transition: opacity 0.15s ease;">
-          从 X 一键同步 Lists
+          ${t('qlPage.syncFromX')}
         </button>
       </div>
     `
@@ -404,24 +406,24 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
     if (syncBtn) {
       syncBtn.addEventListener('click', async () => {
         syncBtn.disabled = true
-        syncBtn.innerHTML = '<span class="xf-ql-spinner" style="margin-right: 4px; vertical-align: middle;"></span> 同步中…'
+        syncBtn.innerHTML = `<span class="xf-ql-spinner" style="margin-right: 4px; vertical-align: middle;"></span> ${t('qlPage.syncing')}`
         try {
           const res = await browser.runtime.sendMessage({ type: 'XF_FETCH_OWNED_LISTS' })
           if (res?.ok && Array.isArray(res.lists) && res.lists.length > 0) {
             const clean = toPlainQuickLists(res.lists)
             await setStorage({ [KeyQuickLists]: clean })
-            showQuickListToast(`已成功同步 ${clean.length} 个 Lists`, true)
+            showQuickListToast(t('qlPage.synced', { count: clean.length }), true)
             closeQuickListMenu()
             toggleQuickListMenu(btn, handle, userId)
           } else {
             syncBtn.disabled = false
-            syncBtn.textContent = '未找到 Lists，点击重试'
-            showQuickListToast(res?.error || '未拉取到 Lists，请确认已在 X 登录且创建了 List', false)
+            syncBtn.textContent = t('qlPage.noneFoundRetry')
+            showQuickListToast(errorText(res?.error) || t('qlPage.noneFetchedOwned'), false)
           }
         } catch (e: any) {
           syncBtn.disabled = false
-          syncBtn.textContent = '同步失败，点击重试'
-          showQuickListToast('同步异常：' + (e?.message || '未知错误'), false)
+          syncBtn.textContent = t('qlPage.syncFailedRetry')
+          showQuickListToast(t('qlPage.syncError', { reason: errorText(e) || t('qlPage.unknownError') }), false)
         }
       })
     }
@@ -432,9 +434,7 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
   if (!ownedLists.length) {
     body.innerHTML = `
       <div class="xf-ql-panel-empty" style="color: var(--secondary-text-color, #71767b); font-size: 13px; line-height: 1.5; text-align: center;">
-        您目前仅同步了关注的 List。<br>
-        X 限制只能向<strong>自己创建的 List</strong> 添加成员。<br>
-        可在插件设置中创建或添加自己的 List。
+        ${t('qlPage.onlyFollowedHtml')}
       </div>
     `
     return
@@ -471,7 +471,7 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
           }
           closeQuickListMenu()
           showQuickListToast(
-            res.already ? `@${handle} 已在「${l.name}」中` : `已加入「${l.name}」`,
+            res.already ? t('qlPage.alreadyIn', { handle, name: l.name }) : t('qlPage.added', { name: l.name }),
             true,
           )
         } else {
@@ -479,14 +479,14 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
           if (state) {
             state.innerHTML = '<span style="color: rgb(244, 33, 46)">✗</span>'
           }
-          showQuickListToast(`加入失败：${res?.error || '未知错误'}`, false)
+          showQuickListToast(t('qlPage.addFailed', { reason: errorText(res?.error) || t('qlPage.unknownError') }), false)
         }
       } catch (e: any) {
         item.dataset.loading = '0'
         if (state) {
           state.innerHTML = '<span style="color: rgb(244, 33, 46)">✗</span>'
         }
-        showQuickListToast(`加入失败：${e?.message || '未知错误'}`, false)
+        showQuickListToast(t('qlPage.addFailed', { reason: errorText(e) || t('qlPage.unknownError') }), false)
       }
     })
 
@@ -497,8 +497,8 @@ async function toggleQuickListMenu(btn: HTMLElement, handle: string, userId: str
   foot.className = 'xf-ql-panel-foot'
   foot.style.color = 'var(--secondary-text-color, #71767b)'
   foot.textContent = lists.some((l) => l.isOwned === false)
-    ? '已自动过滤关注列表（仅限自己创建的列表）'
-    : '可在插件弹窗中增删或同步 Lists'
+    ? t('qlPage.followedFiltered')
+    : t('qlPage.manageInPopup')
   panel.appendChild(foot)
 }
 
@@ -531,7 +531,7 @@ export function scanAndInjectHoverCards(enabled = true) {
 
     const btn = document.createElement('button')
     btn.className = BTN_CLASS
-    btn.title = `加入 List (@${handle})`
+    btn.title = t('qlPage.addButtonTitle', { handle })
     btn.innerHTML = `
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
         <path d="M12 5v14M5 12h14"/>
@@ -668,9 +668,9 @@ async function toggleNavPanel(entryEl: HTMLElement) {
   applyPanelTheme(navPanelEl)
 
   navPanelEl.innerHTML = `
-    <div class="xf-ql-panel-title">我的 Lists</div>
+    <div class="xf-ql-panel-title">${t('qlPage.myLists')}</div>
     <div class="xf-ql-panel-filters-container"></div>
-    <div class="xf-ql-panel-body"><div class="xf-ql-panel-loading">加载中…</div></div>
+    <div class="xf-ql-panel-body"><div class="xf-ql-panel-loading">${t('qlPage.loading')}</div></div>
   `
   document.body.appendChild(navPanelEl)
   navPanelAnchor = entryEl
@@ -689,9 +689,9 @@ async function toggleNavPanel(entryEl: HTMLElement) {
   if (!lists.length) {
     body.innerHTML = `
       <div class="xf-ql-panel-empty" style="color: var(--xf-ql-fg2); text-align: center;">
-        <div style="margin-bottom: 8px;">还没有配置 List</div>
+        <div style="margin-bottom: 8px;">${t('qlPage.noLists')}</div>
         <button class="xf-ql-sync-btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 9999px; background-color: ${ACCENT}; color: ${ACCENT_TEXT}; border: none; cursor: pointer; transition: opacity 0.15s ease;">
-          从 X 一键同步 Lists
+          ${t('qlPage.syncFromX')}
         </button>
       </div>
     `
@@ -699,24 +699,24 @@ async function toggleNavPanel(entryEl: HTMLElement) {
     if (syncBtn) {
       syncBtn.addEventListener('click', async () => {
         syncBtn.disabled = true
-        syncBtn.innerHTML = '<span class="xf-ql-spinner" style="margin-right: 4px; vertical-align: middle;"></span> 同步中…'
+        syncBtn.innerHTML = `<span class="xf-ql-spinner" style="margin-right: 4px; vertical-align: middle;"></span> ${t('qlPage.syncing')}`
         try {
           const res = await browser.runtime.sendMessage({ type: 'XF_FETCH_OWNED_LISTS' })
           if (res?.ok && Array.isArray(res.lists) && res.lists.length > 0) {
             const clean = toPlainQuickLists(res.lists)
             await setStorage({ [KeyQuickLists]: clean })
-            showQuickListToast(`已成功同步 ${clean.length} 个 Lists`, true)
+            showQuickListToast(t('qlPage.synced', { count: clean.length }), true)
             closeNavPanel()
             void toggleNavPanel(entryEl)
           } else {
             syncBtn.disabled = false
-            syncBtn.textContent = '未找到 Lists，点击重试'
-            showQuickListToast(res?.error || '未拉取到 Lists，请确认已在 X 登录且创建或关注了 List', false)
+            syncBtn.textContent = t('qlPage.noneFoundRetry')
+            showQuickListToast(errorText(res?.error) || t('qlPage.noneFetched'), false)
           }
         } catch (e: any) {
           syncBtn.disabled = false
-          syncBtn.textContent = '同步失败，点击重试'
-          showQuickListToast('同步异常：' + (e?.message || '未知错误'), false)
+          syncBtn.textContent = t('qlPage.syncFailedRetry')
+          showQuickListToast(t('qlPage.syncError', { reason: errorText(e) || t('qlPage.unknownError') }), false)
         }
       })
     }
@@ -738,7 +738,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
     if (!sorted.length) {
       body.innerHTML = `
         <div class="xf-ql-panel-empty" style="color: var(--xf-ql-fg2); text-align: center;">
-          暂无对应分类的 List
+          ${t('qlPage.emptyFilter')}
         </div>
       `
       positionNavPanel()
@@ -760,16 +760,16 @@ async function toggleNavPanel(entryEl: HTMLElement) {
 
       // 「关注」标签页里每行都是关注的，不再重复标
       const tagHtml = l.isOwned === false && activeTab !== 'followed'
-        ? `<span class="xf-ql-tag" title="${l.ownerHandle ? '创建者：@' + escapeHtml(l.ownerHandle) : '关注的列表'}">关注</span>`
+        ? `<span class="xf-ql-tag" title="${l.ownerHandle ? t('qlPage.ownerTitle', { handle: escapeHtml(l.ownerHandle) }) : t('qlPage.followedTitle')}">${t('qlPage.followedTag')}</span>`
         : ''
-      const pinLabel = l.isPinned ? '取消置顶' : '置顶'
+      const pinLabel = l.isPinned ? t('qlPage.unpin') : t('qlPage.pin')
 
       a.innerHTML = `
         <span class="xf-ql-item-main">
           <span class="xf-ql-item-name">${escapeHtml(l.name)}</span>
           ${tagHtml}
         </span>
-        <button type="button" class="xf-ql-pin-btn${l.isPinned ? ' pinned' : ''}" aria-pressed="${Boolean(l.isPinned)}" aria-label="${pinLabel}「${escapeHtml(l.name)}」" title="${pinLabel}">
+        <button type="button" class="xf-ql-pin-btn${l.isPinned ? ' pinned' : ''}" aria-pressed="${Boolean(l.isPinned)}" aria-label="${t('qlPage.pinAction', { action: pinLabel, name: escapeHtml(l.name) })}" title="${pinLabel}">
           ${pinIconSvg(Boolean(l.isPinned))}
         </button>
       `
@@ -792,7 +792,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
           e.stopPropagation()
           l.isPinned = !l.isPinned
           await setStorage({ [KeyQuickLists]: toPlainQuickLists(lists) })
-          showQuickListToast(l.isPinned ? `已置顶「${l.name}」` : `已取消置顶「${l.name}」`, true)
+          showQuickListToast(t(l.isPinned ? 'qlPage.pinned' : 'qlPage.unpinned', { name: l.name }), true)
           renderFilters()
           renderLists()
         })
@@ -813,10 +813,10 @@ async function toggleNavPanel(entryEl: HTMLElement) {
     }
 
     const tabs: { id: 'all' | 'pinned' | 'owned' | 'followed'; label: string; count: number; show: boolean }[] = [
-      { id: 'all', label: '全部', count: lists.length, show: true },
-      { id: 'pinned', label: '置顶', count: lists.filter(l => l.isPinned).length, show: hasPinned },
-      { id: 'owned', label: '创建', count: lists.filter(l => l.isOwned !== false).length, show: true },
-      { id: 'followed', label: '关注', count: lists.filter(l => l.isOwned === false).length, show: hasFollowed },
+      { id: 'all', label: t('qlPage.filterAll'), count: lists.length, show: true },
+      { id: 'pinned', label: t('qlPage.filterPinned'), count: lists.filter(l => l.isPinned).length, show: hasPinned },
+      { id: 'owned', label: t('qlPage.filterOwned'), count: lists.filter(l => l.isOwned !== false).length, show: true },
+      { id: 'followed', label: t('qlPage.filterFollowed'), count: lists.filter(l => l.isOwned === false).length, show: hasFollowed },
     ]
 
     filtersContainer.innerHTML = `
@@ -935,7 +935,7 @@ function syncNavEntryLayout(entry: HTMLElement, expanded: boolean, refLink: HTML
     if (expanded) {
       textInfo.container.style.display = ''
       textInfo.container.style.visibility = ''
-      textInfo.textSpan.textContent = '我的 Lists'
+      textInfo.textSpan.textContent = t('qlPage.myLists')
       textInfo.textSpan.style.fontWeight = '400'
     } else {
       textInfo.container.style.display = 'none'
@@ -945,7 +945,7 @@ function syncNavEntryLayout(entry: HTMLElement, expanded: boolean, refLink: HTML
     textContainer.setAttribute('dir', 'ltr')
     textContainer.style.marginLeft = '16px'
     const span = document.createElement('span')
-    span.textContent = '我的 Lists'
+    span.textContent = t('qlPage.myLists')
     span.style.fontWeight = '400'
     textContainer.appendChild(span)
     pill.appendChild(textContainer)
@@ -958,8 +958,8 @@ function createQuickListNavNode(
 ): HTMLAnchorElement {
   const newNode = refNode.cloneNode(true) as HTMLAnchorElement
   newNode.href = '/i/lists'
-  newNode.setAttribute('aria-label', '我的 Lists')
-  newNode.setAttribute('title', '我的 Lists')
+  newNode.setAttribute('aria-label', t('qlPage.myLists'))
+  newNode.setAttribute('title', t('qlPage.myLists'))
   newNode.removeAttribute('data-testid')
   newNode.removeAttribute('aria-current')
   newNode.classList.add(NAV_CLASS)

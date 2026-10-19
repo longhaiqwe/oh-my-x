@@ -10,13 +10,20 @@ import {
   KeyProfileButton,
   KeyXPremiumButton,
 } from '../storage-keys'
+import { t, type Locale, type MessageKey } from './i18n'
 
 export interface StaticNavItem {
   id: string
   storageKey: string
+  /** X 中文界面里的入口名，content-scripts/options/more-menu.ts 用它匹配「更多」菜单项；弹窗显示用 navItemName() */
   label: string
   viewBox: string
   innerHTML: string
+}
+
+/** 弹窗「导航栏按钮」里显示的按钮名，跟随插件语言 */
+export function navItemName(id: string, locale?: Locale): string {
+  return t(`navItem.${id}` as MessageKey, undefined, locale)
 }
 
 export const STATIC_NAV_ITEMS: StaticNavItem[] = [

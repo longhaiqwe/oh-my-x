@@ -105,6 +105,17 @@ it('注入也失败时，才提示无法连接当前页面', async () => {
   expect(root.textContent).toContain('无法连接当前页面，请刷新后重试')
 })
 
+it('当前页不是 X（如授权过的 AI 服务网址）时不注入', async () => {
+  ;(globalThis as any).browser.tabs.query.mockResolvedValue([{ id: 9, url: 'https://ai.example/Alice' }])
+  sendMessage.mockRejectedValue(new Error('Could not establish connection. Receiving end does not exist.'))
+
+  scanButton().click()
+  await settle()
+
+  expect(executeScript).not.toHaveBeenCalled()
+  expect(root.textContent).toContain('请在博主个人主页使用此功能')
+})
+
 it('页面能收到消息时，照常走内容脚本，不注入', async () => {
   sendMessage.mockResolvedValue({
     ok: true,

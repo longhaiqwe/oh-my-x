@@ -2,6 +2,8 @@ import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, aiPermissionOrigin, type AiRequ
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
 import { migrateSpamStorage } from '../shared/spam-migration'
+import { getLocale, initI18n, type Locale } from '../shared/i18n'
+import { AppError, toTransferable, type TransferableError } from '../shared/errors'
 import type { QuickListItem } from '../shared/quick-list'
 import {
   KeyAiRepostApiKey,
@@ -178,9 +180,9 @@ async function fetchTweetMediaById(tweetId: string): Promise<ExtractedTweetMedia
 async function downloadMediaFile(
   url: string,
   filename?: string,
-): Promise<{ ok: boolean; downloadId?: number; error?: string }> {
+): Promise<{ ok: boolean; downloadId?: number; error?: TransferableError }> {
   try {
-    if (!url) throw new Error('缺少有效下载地址')
+    if (!url) throw new AppError('error.downloadNoUrl')
     const downloadId = await browser.downloads.download({
       url,
       filename: filename || undefined,
@@ -188,7 +190,7 @@ async function downloadMediaFile(
     })
     return { ok: true, downloadId }
   } catch (e: any) {
-    return { ok: false, error: e?.message || String(e) }
+    return { ok: false, error: toTransferable(e) ?? String(e) }
   }
 }
 
@@ -201,6 +203,7 @@ async function callAiRepostApi(
     model?: string
     customPrompt?: string
   },
+  locale: Locale = getLocale(),
 ): Promise<AiRepostOptionsResult> {
   const stored = await browser.storage.local.get([
     KeyAiRepostBaseUrl,
@@ -229,10 +232,10 @@ async function callAiRepostApi(
   ).trim()
 
   if (!apiKey) {
-    throw new Error('请先配置 AI API Key')
+    throw new AppError('error.aiNoKey')
   }
   if (!model) {
-    throw new Error('请先配置 AI 模型名称（Model）')
+    throw new AppError('error.aiNoModel')
   }
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
@@ -241,7 +244,7 @@ async function callAiRepostApi(
     description: String(stored[KeyAiRepostStylePrompt] ?? ''),
     samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
   }
-  const messages = buildRepostMessages(source, customPrompt, style)
+  const messages = buildRepostMessages(source, customPrompt, style, locale)
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -270,7 +273,7 @@ async function callAiRepostApi(
   if (!res.ok) {
     const errDetail =
       json?.error?.message || json?.message || rawText.slice(0, 200) || `HTTP ${res.status}`
-    throw new Error(`AI 接口调用失败 (${res.status}): ${errDetail}`)
+    throw new AppError('error.aiHttp', { status: res.status, detail: errDetail })
   }
 
   const content =
@@ -278,7 +281,7 @@ async function callAiRepostApi(
     json?.choices?.[0]?.text ??
     json?.output_text ??
     ''
-  return parseAiRepostResponse(String(content))
+  return parseAiRepostResponse(String(content), locale)
 }
 
 async function testAiConnection(config: {
@@ -292,8 +295,8 @@ async function testAiConnection(config: {
   const apiKey = String(config.apiKey || '').trim()
   const model = String(config.model || defaultPreferences[KeyAiRepostModel]).trim()
 
-  if (!apiKey) throw new Error('请填写 API Key')
-  if (!model) throw new Error('请填写模型名称')
+  if (!apiKey) throw new AppError('error.aiKeyRequired')
+  if (!model) throw new AppError('error.aiModelRequired')
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
   await requireAiPermission(baseUrl, signal)
@@ -324,7 +327,7 @@ async function testAiConnection(config: {
   if (!res.ok) {
     const errDetail =
       json?.error?.message || json?.message || rawText.slice(0, 200) || `HTTP ${res.status}`
-    throw new Error(`连接失败 (${res.status}): ${errDetail}`)
+    throw new AppError('error.aiConnectHttp', { status: res.status, detail: errDetail })
   }
 
   return { ok: true, model: json?.model || model }
@@ -332,7 +335,7 @@ async function testAiConnection(config: {
 
 async function addMemberToList(listId: string, handle: string, userId: string): Promise<{ ok: boolean; already?: boolean }> {
   if (!userId) {
-    throw new Error('没能从页面读取到 @' + handle + ' 的用户 ID，请刷新页面后重试')
+    throw new AppError('error.userIdMissing', { handle })
   }
 
   const body = new URLSearchParams({
@@ -422,7 +425,7 @@ async function fetchAllUserLists(): Promise<QuickListItem[]> {
     const ownedErr = ownedRes.status === 'fulfilled' && !ownedRes.value.ok ? ownedRes.value.status : null
     const subErr = subRes.status === 'fulfilled' && !subRes.value.ok ? subRes.value.status : null
     if (ownedErr || subErr) {
-      throw new Error(`获取 Lists 失败 (HTTP ${ownedErr || subErr})，请确认已在当前浏览器登录 x.com`)
+      throw new AppError('error.listsHttp', { status: String(ownedErr || subErr) })
     }
   }
 
@@ -473,25 +476,27 @@ async function requireAiPermission(baseUrl: string, signal: AbortSignal): Promis
   signal.throwIfAborted()
   const granted = await browser.permissions.contains({ origins: [aiPermissionOrigin(baseUrl)] })
   signal.throwIfAborted()
-  if (!granted) throw new Error('请打开扩展设置 → 视图 → AI 总结转发，点击“授权并测试连接”，授权当前 AI 服务地址后重试')
+  if (!granted) throw new AppError('error.aiNotAuthorized')
 }
 
 async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promise<AiResponse> {
   signal.throwIfAborted()
   switch (message.type) {
     case 'XF_GENERATE_REPOST_OPTIONS':
-      return { ok: true, ...await callAiRepostApi(message.source, signal, message.overrideConfig) }
+      return { ok: true, ...await callAiRepostApi(message.source, signal, message.overrideConfig, message.locale === 'en' || message.locale === 'zh-CN' ? message.locale : getLocale()) }
     case 'XF_TEST_AI_CONNECTION':
       return await testAiConnection(message.config || {}, signal)
     case 'XF_FETCH_TWEET_FULL_TEXT': {
       const source = await fetchTweetFullContentById(String(message.tweetId || ''), signal)
       return { ok: Boolean(source), source }
     }
-    default: throw new Error('不支持的 AI 请求')
+    default: throw new AppError('error.aiUnsupported')
   }
 }
 
 export default defineBackground(() => {
+  void initI18n()
+
   browser.runtime.onConnect.addListener(port => {
     if (port.name !== AI_REQUEST_PORT) return
     const sender = port.sender
@@ -506,7 +511,7 @@ export default defineBackground(() => {
     const onDisconnect = () => {
       closed = true
       clearTimeout(timer)
-      controller.abort(new Error('请求已取消'))
+      controller.abort(new AppError('error.requestCancelled'))
     }
     port.onDisconnect.addListener(onDisconnect)
     port.onMessage.addListener((message: AiRequest) => {
@@ -515,9 +520,9 @@ export default defineBackground(() => {
       const aborted = new Promise<never>((_, reject) => {
         controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
       })
-      timer = setTimeout(() => controller.abort(new Error('AI 请求超时（25 秒），请检查网络或稍后重试')), AI_REQUEST_TIMEOUT_MS)
+      timer = setTimeout(() => controller.abort(new AppError('error.aiTimeout', { seconds: AI_REQUEST_TIMEOUT_MS / 1000 })), AI_REQUEST_TIMEOUT_MS)
       void Promise.race([executeAiRequest(message, controller.signal), aborted])
-        .catch(error => ({ ok: false, error: error instanceof Error ? error.message : 'AI 请求失败' }))
+        .catch(error => ({ ok: false, error: toTransferable(error, 'error.aiFailed') }))
         .then(response => {
           clearTimeout(timer)
           if (!closed) {
@@ -544,12 +549,12 @@ export default defineBackground(() => {
     void (async()=>{
       try {
         const url = new URL(sender.url || '')
-        if(url.protocol!=='https:' || !['x.com','twitter.com','mobile.twitter.com','pro.x.com'].includes(url.hostname)) throw new Error('无效的缓存请求来源')
+        if(url.protocol!=='https:' || !['x.com','twitter.com','mobile.twitter.com','pro.x.com'].includes(url.hostname)) throw new AppError('error.libraryBadSource')
         const cookie = await browser.cookies.get({url:url.origin,name:'twid'})
         const account = decodeURIComponent(cookie?.value || '').replace(/"/g,'').match(/^u=(\d+)$/)?.[1]
-        if(!account || account!==message.account) throw new Error('当前账号已变化，请重新打开选择器')
+        if(!account || account!==message.account) throw new AppError('error.accountChanged')
         respond({ok:true,result:await library(message)})
-      } catch(error) {respond({ok:false,error:error instanceof Error?error.message:'本地缓存不可用'})}
+      } catch(error) {respond({ok:false,error:toTransferable(error, 'error.libraryUnavailable')})}
     })()
     return true
   })
@@ -580,7 +585,7 @@ export default defineBackground(() => {
           const lists = await fetchAllUserLists()
           sendResponse({ ok: true, lists })
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -592,7 +597,7 @@ export default defineBackground(() => {
           const result = await addMemberToList(msg.listId, msg.handle, msg.userId)
           sendResponse({ ok: true, already: result.already })
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -604,7 +609,7 @@ export default defineBackground(() => {
           const source = await fetchTweetFullContentById(String(msg.tweetId || ''))
           sendResponse({ ok: Boolean(source), source })
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -616,7 +621,7 @@ export default defineBackground(() => {
           const media = await fetchTweetMediaById(String(msg.tweetId || ''))
           sendResponse({ ok: Boolean(media), media })
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -628,7 +633,7 @@ export default defineBackground(() => {
           const result = await downloadMediaFile(String(msg.url || ''), msg.filename ? String(msg.filename) : undefined)
           sendResponse(result)
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -640,7 +645,7 @@ export default defineBackground(() => {
           const stats = await fetchCreatorRewardsFromApi()
           sendResponse({ ok: Boolean(stats), stats })
         } catch (e: any) {
-          sendResponse({ ok: false, error: e?.message || String(e) })
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
         }
       })()
       return true
@@ -651,7 +656,7 @@ export default defineBackground(() => {
 async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null> {
   const csrf = await getCsrfToken()
   if (!csrf) {
-    throw new Error('未检测到有效的 X 登录会话（缺少 ct0 CSRF Token）')
+    throw new AppError('error.noXSession')
   }
 
   const url = 'https://x.com/i/jfapi/creators/original_content_rewards'
@@ -671,13 +676,13 @@ async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null>
   })
 
   if (!res.ok) {
-    throw new Error(`获取创作者奖励数据失败 (HTTP ${res.status})`)
+    throw new AppError('error.rewardsHttp', { status: res.status })
   }
 
   const arrayBuffer = await res.arrayBuffer()
   const stats = parseCreatorRewardsPayload(arrayBuffer)
   if (!stats) {
-    throw new Error('未能从接口响应中解析出创作者奖励进度数值')
+    throw new AppError('error.rewardsParse')
   }
 
   try {

@@ -301,7 +301,7 @@ export function formatBookmarkCount(count: number, locale = 'zh'): string {
   if (!count || count <= 0 || isNaN(count)) return ''
 
   if (count < 10000) {
-    return count.toLocaleString('zh-CN')
+    return count.toLocaleString(locale.startsWith('zh') ? 'zh-CN' : 'en')
   }
 
   if (locale.startsWith('zh')) {

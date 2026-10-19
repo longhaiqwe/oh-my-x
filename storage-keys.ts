@@ -1,5 +1,6 @@
 // Individual key exports (matching original storage-keys.js)
 export const KeyExtensionStatus = 'extensionStatus'
+export const KeyUiLanguage = 'uiLanguage' // 界面语言：auto（跟随浏览器）/ zh-CN / en
 export const KeyListsButton = 'listsButton'
 export const KeyCommunitiesButton = 'communitiesButton'
 export const KeyTopicsButton = 'topicsButton'
@@ -98,6 +99,7 @@ export const KeyAiRepostStyleSamples = 'aiRepostStyleSamples' // 自己写过的
 
 export const allSettingsKeys = [
   KeyExtensionStatus,
+  KeyUiLanguage,
   KeyTimelineWidth,
   KeyNavigationButtonsLabels,
   KeyNavigationWidth,
@@ -266,8 +268,66 @@ export const defaultTweetFilterKeywords = [
   '暴论一下',
 ]
 
+// 英文界面的默认垃圾词：英文引流号常用的说法。词会先去掉空格和标点再匹配，
+// 所以不收太短或去掉标点后会变成纯数字的词（如 18+ 会变成 18）
+export const defaultSpamKeywordsEn = [
+  'check my bio',
+  'link in bio',
+  'link in my bio',
+  'in my bio',
+  'check my profile',
+  'see my profile',
+  'visit my profile',
+  'click my profile',
+  'my pinned post',
+  'dm me',
+  'dm for',
+  'send me a dm',
+  'message me on',
+  'add me on',
+  'whatsapp me',
+  'telegram me',
+  'onlyfans',
+  'only fans',
+  'nudes',
+  'sexting',
+  'hookup',
+  'hook up tonight',
+  'lonely tonight',
+  'horny',
+  '🔞',
+  'free crypto',
+  'crypto signals',
+  'trading signals',
+  'forex signals',
+  'claim your reward',
+  'claim your airdrop',
+  'earn daily',
+  'guaranteed profit',
+]
+
+// 英文界面的默认推文屏蔽词，对应中文的「说个暴论」
+export const defaultTweetFilterKeywordsEn = [
+  'hot take',
+  'unpopular opinion',
+  'controversial take',
+  'spicy take',
+]
+
+/** 按插件界面语言取默认垃圾词库；locale 由调用方传（本文件不能引用 shared/i18n，会循环引用） */
+export function getDefaultSpamKeywords(locale: string): string[] {
+  return locale === 'en' ? defaultSpamKeywordsEn : defaultSpamKeywords
+}
+
+/** 按插件界面语言取默认推文屏蔽词 */
+export function getDefaultTweetFilterKeywords(locale: string): string[] {
+  return locale === 'en' ? defaultTweetFilterKeywordsEn : defaultTweetFilterKeywords
+}
+
+// 存储里还没有词库时的兜底值是中文；英文界面的新用户在安装时由 shared/spam-migration.ts 写入英文词库
 export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyExtensionStatus]: 'on',
+  [KeyUiLanguage]: 'auto',
   [KeyTimelineWidth]: 700,
   [KeyNavigationButtonsLabels]: 'always',
   [KeyNavigationWidth]: 275,

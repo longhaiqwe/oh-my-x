@@ -78,29 +78,29 @@ describe('createScheduledFetcher', () => {
   it('找不到接口编号时提示先打开排期列表', async () => {
     const { fetch, resolveQueryId, load } = setup()
     resolveQueryId.mockResolvedValue(null)
-    await expect(load()).rejects.toThrow('打开一次排期列表')
+    await expect(load()).rejects.toMatchObject({ code: 'error.scheduleEndpointMissing' })
     expect(fetch).not.toHaveBeenCalled()
   })
 
   it('接口编号失效（404）时清掉记下的请求', async () => {
     const { fetch, forgetCapturedRequest, load } = setup({ queryId: 'oldQid', search: DEFAULT_SCHEDULED_SEARCH })
     fetch.mockResolvedValue(new Response('', { status: 404 }))
-    await expect(load()).rejects.toThrow('404')
+    await expect(load()).rejects.toMatchObject({ code: 'error.readHttp', params: { status: 404 } })
     expect(forgetCapturedRequest).toHaveBeenCalled()
   })
 
   it('被限流（429）后到解除前不再请求', async () => {
     const { fetch, load } = setup()
     fetch.mockResolvedValue(new Response('', { status: 429, headers: { 'retry-after': '60' } }))
-    await expect(load()).rejects.toThrow('频繁')
-    await expect(load()).rejects.toThrow('频繁')
+    await expect(load()).rejects.toMatchObject({ code: 'error.tooFrequent' })
+    await expect(load()).rejects.toMatchObject({ code: 'error.tooFrequent' })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('返回的数据里没有排期列表时报错，不当成空列表', async () => {
     const { fetch, load } = setup()
     fetch.mockResolvedValue(new Response(JSON.stringify({ errors: [{ message: 'failure' }] })))
-    await expect(load()).rejects.toThrow('没有排期列表')
+    await expect(load()).rejects.toMatchObject({ code: 'error.scheduleListMissing' })
   })
 
   it('同时多次请求只发一次', async () => {

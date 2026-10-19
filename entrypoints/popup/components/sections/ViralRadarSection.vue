@@ -24,21 +24,24 @@ import {
   type ViralHighlightStyle,
 } from '../../../../shared/settings'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+import { useI18n } from '../../composables/useI18n'
 import FeatureCard from '../ui/FeatureCard.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 
 type LevelKey = 'normal' | 'potential' | 'viral'
 
-const levelOptions: { key: LevelKey; label: string }[] = [
-  { key: 'normal', label: '普通' },
-  { key: 'potential', label: '潜力' },
-  { key: 'viral', label: '爆款' },
-]
+const { t, featureText } = useI18n()
 
-const styleOptions: { value: 'border' | 'background'; label: string }[] = [
-  { value: 'border', label: '边框' },
-  { value: 'background', label: '背景' },
-]
+const levelOptions = computed<{ key: LevelKey; label: string }[]>(() => [
+  { key: 'normal', label: t('viral.normal') },
+  { key: 'potential', label: t('viral.potential') },
+  { key: 'viral', label: t('viral.viral') },
+])
+
+const styleOptions = computed<{ value: 'border' | 'background'; label: string }[]>(() => [
+  { value: 'border', label: t('viral.border') },
+  { value: 'background', label: t('viral.background') },
+])
 
 const enabled = ref(true)
 const potentialThreshold = ref(1000)
@@ -126,7 +129,7 @@ async function handleReset() {
 
 async function toggleShowLevel(level: LevelKey, v: boolean) {
   showLevels.value = { ...showLevels.value, [level]: v }
-  const enabledList = levelOptions.filter((o) => showLevels.value[o.key]).map((o) => o.key)
+  const enabledList = levelOptions.value.filter((o) => showLevels.value[o.key]).map((o) => o.key)
   await setStorage({ [KeyViralShowLevels]: enabledList.join(',') })
 }
 
@@ -160,21 +163,21 @@ onMounted(refresh)
 </script>
 
 <template>
-  <FeatureCard feature-id="viralRadar" :enabled="enabled" details-label="阈值与样式">
+  <FeatureCard feature-id="viralRadar" :enabled="enabled" :details-label="t('viral.settings')">
     <template #control>
-      <SwitchToggle :model-value="enabled" label="爆款雷达" @update:model-value="toggleEnabled" />
+      <SwitchToggle :model-value="enabled" :label="featureText('viralRadar', 'label')" @update:model-value="toggleEnabled" />
     </template>
 
     <template #status>
-      潜力 ≥ {{ formatK(potentialThreshold) }}/h · 爆款 ≥ {{ formatK(viralThreshold) }}/h
+      {{ t('viral.status', { potential: formatK(potentialThreshold), viral: formatK(viralThreshold) }) }}
     </template>
 
     <template #details>
       <!-- 标注方式：标签 / 边框 / 背景，可多选 -->
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-xs font-normal text-text whitespace-nowrap">标注方式</p>
-          <p class="text-xs text-secondary-text mt-1 whitespace-nowrap">可多选</p>
+          <p class="text-xs font-normal text-text whitespace-nowrap">{{ t('viral.markStyle') }}</p>
+          <p class="text-xs text-secondary-text mt-1 whitespace-nowrap">{{ t('viral.multiSelect') }}</p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <label class="flex items-center gap-1 cursor-pointer select-none">
@@ -190,7 +193,7 @@ onMounted(refresh)
                 </svg>
               </CheckboxIndicator>
             </CheckboxRoot>
-            <span class="text-xs whitespace-nowrap" :class="showBadge ? 'text-text' : 'text-secondary-text'">标签</span>
+            <span class="text-xs whitespace-nowrap" :class="showBadge ? 'text-text' : 'text-secondary-text'">{{ t('viral.badge') }}</span>
           </label>
           <label
             v-for="opt in styleOptions"
@@ -218,7 +221,7 @@ onMounted(refresh)
 
       <!-- 显示标签的级别（勾选「标签」后出现） -->
       <div v-if="showBadge" class="flex items-center justify-between gap-3 pl-3 border-l-2 border-border">
-        <p class="text-xs font-normal text-text whitespace-nowrap">显示标签的级别</p>
+        <p class="text-xs font-normal text-text whitespace-nowrap">{{ t('viral.badgeLevels') }}</p>
         <div class="flex items-center gap-2 shrink-0">
           <label
             v-for="opt in levelOptions"
@@ -246,30 +249,30 @@ onMounted(refresh)
 
       <!-- 流速阈值 -->
       <div class="flex flex-col gap-2 pt-2 border-t border-border">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs font-normal text-text">流速阈值</p>
-            <p class="text-xs text-secondary-text mt-1">流速 = 当前浏览量 ÷ 发布后的小时数</p>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-normal text-text">{{ t('viral.thresholds') }}</p>
+            <p class="text-xs text-secondary-text mt-1">{{ t('viral.formula') }}</p>
           </div>
           <button
             type="button"
             @click="handleReset"
-            class="min-h-6 px-2 text-xs text-secondary-text hover:text-accent-text border border-border-strong hover:border-accent rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+            class="shrink-0 whitespace-nowrap min-h-6 px-2 text-xs text-secondary-text hover:text-accent-text border border-border-strong hover:border-accent rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           >
-            恢复默认
+            {{ t('common.resetDefaults') }}
           </button>
         </div>
 
         <div class="bg-sunken-bg rounded-control px-3 py-2 flex flex-col gap-2 text-xs">
           <div class="flex justify-between items-center">
             <span class="flex items-center gap-2 text-text">
-              <span class="w-2 h-2 rounded-full bg-level-normal"></span> 普通推文
+              <span class="w-2 h-2 rounded-full bg-level-normal"></span> {{ t('viral.normalPosts') }}
             </span>
             <span class="font-mono text-text">&lt; {{ formatK(potentialThreshold) }}/h</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="flex items-center gap-2 text-text">
-              <span class="w-2 h-2 rounded-full bg-level-potential"></span> 潜力推文
+              <span class="w-2 h-2 rounded-full bg-level-potential"></span> {{ t('viral.potentialPosts') }}
             </span>
             <span class="font-mono text-text">
               {{ formatK(potentialThreshold) }} ~ {{ formatK(viralThreshold) }}/h
@@ -277,7 +280,7 @@ onMounted(refresh)
           </div>
           <div class="flex justify-between items-center">
             <span class="flex items-center gap-2 text-text">
-              <span class="w-2 h-2 rounded-full bg-level-viral"></span> 爆款推文
+              <span class="w-2 h-2 rounded-full bg-level-viral"></span> {{ t('viral.viralPosts') }}
             </span>
             <span class="font-mono text-text">&ge; {{ formatK(viralThreshold) }}/h</span>
           </div>
@@ -290,7 +293,7 @@ onMounted(refresh)
             :min="0"
             :max="50000"
             :step="500"
-            aria-label="潜力和爆款流速阈值"
+            :aria-label="t('viral.slider')"
             class="relative flex items-center select-none touch-none w-full h-6 cursor-pointer"
           >
             <SliderTrack class="bg-border relative flex-grow rounded-full h-2 overflow-hidden flex">
@@ -298,8 +301,8 @@ onMounted(refresh)
               <div class="h-full bg-level-potential" :style="{ width: Math.max(0, viralPercent - potentialPercent) + '%' }" />
               <div class="h-full bg-level-viral" :style="{ width: Math.max(0, 100 - viralPercent) + '%' }" />
             </SliderTrack>
-            <SliderThumb class="block w-4 h-4 bg-switch-thumb border-2 border-level-potential rounded-full shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring" :aria-label="`潜力推文阈值 ${formatK(potentialThreshold)}/h`" />
-            <SliderThumb class="block w-4 h-4 bg-switch-thumb border-2 border-level-viral rounded-full shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring" :aria-label="`爆款推文阈值 ${formatK(viralThreshold)}/h`" />
+            <SliderThumb class="block w-4 h-4 bg-switch-thumb border-2 border-level-potential rounded-full shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring" :aria-label="t('viral.potentialThumb', { value: formatK(potentialThreshold) })" />
+            <SliderThumb class="block w-4 h-4 bg-switch-thumb border-2 border-level-viral rounded-full shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-ring" :aria-label="t('viral.viralThumb', { value: formatK(viralThreshold) })" />
           </SliderRoot>
           <div class="flex justify-between text-xs font-mono text-muted-text">
             <span>0</span>

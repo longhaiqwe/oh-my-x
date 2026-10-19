@@ -32,7 +32,9 @@ export default defineConfig({
   }),
   manifest: (env) => ({
     name: 'oh-my-x',
-    description: 'X/Twitter 界面定制、评论垃圾过滤、爆款雷达与效率辅助工具。',
+    // 描述按浏览器语言显示，文字在 public/_locales/<语言>/messages.json；其他语言的浏览器显示英文
+    description: '__MSG_extDescription__',
+    default_locale: 'en',
     // scripting：插件更新后已打开的页面收不到弹窗消息，博主活动度扫描要把抓取请求直接注入页面
     permissions: ['storage', 'cookies', 'alarms', 'downloads', 'scripting'],
     host_permissions: [

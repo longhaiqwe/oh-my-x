@@ -1,8 +1,12 @@
 import {
-  defaultSpamKeywords,
+  getDefaultSpamKeywords,
+  getDefaultTweetFilterKeywords,
   KeySpamKeywordList,
   KeySpamRulesEnabled,
+  KeyTweetFilterKeywords,
+  KeyUiLanguage,
 } from '../storage-keys'
+import { resolveLocale, type Locale } from './i18n'
 import { parseEnabledRules, parseKeywordList, serializeEnabledRules } from './spam-rules'
 import { SPAM_RULES } from './spam-types'
 
@@ -16,9 +20,10 @@ export interface MigrationResult {
 }
 
 /**
- * 比较并补充官方默认词库中缺失的新词，同时保留用户自行添加的词
+ * 比较并补充官方默认词库中缺失的新词，同时保留用户自行添加的词。
+ * 默认词库按插件界面语言取：中文界面补中文词，英文界面补英文词
  */
-export function mergeDefaultKeywords(existingList: string[]): {
+export function mergeDefaultKeywords(existingList: string[], locale: Locale = 'zh-CN'): {
   merged: string[]
   added: string[]
 } {
@@ -26,7 +31,7 @@ export function mergeDefaultKeywords(existingList: string[]): {
   const merged = [...existingList]
   const added: string[] = []
 
-  for (const kw of defaultSpamKeywords) {
+  for (const kw of getDefaultSpamKeywords(locale)) {
     if (!kw.trim()) continue
     if (!existingLowerSet.has(kw.trim().toLowerCase())) {
       merged.push(kw)
@@ -53,7 +58,11 @@ export async function migrateSpamStorage(): Promise<MigrationResult> {
       KeySpamKeywordList,
       KeySpamRulesEnabled,
       KEY_SPAM_CONFIG_VERSION,
+      KeyUiLanguage,
+      KeyTweetFilterKeywords,
     ])
+    // 安装时还没有语言设置，按浏览器语言；之后按用户选的界面语言
+    const locale = resolveLocale(data[KeyUiLanguage])
 
     const currentVersion = Number(data[KEY_SPAM_CONFIG_VERSION] ?? 0)
     if (currentVersion >= CURRENT_SPAM_CONFIG_VERSION) {
@@ -74,16 +83,22 @@ export async function migrateSpamStorage(): Promise<MigrationResult> {
       // 若用户不是明确清空成空字符串（长度 > 0），则进行增量合并
       if (storedStr.length > 0) {
         const existingList = parseKeywordList(storedStr)
-        const result = mergeDefaultKeywords(existingList)
+        const result = mergeDefaultKeywords(existingList, locale)
         if (result.added.length > 0) {
           updates[KeySpamKeywordList] = result.merged.join('\n')
           addedKeywords = result.added
         }
       }
     } else {
-      // 首次安装无词库记录，填充完整默认词库
-      updates[KeySpamKeywordList] = defaultSpamKeywords.join('\n')
-      addedKeywords = [...defaultSpamKeywords]
+      // 首次安装无词库记录，按界面语言填充完整默认词库
+      const defaults = getDefaultSpamKeywords(locale)
+      updates[KeySpamKeywordList] = defaults.join('\n')
+      addedKeywords = [...defaults]
+    }
+
+    // 英文界面首次安装时写入英文默认屏蔽词；中文界面不写，沿用存储兜底的中文默认值
+    if (locale === 'en' && (data[KeyTweetFilterKeywords] === undefined || data[KeyTweetFilterKeywords] === null)) {
+      updates[KeyTweetFilterKeywords] = getDefaultTweetFilterKeywords(locale).join('\n')
     }
 
     // 2. 规则迁移（确保新发布的规则如 mention_referral 默认启用）

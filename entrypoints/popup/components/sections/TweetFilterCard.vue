@@ -4,14 +4,16 @@ import { KeyTweetFilterEnabled, KeyTweetFilterAction, KeyTweetFilterKeywords } f
 import { parseTweetFilterKeywords } from '../../../../shared/tweet-filter-rules'
 import { useStorageKey } from '../../composables/useStorageKey'
 import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
+import { useI18n } from '../../composables/useI18n'
 import FeatureCard from '../ui/FeatureCard.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 
 defineEmits<{ open: [] }>()
 
+const { t, featureText } = useI18n()
 const { value: enabled, setValue: setEnabled } = useStorageKey(KeyTweetFilterEnabled)
 const snapshot = useStorageSnapshot([KeyTweetFilterAction, KeyTweetFilterKeywords])
-const actionText = computed(() => (snapshot[KeyTweetFilterAction] === 'hide' ? '命中后隐藏' : '命中后折叠'))
+const actionText = computed(() => t(snapshot[KeyTweetFilterAction] === 'hide' ? 'tweetFilter.statusHide' : 'tweetFilter.statusCollapse'))
 const keywordCount = computed(() => parseTweetFilterKeywords(String(snapshot[KeyTweetFilterKeywords] ?? '')).length)
 </script>
 
@@ -19,14 +21,14 @@ const keywordCount = computed(() => parseTweetFilterKeywords(String(snapshot[Key
  <FeatureCard
   feature-id="tweetFilter"
   :enabled="enabled"
-  details-label="管理屏蔽词"
+  :details-label="t('tweetFilter.manage')"
   details-as="page"
   @open-details="$emit('open')"
  >
   <template #control>
-   <SwitchToggle :model-value="enabled" label="正文关键词过滤" @update:model-value="setEnabled" />
+   <SwitchToggle :model-value="enabled" :label="featureText('tweetFilter', 'label')" @update:model-value="setEnabled" />
   </template>
 
-  <template #status>{{ actionText }} · 屏蔽词 {{ keywordCount }} 个</template>
+  <template #status>{{ t('tweetFilter.status', { action: actionText, count: keywordCount }) }}</template>
  </FeatureCard>
 </template>

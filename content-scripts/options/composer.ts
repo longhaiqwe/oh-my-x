@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n'
 import selectors from '../selectors'
 import addStyles, { stylesExist } from '../utilities/addStyles'
 import { accentAlpha } from '../utilities/colors'
@@ -199,8 +200,8 @@ export const addComposerInsertLinkButton = () => {
       // 1. 插入链接按钮
       const linkBtn = document.createElement('button')
       linkBtn.setAttribute('type', 'button')
-      linkBtn.setAttribute('aria-label', '引用我的帖子')
-      linkBtn.setAttribute('title', '搜索并引用我的帖子或文章')
+      linkBtn.setAttribute('aria-label', t('ownPage.title'))
+      linkBtn.setAttribute('title', t('composerPage.ownPostsTitle'))
       linkBtn.setAttribute('aria-expanded', 'false')
       linkBtn.setAttribute('data-testid', 'xf-insert-link-button')
       linkBtn.className = 'xf-insert-link-button'
@@ -213,8 +214,8 @@ export const addComposerInsertLinkButton = () => {
       // 2. 转为推文格式 (Markdown to Post) 按钮
       const mdBtn = document.createElement('button')
       mdBtn.setAttribute('type', 'button')
-      mdBtn.setAttribute('aria-label', '转为推文格式 (Markdown to Post)')
-      mdBtn.setAttribute('title', '转为推文格式 (Markdown to Post) [快捷键 ⌘⇧M / Ctrl+Shift+M]')
+      mdBtn.setAttribute('aria-label', t('composerPage.markdownLabel'))
+      mdBtn.setAttribute('title', t('composerPage.markdownTitle'))
       mdBtn.setAttribute('data-testid', 'xf-format-markdown-button')
       mdBtn.className = 'xf-insert-link-button xf-format-markdown-button'
       mdBtn.innerHTML = `

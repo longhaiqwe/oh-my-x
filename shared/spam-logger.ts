@@ -1,6 +1,6 @@
 import { KeySpamLog, KeySpamStats } from '../storage-keys'
 import type { DailyStats, SpamCategory, SpamLogEntry } from './spam-types'
-import { SPAM_CATEGORY_LABEL } from './spam-types'
+import { spamCategoryLabel } from './spam-types'
 
 const MAX_LOG_ENTRIES = 50 // 精简最近拦截日志条数（原200），减轻 storage 体积与 IPC 传输
 const STAT_RETENTION_DAYS = 30
@@ -196,7 +196,7 @@ export function summarizeCategory(
     .filter((c) => c !== 'normal')
     .map((c) => ({
       category: c,
-      label: SPAM_CATEGORY_LABEL[c],
+      label: spamCategoryLabel(c),
       count: byCategory[c] || 0,
     }))
     .filter((row) => row.count > 0)

@@ -3,6 +3,8 @@ import addStyles, { stylesExist } from '../utilities/addStyles'
 import { getPrecomposeUrl } from './precompose'
 import { getThemeColors } from '../utilities/colors'
 import { searchLibrary, syncLibrary, pauseLibrary } from './own-post-library-client'
+import { getLocale, t } from '../../shared/i18n'
+import { errorText } from '../../shared/errors'
 
 
 function ensureStyles() {
@@ -75,18 +77,18 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   const panel = document.createElement('section')
   panel.className = 'xf-own-post-picker'
   panel.dataset.testid = 'xf-own-post-picker'
-  panel.setAttribute('aria-label', '引用我的帖子')
+  panel.setAttribute('aria-label', t('ownPage.title'))
   const theme = getThemeColors()
   for (const [key, value] of Object.entries({ bg: theme.bg, fg: theme.fg, muted: theme.fgSecondary, border: theme.border, hover: theme.hoverBg })) {
     panel.style.setProperty(`--xf-own-${key}`, value)
   }
-  panel.innerHTML = `<header><div><h3>引用我的帖子</h3><div class="xf-own-account"></div></div><button class="xf-own-close" type="button" aria-label="关闭帖子选择器" title="关闭 · Esc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
-    <form><div class="xf-own-search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" aria-label="搜索我的帖子" placeholder="搜索旧帖或文章" maxlength="200"></div><button type="submit">搜索</button></form>
-    <div class="xf-own-summary"><div class="xf-own-status" role="status" aria-live="polite"></div><button type="button" data-action="recent" hidden>返回最近发布</button></div>
-    <div class="xf-own-results" aria-label="我的帖子列表"></div>
-    <div class="xf-own-sync"><span class="xf-own-sync-text"></span><button type="button" data-action="sync">同步旧帖</button></div>
-    <footer><button type="button" data-action="more" hidden>显示更多结果</button><button type="button" data-action="retry" hidden>重试</button></footer>`
-  panel.querySelector('.xf-own-account')!.textContent = handle ? `@${handle} · 选择一条插入当前编辑框` : '选择一条插入当前编辑框'
+  panel.innerHTML = `<header><div><h3>${t('ownPage.title')}</h3><div class="xf-own-account"></div></div><button class="xf-own-close" type="button" aria-label="${t('ownPage.closeLabel')}" title="${t('ownPage.closeTitle')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+    <form><div class="xf-own-search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" aria-label="${t('ownPage.searchLabel')}" placeholder="${t('ownPage.searchPlaceholder')}" maxlength="200"></div><button type="submit">${t('ownPage.search')}</button></form>
+    <div class="xf-own-summary"><div class="xf-own-status" role="status" aria-live="polite"></div><button type="button" data-action="recent" hidden>${t('ownPage.backToRecent')}</button></div>
+    <div class="xf-own-results" aria-label="${t('ownPage.listLabel')}"></div>
+    <div class="xf-own-sync"><span class="xf-own-sync-text"></span><button type="button" data-action="sync">${t('ownPage.syncOld')}</button></div>
+    <footer><button type="button" data-action="more" hidden>${t('ownPage.more')}</button><button type="button" data-action="retry" hidden>${t('ownPage.retry')}</button></footer>`
+  panel.querySelector('.xf-own-account')!.textContent = handle ? t('ownPage.accountHint', { handle }) : t('ownPage.pickHint')
   const input = panel.querySelector('input')!
   const status = panel.querySelector<HTMLElement>('.xf-own-status')!
   const results = panel.querySelector<HTMLElement>('.xf-own-results')!
@@ -117,7 +119,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
     if (focus && trigger.isConnected) trigger.focus()
   }
   const observer = new MutationObserver(() => { if (!panel.isConnected) close(false) })
-  panel.querySelector<HTMLButtonElement>('[aria-label="关闭帖子选择器"]')!.onclick = () => close()
+  panel.querySelector<HTMLButtonElement>('.xf-own-close')!.onclick = () => close()
   panel.addEventListener('keydown', event => {
     event.stopPropagation()
     if (event.key === 'Escape') { event.preventDefault(); close() }
@@ -125,7 +127,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   panel.addEventListener('click', event => event.stopPropagation())
   const select = (url: string) => {
     if (!modal.isConnected || (handle && getOwnHandle()?.toLowerCase() !== handle.toLowerCase())) {
-      status.textContent = '当前账号已变化，请重新打开选择器'
+      status.textContent = t('error.accountChanged')
       return
     }
     close(false)
@@ -167,9 +169,9 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
       meta.className = 'xf-own-meta'
       const kind = document.createElement('span')
       kind.className = 'xf-own-kind'
-      kind.textContent = post.title ? '文章' : '帖子'
+      kind.textContent = post.title ? t('ownPage.article') : t('ownPage.post')
       const date = document.createElement('span')
-      date.textContent = post.timestamp ? new Date(post.timestamp).toLocaleDateString('zh-CN') : '日期未知'
+      date.textContent = post.timestamp ? new Date(post.timestamp).toLocaleDateString(getLocale()) : t('ownPage.dateUnknown')
       meta.append(kind, date)
       const content = document.createElement('span')
       content.className = 'xf-own-content'
@@ -185,14 +187,14 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
       }
       const text = document.createElement('span')
       text.className = 'xf-own-text'
-      text.textContent = post.text || '查看并引用这条帖子'
+      text.textContent = post.text || t('ownPage.viewAndQuote')
       content.append(text)
       const action = document.createElement('span')
       action.className = 'xf-own-quote'
-      action.innerHTML = '<span>引用</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>'
+      action.innerHTML = `<span>${t('ownPage.quote')}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>`
       heading.append(action)
       row.append(content)
-      row.setAttribute('aria-label', `引用${post.title ? '文章' : '帖子'}：${post.title || post.text || '无文字内容'}`)
+      row.setAttribute('aria-label', t(post.title ? 'ownPage.quoteArticleLabel' : 'ownPage.quotePostLabel', { text: post.title || post.text || t('ownPage.noText') }))
       row.onclick = () => select(`https://x.com/${handle}/status/${post.id}`)
       results.append(row)
     }
@@ -214,24 +216,25 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
       const meta = page.meta
       const autoSync = page.autoSync !== false
       syncing = meta.syncing
-      syncButton.textContent = syncing ? '暂停同步' : !autoSync ? '手动同步' : meta.paused ? '继续同步' : meta.historyDone ? '立即更新' : '继续同步旧帖'
-      const updated = meta.lastRefresh ? new Date(meta.lastRefresh).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''
-      syncText.textContent = `已缓存 ${page.count} 条 · ${syncing ? (page.count ? '正在后台同步…' : '正在建立本地帖子库…') : !autoSync ? '自动同步已关闭' : meta.paused ? '同步已暂停' : meta.historyDone ? '已读至 X 可提供的末尾' : '历史记录尚未同步完'}${updated ? `\n最近更新 ${updated}` : ''}`
-      if (meta.error) syncText.textContent += `\n${meta.error}${meta.retryAt > Date.now() ? (autoSync && !meta.paused ? '，稍后自动重试' : '，请稍后手动重试') : ''}`
+      syncButton.textContent = t(syncing ? 'ownPage.pauseSync' : !autoSync ? 'ownPage.manualSync' : meta.paused ? 'ownPage.resumeSync' : meta.historyDone ? 'ownPage.updateNow' : 'ownPage.resumeOld')
+      const updated = meta.lastRefresh ? new Date(meta.lastRefresh).toLocaleString(getLocale(), {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''
+      const syncState = t(syncing ? (page.count ? 'ownPage.syncingBackground' : 'ownPage.building') : !autoSync ? 'ownPage.autoSyncOff' : meta.paused ? 'ownPage.syncPaused' : meta.historyDone ? 'ownPage.reachedEnd' : 'ownPage.historyIncomplete')
+      syncText.textContent = `${t('ownPage.cached', { count: page.count })} · ${syncState}${updated ? `\n${t('ownPage.updatedAt', { time: updated })}` : ''}`
+      if (meta.error) syncText.textContent += `\n${errorText(meta.error)}${meta.retryAt > Date.now() ? t(autoSync && !meta.paused ? 'ownPage.retryAuto' : 'ownPage.retryManual') : ''}`
       more.hidden = posts.size >= page.total
-      more.textContent = `显示更多结果（${posts.size}/${page.total}）`
-      status.textContent = query ? `本地搜索 · 找到 ${page.total} 条` : `最近发布 · ${page.count} 条已缓存`
+      more.textContent = t('ownPage.moreCount', { shown: posts.size, total: page.total })
+      status.textContent = query ? t('ownPage.searchFound', { count: page.total }) : t('ownPage.recentCached', { count: page.count })
       if (!posts.size) {
         results.replaceChildren()
         const empty = document.createElement('div')
         empty.className = 'xf-own-empty'
-        empty.textContent = !page.count ? (syncing ? '首次同步中，帖子会陆续出现在这里' : '同步你的帖子后，即可快速搜索')
-          : !meta.historyDone ? '缓存中暂未找到，继续同步可查找更早的内容' : '缓存中未找到匹配内容，试试其他关键词'
+        empty.textContent = t(!page.count ? (syncing ? 'ownPage.firstSync' : 'ownPage.syncFirst')
+          : !meta.historyDone ? 'ownPage.notFoundYet' : 'ownPage.notFound')
         results.append(empty)
       }
     } catch (error) {
       if (version !== sequence || controller.signal.aborted) return
-      status.textContent = error instanceof Error ? error.message : '本地搜索失败，请重试'
+      status.textContent = errorText(error) || t('ownPage.searchFailed')
       retry.hidden = false
     } finally {
       if (version === sequence) results.setAttribute('aria-busy', 'false')
@@ -250,7 +253,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
       if(syncing) await pauseLibrary()
       else { void syncLibrary(true).then(refresh).catch(refresh) }
       await load()
-    } catch(error) { status.textContent=error instanceof Error?error.message:'同步失败，请重试' }
+    } catch(error) { status.textContent=errorText(error) || t('ownPage.syncFailed') }
     finally { syncButton.disabled=false }
   }
   const previousUrl = getPrecomposeUrl()
@@ -258,8 +261,8 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
     const previous = document.createElement('button')
     previous.type = 'button'
     previous.dataset.action = 'previous'
-    previous.textContent = '引用最近浏览'
-    previous.setAttribute('aria-label', '插入最近浏览的链接')
+    previous.textContent = t('ownPage.previous')
+    previous.setAttribute('aria-label', t('ownPage.previousLabel'))
     previous.title = previousUrl
     previous.onclick = () => select(previousUrl)
     panel.querySelector('footer')!.append(previous)
@@ -280,7 +283,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
     void syncLibrary().then(refresh).catch(refresh)
   }
   else {
-    status.textContent = '未识别到当前登录账号，请刷新 X 后重试。'
+    status.textContent = t('ownPage.noAccount')
     submit.disabled = recent.disabled = syncButton.disabled = true
   }
 }

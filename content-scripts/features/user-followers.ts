@@ -1,3 +1,4 @@
+import { getLocale, t } from '../../shared/i18n'
 import { USER_METRICS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
 import {
   formatFollowerCount,
@@ -275,8 +276,8 @@ function createOrUpdateBadgeElement(
   }
 
   const tier = getFollowerTier(metrics.followersCount)
-  const countStr = formatFollowerCount(metrics.followersCount, 'zh')
-  const tooltipText = formatFollowerTooltip(metrics)
+  const countStr = formatFollowerCount(metrics.followersCount, getLocale())
+  const tooltipText = formatFollowerTooltip(metrics, { followers: t('followersPage.followers'), following: t('followersPage.following') }, getLocale())
 
   badge.title = tooltipText
   badge.setAttribute('data-xf-followers-count', String(metrics.followersCount))
@@ -290,7 +291,7 @@ function createOrUpdateBadgeElement(
     badge.append(pill)
   }
   pill.className = `xf-follower-pill t${tier}`
-  pill.textContent = `${countStr} 粉丝`
+  pill.textContent = t('followersPage.pill', { count: countStr })
 
   return badge
 }

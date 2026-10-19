@@ -38,6 +38,8 @@ import {
   isCreatorRewardsUrl,
   parseCreatorRewardsPayload,
 } from '../shared/creator-rewards'
+// 只用不依赖文案表的错误代号模块，避免把整张文案表打进页面里的拦截器
+import { CodedError, errorPayload, toTransferable, type ErrorPayload } from '../shared/coded-error'
 import {
   getRequestUrl,
   isScheduledUrl,
@@ -384,9 +386,10 @@ export default defineContentScript({
     const capturedHeaders: Record<string, string> = {}
     const timelineCooldowns = new Map<string, number>()
 
-    function rateLimitMessage(until: number, pages = 0) {
-      const time = new Date(until).toLocaleTimeString('zh-CN', { hour12: false })
-      return `X 接口请求次数已用尽（429），请在 ${time} 后重试。已读取 ${pages} 页，未保存不完整统计`
+    // MAIN world 读不到插件语言设置：报错只传代号和参数，由 isolated world 翻译；时间用 24 小时制数字
+    function rateLimitError(until: number, pages = 0) {
+      const time = new Date(until).toLocaleTimeString('en-GB', { hour12: false })
+      return new CodedError('error.rateLimited', { time, pages })
     }
 
     // X 自己请求排期列表时记下接口编号和参数，右侧栏面板刷新时照着请求。
@@ -470,7 +473,7 @@ export default defineContentScript({
               type: PROFILE_ACTIVITY_FETCH_RES_TYPE,
               requestId,
               ok: false,
-              error: '未能解析当前博主数字 ID，请确认位于博主个人主页',
+              error: errorPayload('error.profileIdMissing'),
               __xf: XF_BRIDGE_MARKER,
             },
             '*',
@@ -484,11 +487,11 @@ export default defineContentScript({
         const replies = await timelineCandidate('UserRepliesTimeline')
         if (replies) {
           const posts = await timelineCandidate('UserOriginalsTimeline') || await timelineCandidate('UserTweets')
-          if (!posts) throw new Error('未能获取帖子接口，请打开博主的“帖子”标签后重新扫描')
+          if (!posts) throw new CodedError('error.postsEndpointMissing')
           groups.push({ candidates: [replies], type: 'reply' }, { candidates: [posts], type: 'post' })
         } else {
           const combined = await timelineCandidate('UserTweetsAndReplies')
-          if (!combined) throw new Error('未能获取回复接口，请打开博主的“回复”标签后重新扫描')
+          if (!combined) throw new CodedError('error.repliesEndpointMissing')
           groups.push({ candidates: [combined] })
         }
 
@@ -500,7 +503,7 @@ export default defineContentScript({
               type: PROFILE_ACTIVITY_FETCH_RES_TYPE,
               requestId,
               ok: false,
-              error: '缺少有效认证 Token，请确认已登录 X',
+              error: errorPayload('error.authTokenMissing'),
               __xf: XF_BRIDGE_MARKER,
             },
             '*',
@@ -513,7 +516,7 @@ export default defineContentScript({
 
         const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000
         let allEntries: ProfileActivityEntry[] | null = null
-        let lastError = ''
+        let lastError: ErrorPayload | null = null
 
         const mergedEntries = new Map<string, ProfileActivityEntry>()
         for (const group of groups) {
@@ -521,13 +524,13 @@ export default defineContentScript({
           for (const candidate of group.candidates) {
             const { op, qid } = candidate
             const cooldown = timelineCooldowns.get(op) || 0
-            if (cooldown > Date.now()) throw new Error(rateLimitMessage(cooldown))
+            if (cooldown > Date.now()) throw rateLimitError(cooldown)
             let cursor: string | null = null
             const MAX_PAGES = 100
             const entriesMap = new Map<string, ProfileActivityEntry>()
             const seenCursors = new Set<string>()
             let candidateComplete = false
-            lastError = '活动较多，尚未扫描完指定时间范围，请稍后重试'
+            lastError = errorPayload('error.scanTooMuch')
             const timelineContext = capturedTimelines.get(op)
 
             for (let page = 0; page < MAX_PAGES; page++) {
@@ -585,7 +588,7 @@ export default defineContentScript({
                   const retryAfter = Number(res.headers.get('retry-after')) * 1000
                   const until = reset > Date.now() ? reset : Date.now() + (retryAfter || 60000)
                   timelineCooldowns.set(op, until)
-                  throw new Error(rateLimitMessage(until, page))
+                  throw rateLimitError(until, page)
                 }
                 if (res.status === 404) {
                   try {
@@ -594,7 +597,7 @@ export default defineContentScript({
                   } catch {}
                 }
                 debug('候选端点未响应或返回错误码:', op, res.status)
-                lastError = `端点 ${op} 返回错误码 ${res.status}`
+                lastError = errorPayload('error.scanEndpointStatus', { op, status: res.status })
                 break // 尝试下一个候选端点
               }
 
@@ -605,7 +608,7 @@ export default defineContentScript({
               )
 
               if (json.errors?.length || !hasTimeline) {
-                lastError = '回复接口未返回完整时间线，请稍后重试'
+                lastError = errorPayload('error.scanIncompleteTimeline')
                 break
               }
 
@@ -616,7 +619,7 @@ export default defineContentScript({
                 break
               }
               if (seenCursors.has(bottomCursor)) {
-                lastError = '回复时间线分页停滞，扫描未完成，请稍后重试'
+                lastError = errorPayload('error.scanStalled')
                 break
               }
 
@@ -644,19 +647,18 @@ export default defineContentScript({
             ok: allEntries !== null,
             ...(allEntries !== null
               ? { entries: allEntries }
-              : { error: `${lastError || '回复扫描未完成'}。请打开博主的“回复”标签后重新扫描` }),
+              : { error: lastError ?? errorPayload('error.scanUnfinished') }),
             __xf: XF_BRIDGE_MARKER,
           },
           '*',
         )
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : String(err)
         window.postMessage(
           {
             type: PROFILE_ACTIVITY_FETCH_RES_TYPE,
             requestId,
             ok: false,
-            error: errorMsg || '后台抓取异常',
+            error: toTransferable(err, 'error.fetchFailed'),
             __xf: XF_BRIDGE_MARKER,
           },
           '*',
@@ -682,13 +684,13 @@ export default defineContentScript({
               typeof data.query !== 'string' || data.query.length > 200 ||
               (data.cursor !== undefined && (typeof data.cursor !== 'string' || data.cursor.length > 4096))) return
           if (ownPostsBusy) {
-            window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: '上一条读取请求尚未结束，请稍后重试', __xf: XF_BRIDGE_MARKER }, location.origin)
+            window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: errorPayload('error.ownPostsBusy'), __xf: XF_BRIDGE_MARKER }, location.origin)
             return
           }
           ownPostsBusy = true
           void fetchOwnPosts({ handle: data.handle, query: data.query, cursor: data.cursor })
             .then(page => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: true, page, __xf: XF_BRIDGE_MARKER }, location.origin))
-            .catch(error => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: error instanceof Error ? error.message : '读取失败，请重试', __xf: XF_BRIDGE_MARKER }, location.origin))
+            .catch(error => window.postMessage({ type: OWN_POSTS_FETCH_RES_TYPE, requestId: data.requestId, ok: false, error: toTransferable(error, 'error.readFailed'), __xf: XF_BRIDGE_MARKER }, location.origin))
             .finally(() => { ownPostsBusy = false })
         } else if (data.type === SCHEDULED_FETCH_REQ_TYPE && interceptEnabled) {
           if (typeof data.requestId !== 'string' || data.requestId.length > 100) return
@@ -699,7 +701,7 @@ export default defineContentScript({
               broadcastScheduledItems(items, true)
               window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: true, items, __xf: XF_BRIDGE_MARKER }, location.origin)
             })
-            .catch((error) => window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: false, error: error instanceof Error ? error.message : '读取失败，请重试', __xf: XF_BRIDGE_MARKER }, location.origin))
+            .catch((error) => window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: false, error: toTransferable(error, 'error.readFailed'), __xf: XF_BRIDGE_MARKER }, location.origin))
         } else if (data.type === PROFILE_ACTIVITY_FETCH_REQ_TYPE) {
           window.postMessage(
             { type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: data.requestId, __xf: XF_BRIDGE_MARKER },

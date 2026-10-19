@@ -14,7 +14,14 @@
       addListener: () => {},
     },
   },
+  // 测试默认按中文界面跑；要测英文时把语言设置设为 en
+  i18n: {
+    getUILanguage: () => 'zh-CN',
+  },
 }
+
+// 有些测试会换掉 browser（没有 i18n），语言判断会退回 navigator.language；也设成中文
+Object.defineProperty(globalThis.navigator, 'language', { value: 'zh-CN', configurable: true })
 
 // Mock WXT auto-imported defineContentScript macro in test environment
 if (typeof (globalThis as any).defineContentScript === 'undefined') {

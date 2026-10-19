@@ -12,6 +12,10 @@ import {
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { extractListId, toPlainQuickLists, sortQuickLists, type QuickListItem } from '../../../../shared/quick-list'
+import { useI18n } from '../../composables/useI18n'
+import { errorText } from '../../../../shared/errors'
+
+const { t } = useI18n()
 
 const adderEnabled = ref(true)
 const navEnabled = ref(true)
@@ -23,10 +27,10 @@ const noticeMessage = ref('')
 const noticeIsError = ref(false)
 const filterTab = ref<'all' | 'pinned' | 'owned' | 'followed'>('all')
 
-const navPositionOptions = [
-  { value: 'top', label: 'Home 上方' },
-  { value: 'sidebar', label: '列表区' },
-]
+const navPositionOptions = computed(() => [
+  { value: 'top', label: t('quickLists.positionTop') },
+  { value: 'sidebar', label: t('quickLists.positionSidebar') },
+])
 
 let noticeTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -72,7 +76,7 @@ async function setNavPos(value: string) {
 async function syncListsFromX() {
   if (isSyncing.value) return
   isSyncing.value = true
-  showNotice('正在从 X 读取 Lists…')
+  showNotice(t('quickLists.reading'))
 
   try {
     const res = await browser.runtime.sendMessage({ type: 'XF_FETCH_OWNED_LISTS' })
@@ -95,15 +99,15 @@ async function syncListsFromX() {
       if (ok) {
         const owned = plain.filter((l) => l.isOwned !== false).length
         const followed = plain.filter((l) => l.isOwned === false).length
-        showNotice(`已同步 ${plain.length} 个 Lists (${owned} 个创建，${followed} 个关注)`)
+        showNotice(t('quickLists.synced', { total: plain.length, owned, followed }))
       } else {
-        showNotice('保存失败，请检查浏览器存储权限', true)
+        showNotice(t('quickLists.saveFailed'), true)
       }
     } else {
-      showNotice(res?.error || '读取失败，请确认已在这个浏览器登录 x.com', true)
+      showNotice(errorText(res?.error) || t('quickLists.readFailed'), true)
     }
   } catch (e: any) {
-    showNotice(e?.message || '同步失败', true)
+    showNotice(e?.message || t('quickLists.syncFailed'), true)
   } finally {
     isSyncing.value = false
   }
@@ -115,7 +119,7 @@ async function togglePin(item: QuickListItem) {
   lists.value = plain
   const ok = await setStorage({ [KeyQuickLists]: plain })
   if (ok) {
-    showNotice(item.isPinned ? `已置顶「${item.name}」` : `已取消置顶「${item.name}」`)
+    showNotice(t(item.isPinned ? 'quickLists.pinned' : 'quickLists.unpinned', { name: item.name }))
   }
 }
 
@@ -125,12 +129,12 @@ async function addManualList() {
 
   const listId = extractListId(input)
   if (!listId) {
-    showNotice('无法识别 List 链接或数字 ID', true)
+    showNotice(t('quickLists.badLink'), true)
     return
   }
 
   if (lists.value.some((l) => l.id === listId)) {
-    showNotice('这个 List 已经保存过', true)
+    showNotice(t('quickLists.exists'), true)
     return
   }
 
@@ -144,9 +148,9 @@ async function addManualList() {
   const ok = await setStorage({ [KeyQuickLists]: plain })
   if (ok) {
     manualInput.value = ''
-    showNotice(`已添加 List (${listId})`)
+    showNotice(t('quickLists.addedList', { id: listId }))
   } else {
-    showNotice('添加失败：保存到本地时出错', true)
+    showNotice(t('quickLists.addFailed'), true)
   }
 }
 
@@ -156,7 +160,7 @@ async function removeListById(id: string) {
   lists.value = plain
   const ok = await setStorage({ [KeyQuickLists]: plain })
   if (ok && target) {
-    showNotice(`已移除「${target.name}」`)
+    showNotice(t('quickLists.removed', { name: target.name }))
   }
 }
 
@@ -175,19 +179,19 @@ const displayLists = computed(() => {
 </script>
 
 <template>
-  <FeatureCard feature-id="quickLists" details-label="管理列表">
-    <SubRow title="资料卡加入列表" where="头像悬浮资料卡">
-      <SwitchToggle :model-value="adderEnabled" label="资料卡加入列表" @update:model-value="toggleAdder" />
+  <FeatureCard feature-id="quickLists" :details-label="t('quickLists.manage')">
+    <SubRow :title="t('quickLists.adder')" :where="t('quickLists.adderWhere')">
+      <SwitchToggle :model-value="adderEnabled" :label="t('quickLists.adder')" @update:model-value="toggleAdder" />
     </SubRow>
-    <SubRow title="导航栏入口" where="左侧导航栏">
-      <SwitchToggle :model-value="navEnabled" label="导航栏入口" @update:model-value="toggleNav" />
+    <SubRow :title="t('quickLists.navEntry')" :where="t('quickLists.navEntryWhere')">
+      <SwitchToggle :model-value="navEnabled" :label="t('quickLists.navEntry')" @update:model-value="toggleNav" />
     </SubRow>
-    <SubRow v-if="navEnabled" title="入口位置">
+    <SubRow v-if="navEnabled" :title="t('quickLists.position')">
       <SegmentedControl :model-value="navPosition" :options="navPositionOptions" @update:model-value="setNavPos" />
     </SubRow>
 
     <template #status>
-      {{ listCount > 0 ? `已保存 ${listCount} 个列表` : '还没有保存的列表' }}
+      {{ listCount > 0 ? t('quickLists.saved', { count: listCount }) : t('quickLists.noneSaved') }}
     </template>
 
     <template #details>
@@ -208,23 +212,23 @@ const displayLists = computed(() => {
           v-model="manualInput"
           @keydown.enter="addManualList"
           type="text"
-          placeholder="粘贴 List 链接或数字 ID"
+          :placeholder="t('quickLists.inputPlaceholder')"
           class="flex-1 min-w-0 h-8 px-3 text-xs rounded-control border border-border-strong bg-sunken-bg text-text placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none"
         />
         <button
           @click="addManualList"
           class="h-8 px-3 text-xs font-semibold rounded-control bg-accent text-on-accent hover:bg-accent-hover transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
         >
-          添加
+          {{ t('common.add') }}
         </button>
         <button
           @click="syncListsFromX"
           :disabled="isSyncing"
           class="inline-flex items-center gap-1 h-8 px-3 text-xs font-semibold rounded-control border border-border-strong text-accent-text hover:border-accent hover:bg-accent-subtle transition-colors disabled:opacity-50 cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-          title="读取当前登录账号创建和关注的 Lists"
+          :title="t('quickLists.syncTitle')"
         >
           <span v-if="isSyncing" class="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin"></span>
-          {{ isSyncing ? '同步中…' : '从 X 同步' }}
+          {{ isSyncing ? t('quickLists.syncing') : t('quickLists.syncFromX') }}
         </button>
       </div>
 
@@ -237,7 +241,7 @@ const displayLists = computed(() => {
             filterTab === 'all' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
-          全部 ({{ lists.length }})
+          {{ t('quickLists.filterAll', { count: lists.length }) }}
         </button>
         <button
           v-if="pinnedCount > 0"
@@ -247,7 +251,7 @@ const displayLists = computed(() => {
             filterTab === 'pinned' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
-          置顶 ({{ pinnedCount }})
+          {{ t('quickLists.filterPinned', { count: pinnedCount }) }}
         </button>
         <button
           @click="filterTab = 'owned'"
@@ -256,7 +260,7 @@ const displayLists = computed(() => {
             filterTab === 'owned' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
-          创建 ({{ ownedCount }})
+          {{ t('quickLists.filterOwned', { count: ownedCount }) }}
         </button>
         <button
           v-if="followedCount > 0"
@@ -266,7 +270,7 @@ const displayLists = computed(() => {
             filterTab === 'followed' ? 'bg-accent-subtle text-accent-subtle-text font-semibold' : 'bg-sunken-bg text-secondary-text hover:text-text'
           ]"
         >
-          关注 ({{ followedCount }})
+          {{ t('quickLists.filterFollowed', { count: followedCount }) }}
         </button>
       </div>
 
@@ -283,9 +287,9 @@ const displayLists = computed(() => {
               <span
                 v-if="l.isOwned === false"
                 class="px-2 py-0.5 rounded-full text-xs bg-card-bg text-secondary-text shrink-0"
-                :title="l.ownerHandle ? '创建者: @' + l.ownerHandle : '关注的列表'"
+                :title="l.ownerHandle ? t('quickLists.ownerTitle', { handle: l.ownerHandle }) : t('quickLists.followedTitle')"
               >
-                关注
+                {{ t('quickLists.followedBadge') }}
               </span>
             </div>
             <div class="flex items-center gap-1 text-xs text-muted-text font-mono truncate">
@@ -300,15 +304,15 @@ const displayLists = computed(() => {
               'min-h-6 px-2 rounded-control text-xs border transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
               l.isPinned ? 'border-accent text-accent-subtle-text bg-accent-subtle' : 'border-border-strong text-secondary-text hover:text-text'
             ]"
-            :title="l.isPinned ? '取消置顶' : '置顶后排在列表最前面'"
+            :title="l.isPinned ? t('quickLists.unpinTitle') : t('quickLists.pinTitle')"
           >
-            {{ l.isPinned ? '已置顶' : '置顶' }}
+            {{ l.isPinned ? t('quickLists.pinnedButton') : t('quickLists.pin') }}
           </button>
           <button
             @click="removeListById(l.id)"
             class="flex items-center justify-center w-6 h-6 rounded-control text-muted-text hover:text-danger hover:bg-card-bg transition-colors text-sm leading-none cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-            title="移除这个 List"
-            :aria-label="`移除 ${l.name}`"
+            :title="t('quickLists.removeTitle')"
+            :aria-label="t('quickLists.removeLabel', { name: l.name })"
           >
             ×
           </button>
@@ -318,7 +322,7 @@ const displayLists = computed(() => {
         v-else
         class="text-center px-3 py-4 text-xs text-muted-text bg-sunken-bg rounded-control"
       >
-        {{ lists.length ? '这个分类下没有 List' : '还没有保存的 List。点击「从 X 同步」读取你创建和关注的 List' }}
+        {{ lists.length ? t('quickLists.emptyFilter') : t('quickLists.emptyAll') }}
       </div>
     </template>
   </FeatureCard>

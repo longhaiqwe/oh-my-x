@@ -87,13 +87,21 @@ export function formatImpressionsCount(count: number): string {
   return String(count)
 }
 
-const REWARDS_ANCHORS = [
+/**
+ * 奖励页上紧挨曝光数字的两段说明文字（中文 / 英文界面，2026-10-18 从 X 接口返回内容中取得）：
+ * 「过去 90 天内，累积至少 50 万次已验证首页时间线曝光」/ "Have at least 500K Verified Home Timeline impressions in the last 90 days"
+ * 「回复不计入曝光」/ "Does not include replies"
+ */
+export const REWARDS_PAGE_MARKERS = [
   '回复不计入曝光',
-  'Replies do not count',
   '已验证首页时间线曝光',
+  'Does not include replies',
+  'Verified Home Timeline impressions',
+]
+
+const REWARDS_ANCHORS = [
+  ...REWARDS_PAGE_MARKERS,
   '时间线曝光',
-  'home timeline impressions',
-  'verified impressions',
   '50 万次',
   '50万次',
   '500,000',

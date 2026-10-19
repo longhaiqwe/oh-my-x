@@ -5,22 +5,26 @@ import SegmentedControl from '../ui/SegmentedControl.vue'
 import {
   KeyTweetFilterAction,
   KeyTweetFilterKeywords,
-  defaultTweetFilterKeywords,
+  getDefaultTweetFilterKeywords,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { parseTweetFilterKeywords } from '../../../../shared/tweet-filter-rules'
+import { useI18n } from '../../composables/useI18n'
 
 // 正文关键词过滤的第二层页面：处理方式、屏蔽词
-const keywords = ref(defaultTweetFilterKeywords.join('\n'))
+const { t, locale } = useI18n()
+// 「恢复默认」和提示里的默认词按当前界面语言
+const defaultKeywords = computed(() => getDefaultTweetFilterKeywords(locale.value))
+const keywords = ref(defaultKeywords.value.join('\n'))
 const newKeyword = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const noticeMessage = ref('')
 
 const action = ref<'collapse' | 'hide'>('collapse')
-const actionOptions = [
-  { value: 'collapse', label: '折叠' },
-  { value: 'hide', label: '隐藏' },
-]
+const actionOptions = computed(() => [
+  { value: 'collapse', label: t('tweetFilter.collapse') },
+  { value: 'hide', label: t('tweetFilter.hide') },
+])
 
 const parsedKeywords = computed(() => parseTweetFilterKeywords(keywords.value))
 const keywordCount = computed(() => parsedKeywords.value.length)
@@ -123,15 +127,15 @@ function handlePaste(e: ClipboardEvent) {
 function resetToDefaults() {
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
-  updateKeywords(defaultTweetFilterKeywords.join('\n'))
-  showNotice('已恢复默认屏蔽词')
+  updateKeywords(defaultKeywords.value.join('\n'))
+  showNotice(t('tweetFilter.resetDone'))
 }
 
 function clearAll() {
   if (saveTimer) clearTimeout(saveTimer)
   newKeyword.value = ''
   updateKeywords('')
-  showNotice('已清空屏蔽词')
+  showNotice(t('tweetFilter.cleared'))
 }
 
 function focusInput() {
@@ -140,7 +144,7 @@ function focusInput() {
 </script>
 
 <template>
-  <FeatureCard title="处理方式" description="折叠后显示一行提示，点击可以展开查看">
+  <FeatureCard :title="t('tweetFilter.actionTitle')" :description="t('tweetFilter.actionDescription')">
     <template #control>
       <SegmentedControl :model-value="action" :options="actionOptions" @update:model-value="setAction" />
     </template>
@@ -150,18 +154,18 @@ function focusInput() {
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-text">屏蔽词</span>
-            <span class="text-xs text-muted-text">{{ keywordCount }} 个</span>
+            <span class="text-sm font-semibold text-text">{{ t('tweetFilter.words') }}</span>
+            <span class="text-xs text-muted-text">{{ t('common.count', { count: keywordCount }) }}</span>
           </div>
           <div class="flex items-center gap-2">
             <span v-if="noticeMessage" class="text-xs text-success" role="status">{{ noticeMessage }}</span>
             <button
               type="button"
               class="text-xs text-secondary-text hover:text-text hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-              title="恢复为默认屏蔽词"
+              :title="t('tweetFilter.resetTitle')"
               @click="resetToDefaults"
             >
-              恢复默认
+              {{ t('common.resetDefaults') }}
             </button>
             <button
               v-if="keywordCount > 0"
@@ -169,7 +173,7 @@ function focusInput() {
               class="text-xs text-danger hover:bg-sunken-bg min-h-6 px-1 rounded-control transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
               @click="clearAll"
             >
-              清空
+              {{ t('common.clear') }}
             </button>
           </div>
         </div>
@@ -189,7 +193,7 @@ function focusInput() {
               <button
                 type="button"
                 class="w-0 opacity-0 ml-0 group-hover:w-4 group-hover:opacity-100 group-hover:ml-1 focus-visible:w-4 focus-visible:opacity-100 focus-visible:ml-1 h-4 flex items-center justify-center rounded-full text-muted-text hover:text-danger cursor-pointer text-xs transition-all duration-150 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-                :aria-label="`删除 ${word}`"
+                :aria-label="t('common.remove', { name: word })"
                 @click.stop="removeWord(idx)"
               >
                 ✕
@@ -202,7 +206,7 @@ function focusInput() {
             type="text"
             v-model="newKeyword"
             class="flex-1 min-w-24 bg-transparent border-none outline-none text-xs text-text px-1 py-0.5 placeholder:text-muted-text"
-            :placeholder="keywordCount === 0 ? '输入屏蔽词，按回车添加' : '添加屏蔽词'"
+            :placeholder="keywordCount === 0 ? t('tweetFilter.placeholderEmpty') : t('tweetFilter.placeholder')"
             @input="handleInput"
             @keydown="handleKeydown"
             @paste="handlePaste"
@@ -211,7 +215,7 @@ function focusInput() {
         </div>
 
         <p class="text-xs text-secondary-text leading-tight">
-          按回车或逗号添加。默认包含「说个暴论」等 {{ defaultTweetFilterKeywords.length }} 个词。和垃圾词库分开管理。
+          {{ t('tweetFilter.hint', { count: defaultKeywords.length }) }}
         </p>
       </div>
   </div>

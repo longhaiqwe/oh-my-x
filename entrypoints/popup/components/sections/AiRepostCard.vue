@@ -15,7 +15,10 @@ import {
   defaultPreferences,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
+import { useI18n } from '../../composables/useI18n'
+import { errorText } from '../../../../shared/errors'
 
+const { t, featureText } = useI18n()
 const enabled = ref(true)
 const baseUrl = ref(String(defaultPreferences[KeyAiRepostBaseUrl]))
 const apiKey = ref('')
@@ -123,7 +126,7 @@ onBeforeUnmount(() => {
 async function testConnection() {
   if (isTesting.value) return
   if (!apiKey.value.trim()) {
-    showNotice('请先填写 API Key', true)
+    showNotice(t('ai.needKey'), true)
     return
   }
   const config = {
@@ -136,22 +139,22 @@ async function testConnection() {
   const isCurrent = () => !disposed && activeTest === request && !request.signal.aborted
   isTesting.value = true
   if (noticeTimer) clearTimeout(noticeTimer)
-  statusText.value = '正在授权并测试连接…'
+  statusText.value = t('ai.authorizing')
   statusIsError.value = false
 
   try {
     // Must be the first asynchronous call from the click: preserve the user gesture.
     const granted = await requestAiPermission(config.baseUrl)
     if (!isCurrent()) return
-    if (!granted) throw new Error('未授权该 AI 服务地址，未发送测试请求')
-    if (!await saveSettings()) throw new Error('设置保存失败，请重试')
+    if (!granted) throw new Error(t('ai.notGranted'))
+    if (!await saveSettings()) throw new Error(t('ai.saveFailed'))
     if (!isCurrent()) return
     const res = await sendAiRequest({ type: 'XF_TEST_AI_CONNECTION', config }, request.signal)
     if (!isCurrent()) return
-    if (res.ok) showNotice(`连接可用 (${res.model || config.model})`)
-    else showNotice(res.error || '连接失败', true)
+    if (res.ok) showNotice(t('ai.connected', { model: res.model || config.model }))
+    else showNotice(errorText(res.error) || t('ai.failed'), true)
   } catch (error) {
-    if (isCurrent()) showNotice(error instanceof Error ? error.message : '连接失败', true)
+    if (isCurrent()) showNotice(errorText(error) || t('ai.failed'), true)
   } finally {
     if (isCurrent()) { isTesting.value = false; activeTest = undefined }
   }
@@ -163,27 +166,26 @@ async function testConnection() {
     v-model:open="detailsOpen"
     feature-id="aiRepost"
     :enabled="enabled"
-    details-label="配置服务"
+    :details-label="t('ai.settings')"
   >
     <template #control>
-      <SwitchToggle :model-value="enabled" label="AI 总结转发" @update:model-value="toggleEnabled" />
+      <SwitchToggle :model-value="enabled" :label="featureText('aiRepost', 'label')" @update:model-value="toggleEnabled" />
     </template>
 
     <template #status>
       <span v-if="configured" class="flex items-center gap-2 min-w-0">
         <span class="w-2 h-2 rounded-full bg-success shrink-0" aria-hidden="true"></span>
-        <span class="truncate">模型 {{ model }} · 风格：{{ hasCustomStyle ? '自定义' : '默认' }}</span>
+        <span class="truncate">{{ t('ai.status', { model, style: hasCustomStyle ? t('ai.styleCustom') : t('ai.styleDefault') }) }}</span>
       </span>
-      <span v-else class="text-warning">还没有填写 API Key</span>
+      <span v-else class="text-warning">{{ t('ai.noKey') }}</span>
     </template>
 
     <template #details>
       <p class="text-xs text-muted-text leading-normal">
-        生成时会把原文、作者信息、转发风格和补充要求发送到你配置的服务，API Key 只用于该服务的认证。
-        首次使用或更换地址时需要授权；测试连接只发送一段测试文本。
+        {{ t('ai.privacy') }}
       </p>
       <div class="flex flex-col gap-1">
-        <label for="ai-base-url" class="text-xs font-semibold text-secondary-text">接口地址 (Base URL)</label>
+        <label for="ai-base-url" class="text-xs font-semibold text-secondary-text">{{ t('ai.baseUrl') }}</label>
         <input
           id="ai-base-url"
           v-model="baseUrl"
@@ -202,7 +204,7 @@ async function testConnection() {
             class="min-h-6 px-1 rounded-control text-xs text-secondary-text hover:text-text hover:bg-sunken-bg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
             @click="showApiKey = !showApiKey"
           >
-            {{ showApiKey ? '隐藏' : '显示' }}
+            {{ showApiKey ? t('common.hide') : t('common.show') }}
           </button>
         </div>
         <input
@@ -216,7 +218,7 @@ async function testConnection() {
       </div>
 
       <div class="flex flex-col gap-1">
-        <label for="ai-model" class="text-xs font-semibold text-secondary-text">模型名称 (Model)</label>
+        <label for="ai-model" class="text-xs font-semibold text-secondary-text">{{ t('ai.model') }}</label>
         <input
           id="ai-model"
           v-model="model"
@@ -235,10 +237,10 @@ async function testConnection() {
           class="h-8 px-3 rounded-control text-xs font-semibold bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           @click="testConnection"
         >
-          {{ isTesting ? '测试中…' : '授权并测试连接' }}
+          {{ isTesting ? t('ai.testing') : t('ai.test') }}
         </button>
         <button v-if="isTesting" type="button" class="min-h-6 px-2 rounded-control text-xs text-secondary-text hover:text-text hover:bg-sunken-bg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
-          @click="cancelTest(); statusText = '已取消测试'">取消</button>
+          @click="cancelTest(); statusText = t('ai.testCancelled')">{{ t('common.cancel') }}</button>
         <span
           v-if="statusText"
           class="text-xs truncate min-w-0"
@@ -251,40 +253,40 @@ async function testConnection() {
       <!-- 转发风格：留空用默认风格；与上面的连接设置分开成一组 -->
       <div class="flex flex-col gap-3 pt-4 border-t border-border">
         <div class="flex flex-col gap-1">
-          <p class="text-sm font-semibold text-text">转发风格</p>
-          <p class="text-xs leading-normal text-muted-text">留空时使用默认风格：开门见山、结构清晰、用词朴素。填写后按你的描述和样本生成。</p>
+          <p class="text-sm font-semibold text-text">{{ t('ai.styleTitle') }}</p>
+          <p class="text-xs leading-normal text-muted-text">{{ t('ai.styleHint') }}</p>
         </div>
         <div class="flex flex-col gap-1">
-          <label for="ai-style" class="text-xs font-semibold text-secondary-text">风格描述（可选）</label>
+          <label for="ai-style" class="text-xs font-semibold text-secondary-text">{{ t('ai.styleDescription') }}</label>
           <textarea
             id="ai-style"
             v-model="stylePrompt"
             rows="3"
             class="w-full px-3 py-2 rounded-control border border-border-strong bg-sunken-bg text-xs leading-normal text-text placeholder:text-muted-text outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring resize-y"
-            placeholder="例如：开头直接说结论；多用短句；常结合自己的使用经验；不用感叹号"
+            :placeholder="t('ai.stylePlaceholder')"
             @input="scheduleSave"
           />
         </div>
         <div class="flex flex-col gap-1">
-          <label for="ai-samples" class="text-xs font-semibold text-secondary-text">参考样本（可选）</label>
+          <label for="ai-samples" class="text-xs font-semibold text-secondary-text">{{ t('ai.samples') }}</label>
           <textarea
             id="ai-samples"
             v-model="styleSamples"
             rows="4"
             class="w-full px-3 py-2 rounded-control border border-border-strong bg-sunken-bg text-xs leading-normal text-text placeholder:text-muted-text outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring resize-y"
-            placeholder="粘贴 2 到 5 条你自己写过的转发，每条之间用单独一行 --- 隔开"
+            :placeholder="t('ai.samplesPlaceholder')"
             @input="scheduleSave"
           />
-          <p class="text-xs text-muted-text">{{ sampleCount > 0 ? `已识别 ${sampleCount} 条样本，最多使用 5 条` : '每条之间用单独一行 --- 隔开；每条只有一段时，也可以只空一行' }}</p>
+          <p class="text-xs text-muted-text">{{ sampleCount > 0 ? t('ai.samplesCount', { count: sampleCount }) : t('ai.samplesHint') }}</p>
         </div>
         <div class="flex flex-col gap-1">
-          <label for="ai-prompt" class="text-xs font-semibold text-secondary-text">补充要求（可选）</label>
+          <label for="ai-prompt" class="text-xs font-semibold text-secondary-text">{{ t('ai.extra') }}</label>
           <input
             id="ai-prompt"
             v-model="customPrompt"
             type="text"
             class="w-full h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs placeholder:text-muted-text focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring outline-none text-text"
-            placeholder="例如：字数控制在 120 字以内"
+            :placeholder="t('ai.extraPlaceholder')"
             @input="scheduleSave"
           />
         </div>

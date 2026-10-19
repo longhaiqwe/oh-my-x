@@ -1,0 +1,6 @@
+{
+  "extDescription": {
+    "message": "Layout settings, spam reply filtering, viral post radar, and creator tools for X/Twitter.",
+    "description": "Extension description shown in chrome://extensions and the Chrome Web Store."
+  }
+}

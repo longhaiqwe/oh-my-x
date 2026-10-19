@@ -42,7 +42,7 @@ oh-my-x/
 ├── storage-keys.ts              # 所有 storage key + 默认值 + 默认词库 + 相关 key 集合
 ├── wxt.config.ts                # WXT 构建配置 + manifest 权限
 ├── vitest.config.ts             # Vitest 配置 + coverage 范围
-├── AGENT.md / README.md         # 开发指南 / 用户文档
+├── AGENT.md / README.md         # 开发指南 / 用户文档（英文版 README.en.md）
 │
 ├── shared/                      # 跨上下文共享逻辑（纯逻辑为主，可单测）
 │   ├── settings.ts              # 设置归一化（toggle/数值 clamp/枚举/跨字段约束/旧键迁移）
@@ -54,6 +54,7 @@ oh-my-x/
 │   ├── navItems.ts              # 导航项注册表（id/storageKey/label/selector）
 │   ├── staticNavIcons.ts        # 弹窗「导航栏按钮」里列出的 10 个按钮
 │   ├── feature-registry.ts      # 功能清单：5 个模块、每个功能的归属/名称/说明/存储项
+│   ├── i18n/                    # 界面语言：zh-CN.ts / en.ts 文案表 + t() 取文案、语言设置读取
 │   ├── tweet-filter-rules.ts    # 正文关键词过滤规则
 │   ├── tweet-media.ts           # 从推文 DOM 和接口数据提取图片/视频地址（下载用）
 │   ├── own-post-library*.ts     # 帖子库：IndexedDB 存储 + 同步调度
@@ -212,6 +213,25 @@ oh-my-x/
 - 新增设置项时，必须在功能清单里归到一个功能（或列入 `GLOBAL_STORAGE_KEYS` / `UNLISTED_STORAGE_KEYS`），`test/unit/feature-registry.test.ts` 会检查每个设置项恰好有一个归属。
 - 上次打开的模块存在 `popupActiveTab`；旧版标签 id（view/overview/viral/rules/keywords/lists/log）由 `resolvePopupModule` 映射到新模块。
 
+## 界面语言（`shared/i18n/`）
+
+- 语言设置存在 `uiLanguage`：`auto`（跟随浏览器，`zh` 开头用中文，其余用英文）/ `zh-CN` / `en`，弹窗顶部和完整设置页侧栏的地球按钮（`ui/LanguageMenu.vue`）切换。
+- 文案写在 `shared/i18n/zh-CN.ts`（标准条目）和 `en.ts`，两份条目一一对应；`{name}` 是参数。类型检查和 `test/unit/i18n.test.ts` 检查条目、参数一致，以及英文里没有漏翻的中文。英文文案同样白描。
+- 取文案：普通脚本用 `t(key, params)`；弹窗和设置页组件用 `composables/useI18n.ts` 的 `t`，切换语言时自动重新渲染。弹窗和设置页用 localStorage 缓存语言设置，首屏直接按缓存的语言渲染。
+- 功能清单只存结构，模块和功能的文字按 id 写在文案表：`module.<id>.tab|title|description`、`feature.<id>.label|description|note|where`（note、where 可以不写），组件里用 `useI18n()` 的 `moduleText()` / `featureText()` 取。垃圾规则名、分类名用 `spamRuleLabel()` / `spamCategoryLabel()`，导航按钮显示名用 `navItemName()`；`STATIC_NAV_ITEMS` 的 `label` 是匹配 X 中文菜单用的数据，不要翻译。
+- 英文按钮和分段选项比中文宽：按钮文字加 `whitespace-nowrap`，和它并排的文字允许换行；`SubRow` 的文字至少占 160px，控件放不下时换到下一行。`test/unit/popup-english.test.ts` 在英文下渲染弹窗和设置页的所有页面，页面上不能有中文（默认词库等用户数据除外）。
+- X 页面脚本（`content.ts`）和后台在启动时调用 `initI18n()`。X 页面上已经插入的界面不会随语言切换重绘，刷新页面后换成新语言；之后新插入的界面直接用新语言。
+- 插在 X 自己菜单里的选项（分享菜单的媒体下载）跟 X 菜单的语言，不跟插件语言，避免同一个菜单里中英混排。
+- 匹配 X 页面文字的字符串（`aria-label*="正在关注"`、「将于」「安排表」、数字单位「万 / 亿」的解析等）是匹配数据，不翻译；改代码时不要用界面文案去匹配，也不要用文案内容做判断（如按提示文字开头决定颜色），改用状态或代号。
+- 报错跨上下文传递时用错误代号：`shared/coded-error.ts`（`CodedError`、`errorPayload`、`toTransferable`，不依赖文案表，页面拦截器、`executeScript` 注入的函数、页面内的抓取逻辑用它）和 `shared/errors.ts`（再加 `AppError`、`errorText`、`fromTransferable`）。代号就是文案表里的 `error.*` 条目；后台、拦截器只传 `{ code, params }`，显示的一方用 `errorText()` 按语言翻译。浏览器、网络、X 和 AI 服务给的报错原文照样以字符串传。帖子库把上次同步的报错存成代号，限流判断按代号（旧数据的中文字符串仍按原文判断）。
+- 页面拦截器（`interceptor.content.ts`）和被它引用的模块（`*-interceptor.ts`、`*-fetcher.ts`）不能引入 `shared/i18n`，否则整张文案表会打进每个 X 页面；需要语言相关的格式（数字单位、提示文字）时，加一个参数由调用方传入。
+- 拦截命中项除了生成时拼好的 `label`，还存语言无关的 `detail`；显示时用 `formatRuleHit()` / `ruleHitText()` 按当前语言重拼。旧记录没有 `detail`，中文界面照原样显示，其他语言只显示规则名。
+- 插件在扩展列表和商店的描述在 `public/_locales/{en,zh_CN}/messages.json`，manifest 用 `__MSG_extDescription__`，默认英文。这部分只跟浏览器语言，不跟插件里的语言设置。
+- 测试默认按中文跑（`test/setup.ts` 里 `getUILanguage` 和 `navigator.language` 都是 `zh-CN`）。`test/unit/page-i18n.test.ts` 检查错误代号、命中说明和几块 X 页面界面的英文。
+- 默认垃圾词库和推文屏蔽词按插件界面语言：`storage-keys.ts` 的 `getDefaultSpamKeywords(locale)` / `getDefaultTweetFilterKeywords(locale)`（中文 `defaultSpamKeywords`，英文 `defaultSpamKeywordsEn`）。首次安装时 `migrateSpamStorage` 按当时的插件语言写入；老用户的词库不自动换语言，弹窗里「补充默认词」「恢复默认」按当前界面语言。存储兜底的 `defaultPreferences` 仍是中文。词会先去掉空格和标点再匹配，英文默认词不要收太短的词。
+- 打分规则：「评论过短」对含中日韩文字或纯 emoji、符号的回复按 8 个字符算，其他回复按词数算（少于 2 个词）；「矩阵引流」的前缀包括英文 visit @ / go to @。
+- 进度：设置弹窗、完整设置页、X 页面上注入的界面、后台和拦截器的报错、AI 转发提示词、英文默认词库和打分规则都已接入。README 英文版（`README.en.md`）、双语发布说明、GitHub 仓库简介和标签已完成。还没做：英文截图、Chrome 商店英文资料，清单见 `docs/english-launch-checklist.md`。改了功能或文案时，`README.md` 和 `README.en.md` 要一起改。
+
 ## 工具函数（`content-scripts/utilities/`）
 
 | 工具 | 功能 |
@@ -249,4 +269,4 @@ Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downl
 
 AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；请求 25 秒超时，Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
 
-转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用 `DEFAULT_REPOST_STYLE`。提示词里不要写入具体某个人的人设或账号。
+转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用默认风格。转发文案按插件界面语言生成：X 页面的 AI 面板在请求里带上 `locale`，后台按它选中文或英文的提示词、默认风格（`DEFAULT_REPOST_STYLE` / `DEFAULT_REPOST_STYLE_EN`）和禁用词替换表；请求没带语言时按后台读到的插件语言。中英两套提示词结构保持一致，改一套时同步改另一套。提示词里不要写入具体某个人的人设或账号。

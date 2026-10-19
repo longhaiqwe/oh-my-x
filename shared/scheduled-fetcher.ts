@@ -1,3 +1,4 @@
+import { CodedError } from './coded-error'
 import { extractScheduledItems, type ExtractedScheduledItem } from './scheduled-interceptor'
 
 /** X 读取排期列表的 GraphQL 操作名 */
@@ -51,13 +52,13 @@ export function createScheduledFetcher(deps: ScheduledFetchDependencies) {
   let inFlight: Promise<ExtractedScheduledItem[]> | null = null
 
   async function run(): Promise<ExtractedScheduledItem[]> {
-    if (cooldownUntil > Date.now()) throw new Error('请求过于频繁，请稍后重试')
+    if (cooldownUntil > Date.now()) throw new CodedError('error.tooFrequent')
     const csrf = document.cookie.match(/(?:^|;\s*)ct0=([^;]+)/)?.[1]
-    if (!csrf) throw new Error('没有读到登录状态，请刷新 X 后重试')
+    if (!csrf) throw new CodedError('error.notSignedInReload')
 
     const captured = deps.getCapturedRequest()
     const queryId = captured?.queryId || await deps.resolveQueryId(SCHEDULED_OPERATION)
-    if (!queryId) throw new Error('没找到 X 的排期接口，打开一次排期列表后再刷新')
+    if (!queryId) throw new CodedError('error.scheduleEndpointMissing')
     const search = captured?.search || DEFAULT_SCHEDULED_SEARCH
 
     const sessionHeaders = deps.getHeaders()
@@ -81,14 +82,14 @@ export function createScheduledFetcher(deps: ScheduledFetchDependencies) {
       const reset = Number(response.headers.get('x-rate-limit-reset')) * 1000
       const retry = Number(response.headers.get('retry-after')) * 1000
       cooldownUntil = Math.max(Date.now() + (retry || 60_000), reset || 0)
-      throw new Error('请求过于频繁，请稍后重试')
+      throw new CodedError('error.tooFrequent')
     }
     if (!response.ok) {
       if (response.status === 400 || response.status === 404) deps.forgetCapturedRequest()
-      throw new Error(`读取失败（${response.status}），请稍后重试`)
+      throw new CodedError('error.readHttp', { status: response.status })
     }
     const items = extractScheduledItems(await response.json())
-    if (!items) throw new Error('X 返回的数据里没有排期列表，请稍后重试')
+    if (!items) throw new CodedError('error.scheduleListMissing')
     return items
   }
 

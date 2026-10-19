@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Toggle } from 'reka-ui'
 import { useStorageKey } from '../../composables/useStorageKey'
+import { useI18n } from '../../composables/useI18n'
 
 const props = defineProps<{
  storageKey: string
@@ -10,6 +11,7 @@ const props = defineProps<{
 }>()
 
 const { value, setValue } = useStorageKey(props.storageKey)
+const { t } = useI18n()
 </script>
 
 <template>
@@ -17,8 +19,8 @@ const { value, setValue } = useStorageKey(props.storageKey)
   <Toggle
    :model-value="value"
    @update:model-value="setValue"
-   :title="`${label}：${value ? '显示中，点击隐藏' : '已隐藏，点击显示'}`"
-   :aria-label="`显示${label}`"
+   :title="t(value ? 'navItem.shownTitle' : 'navItem.hiddenTitle', { label })"
+   :aria-label="t('navItem.toggleLabel', { label })"
    class="p-2 m-1 w-fit rounded-full border-2 cursor-pointer transition-colors duration-150
     outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg
     data-[state=on]:border-accent data-[state=on]:bg-accent-subtle data-[state=on]:text-accent-subtle-text
