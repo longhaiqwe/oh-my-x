@@ -13,6 +13,9 @@ import {
   KeyAiRepostStyleSamples,
   KeyAiRepostModel,
   KeyCreatorRewardsStats,
+  KeyCreatorRewardsHistory,
+  KeyImpressionsDaily,
+  KeyAccountOverviewQueryId,
   defaultPreferences,
 } from '../storage-keys'
 import {
@@ -20,6 +23,18 @@ import {
   isCreatorRewardsStale,
   type CreatorRewardsStats,
 } from '../shared/creator-rewards'
+import {
+  ACCOUNT_OVERVIEW_OPERATION,
+  FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID,
+  buildAccountOverviewVariables,
+  isRewardsHistoryMissingToday,
+  mergeImpressionsDays,
+  parseAccountOverviewDaily,
+  parseImpressionsCache,
+  parseRewardsHistory,
+  persistCreatorRewardsStats,
+  type ImpressionsDailyCache,
+} from '../shared/creator-rewards-daily'
 import {
   buildRepostMessages,
   extractTweetFullTextFromGraphql,
@@ -452,7 +467,7 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
     const csrf = await getCsrfToken()
     if (!csrf) return // 用户当前未在浏览器登录 X，跳过
 
-    const stored = await browser.storage.local.get(KeyCreatorRewardsStats)
+    const stored = await browser.storage.local.get([KeyCreatorRewardsStats, KeyCreatorRewardsHistory])
     const raw = stored[KeyCreatorRewardsStats]
     let updatedAt: number | undefined
     if (typeof raw === 'string') {
@@ -463,9 +478,11 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
       updatedAt = (raw as any)?.updatedAt
     }
 
-    if (isCreatorRewardsStale(updatedAt)) {
+    // 过了刷新节点但还没记到当天的累计数（X 更新晚了），每次闹钟都再取一次
+    const history = parseRewardsHistory(stored[KeyCreatorRewardsHistory])
+    if (isCreatorRewardsStale(updatedAt) || isRewardsHistoryMissingToday(history)) {
       console.info('[oh-my-x] 创作者奖励数据已到每日刷新节点，执行静默同步...')
-      await fetchCreatorRewardsFromApi()
+      await refreshCreatorRewardsData()
     }
   } catch (e) {
     console.debug('[oh-my-x] 自动同步创作者奖励数据跳过或失败', e)
@@ -640,14 +657,7 @@ export default defineBackground(() => {
     }
 
     if (msg?.type === 'XF_FETCH_CREATOR_REWARDS') {
-      void (async () => {
-        try {
-          const stats = await fetchCreatorRewardsFromApi()
-          sendResponse({ ok: Boolean(stats), stats })
-        } catch (e: any) {
-          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
-        }
-      })()
+      void refreshCreatorRewardsData().then(sendResponse)
       return true
     }
   })
@@ -686,12 +696,71 @@ async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null>
   }
 
   try {
-    await browser.storage.local.set({
-      [KeyCreatorRewardsStats]: JSON.stringify(stats),
-    })
+    await persistCreatorRewardsStats(stats)
   } catch {
     // 忽略存储异常
   }
 
   return stats
+}
+
+/** 奖励计划进度和账号分析的每日曝光一起取；账号分析失败不影响进度 */
+async function refreshCreatorRewardsData(): Promise<{
+  ok: boolean
+  stats?: CreatorRewardsStats | null
+  error?: TransferableError
+  impressionsError?: TransferableError
+}> {
+  const [rewards, impressions] = await Promise.allSettled([
+    fetchCreatorRewardsFromApi(),
+    fetchImpressionsDailyFromApi(),
+  ])
+  return {
+    ok: rewards.status === 'fulfilled' && Boolean(rewards.value),
+    stats: rewards.status === 'fulfilled' ? rewards.value : null,
+    error: rewards.status === 'rejected' ? toTransferable(rewards.reason, 'error.rewardsParse') : undefined,
+    impressionsError: impressions.status === 'rejected' ? toTransferable(impressions.reason, 'error.analyticsShape') : undefined,
+  }
+}
+
+async function requestAccountOverview(queryId: string, headers: HeadersInit): Promise<Response> {
+  const url = new URL(`${X_API_BASE}/graphql/${queryId}/${ACCOUNT_OVERVIEW_OPERATION}`)
+  url.searchParams.set('variables', JSON.stringify(buildAccountOverviewVariables()))
+  return fetch(url.toString(), { method: 'GET', headers, credentials: 'include' })
+}
+
+/** 账号分析页的按天曝光：整体 + 蓝 V 用户看到的部分 */
+async function fetchImpressionsDailyFromApi(): Promise<ImpressionsDailyCache> {
+  const csrf = await getCsrfToken()
+  if (!csrf) {
+    throw new AppError('error.noXSession')
+  }
+
+  const stored = await browser.storage.local.get([KeyAccountOverviewQueryId, KeyImpressionsDaily])
+  const capturedId = typeof stored[KeyAccountOverviewQueryId] === 'string' ? stored[KeyAccountOverviewQueryId] : ''
+  const queryIds = [...new Set([capturedId, FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID].filter(Boolean))]
+  const headers = {
+    ...(await getBaseApiHeaders()),
+    'content-type': 'application/json',
+    referer: 'https://x.com/i/account_analytics',
+  }
+
+  let res: Response | null = null
+  for (const queryId of queryIds) {
+    res = await requestAccountOverview(queryId, headers)
+    // 400/404 多半是接口编号过期，换下一个编号
+    if (res.status !== 400 && res.status !== 404) break
+  }
+  if (!res?.ok) {
+    if (!res) throw new AppError('error.analyticsNoResponse')
+    // 400/404 多半是接口编号过期：提示打开一次账号分析页，让拦截器记下新编号
+    throw new AppError(res.status === 400 || res.status === 404 ? 'error.analyticsHttpOpenPage' : 'error.analyticsHttp', { status: res.status })
+  }
+
+  const days = parseAccountOverviewDaily(await res.json())
+  if (!days) throw new AppError('error.analyticsShape')
+
+  const cache = mergeImpressionsDays(parseImpressionsCache(stored[KeyImpressionsDaily]), days, Date.now())
+  await browser.storage.local.set({ [KeyImpressionsDaily]: JSON.stringify(cache) })
+  return cache
 }

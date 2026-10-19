@@ -1,6 +1,7 @@
-import { CREATOR_REWARDS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
-import { KeyCreatorRewardsStats } from '../../storage-keys'
-import { setStorage } from '../utilities/storage'
+import { ACCOUNT_OVERVIEW_QUERY_TYPE, CREATOR_REWARDS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
+import { KeyAccountOverviewQueryId } from '../../storage-keys'
+import { getStorage, setStorage } from '../utilities/storage'
+import { persistCreatorRewardsStats } from '../../shared/creator-rewards-daily'
 import {
   parseCreatorRewardsPayload,
   parseNumberWithUnit,
@@ -12,6 +13,18 @@ import {
 
 let isListening = false
 
+function saveStats(stats: CreatorRewardsStats) {
+  persistCreatorRewardsStats(stats).catch(() => {
+    // 扩展上下文失效等情况下忽略
+  })
+}
+
+async function saveAccountOverviewQueryId(queryId: unknown) {
+  if (typeof queryId !== 'string' || !/^[A-Za-z0-9_-]{10,64}$/.test(queryId)) return
+  if ((await getStorage(KeyAccountOverviewQueryId)) === queryId) return
+  await setStorage({ [KeyAccountOverviewQueryId]: queryId })
+}
+
 /**
  * 监听来自 MAIN world 拦截器广播的创作者奖励指标数据并写入本地存储
  */
@@ -21,13 +34,18 @@ export function listenForCreatorRewardsApi() {
 
   window.addEventListener('message', (event) => {
     if (event.source !== window) return
-    if (!event.data || event.data.type !== CREATOR_REWARDS_TYPE) return
-    if (event.data.__xf !== XF_BRIDGE_MARKER) return
+    if (!event.data || event.data.__xf !== XF_BRIDGE_MARKER) return
+
+    if (event.data.type === ACCOUNT_OVERVIEW_QUERY_TYPE) {
+      void saveAccountOverviewQueryId(event.data.queryId)
+      return
+    }
+    if (event.data.type !== CREATOR_REWARDS_TYPE) return
 
     try {
       const stats = event.data.payload as CreatorRewardsStats
       if (stats && typeof stats === 'object' && typeof stats.impressionsCount === 'number') {
-        void setStorage({ [KeyCreatorRewardsStats]: JSON.stringify(stats) })
+        saveStats(stats)
       }
     } catch {
       // 忽略落库异常
@@ -87,7 +105,7 @@ export function scanCreatorRewardsFromDom(): boolean {
           updatedAt: Date.now(),
         }
 
-        void setStorage({ [KeyCreatorRewardsStats]: JSON.stringify(stats) })
+        saveStats(stats)
         return true
       }
     }
@@ -95,7 +113,7 @@ export function scanCreatorRewardsFromDom(): boolean {
     // 若未通过正则直接提取到，尝试通用 payload 解析器从 bodyText 中提取
     const fallbackStats = parseCreatorRewardsPayload(bodyText)
     if (fallbackStats && fallbackStats.impressionsCount > 0) {
-      void setStorage({ [KeyCreatorRewardsStats]: JSON.stringify(fallbackStats) })
+      saveStats(fallbackStats)
       return true
     }
   } catch {

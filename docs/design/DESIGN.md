@@ -45,6 +45,8 @@
 | `accent-subtle` / `accent-subtle-text` | primary-200 / 800 | ink-800 / primary-300 | 选中的标签、筛选、已置顶 |
 | `switch-off` | ink-400 | ink-500 | 开关关闭 |
 | `icon-muted` | ink-400 | ink-500 | 「在哪用」前的小图标，比文字浅一档 |
+| `chart-muted` | paper-500 | ink-500 | 图表里未选中的柱子；选中的用 `accent`。对卡片底色约 3:1 |
+| `tooltip-bg` / `tooltip-text` / `tooltip-muted` | ink-900 / paper-50 / ink-300 | paper-100 / ink-900 / ink-600 | 悬停提示框（`HintTooltip`），与页面明暗相反。弹窗里不显示浏览器自带的 `title` 提示 |
 | `danger` / `warning` / `success` | 各 700 | 各 400 | 删除类文字、提醒文字、成功提示 |
 
 **对比度**：`design-tokens.json` 里声明了 32 组文字与背景的搭配，全部达到 4.5:1；开关等控件对背景达到 3:1。改颜色后运行：

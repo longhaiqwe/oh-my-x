@@ -116,6 +116,10 @@
   --color-accent-ring: #c26634;
   --color-accent-track: #ecdaba;
   --color-switch-off: #7a90af;
+  --color-chart-muted: #b68b54;
+  --color-tooltip-bg: #161e2d;
+  --color-tooltip-text: #fff9ef;
+  --color-tooltip-muted: #9fb0c8;
   --color-danger: #a0231c;
   --color-warning: #a85918;
   --color-success: #297946;

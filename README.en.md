@@ -199,10 +199,12 @@ Posts in your timeline that contain muted words can be collapsed into a one-line
 
 #### Original Content Rewards
 
-Shows your creator rewards impression progress and eligibility requirements in the popup, so you don't have to click through several pages in X to find them.
+Shows your progress toward the creator rewards program in the popup: Verified Home Timeline impressions over the last 90 days / 500K.
+
+Below it is one day's impression conversion: all impressions, verified impressions (from X account analytics), impressions counted toward rewards, and the share of verified in all impressions and of counted in verified impressions. Under that is a 7-day bar chart of counted impressions; click a bar to switch the day. The program only reports a running total, so the extension records it once a day after 02:30 UTC, and counted = today's total minus the previous day's. It appears from the second recorded day. Dates are in UTC.
 
 <p align="center">
-  <img src="docs/images/insight-creator-rewards.webp" width="420" alt="Original Content Rewards progress and eligibility requirements" />
+  <img src="docs/images/insight-creator-rewards.webp" width="420" alt="Original Content Rewards progress" />
 </p>
 
 #### Account activity

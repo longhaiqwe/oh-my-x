@@ -156,6 +156,10 @@
       "accent-ring": "{color.primary.600}",
       "accent-track": "{color.paper.200}",
       "switch-off": "{color.ink.400}",
+      "chart-muted": "{color.paper.500}",
+      "tooltip-bg": "{color.ink.900}",
+      "tooltip-text": "{color.paper.50}",
+      "tooltip-muted": "{color.ink.300}",
       "danger": "{color.danger.700}",
       "warning": "{color.warning.700}",
       "success": "{color.success.700}",
@@ -180,6 +184,10 @@
       "accent-ring": "{color.primary.400}",
       "accent-track": "{color.ink.800}",
       "switch-off": "{color.ink.500}",
+      "chart-muted": "{color.ink.500}",
+      "tooltip-bg": "{color.paper.100}",
+      "tooltip-text": "{color.ink.900}",
+      "tooltip-muted": "{color.ink.600}",
       "danger": "{color.danger.400}",
       "warning": "{color.warning.400}",
       "success": "{color.success.400}",
@@ -346,6 +354,26 @@
       "name": "暗色·按钮文字/按钮悬停",
       "fg": "#0b101a",
       "bg": "#e6b16e"
+    },
+    {
+      "name": "亮色·提示框文字/提示框",
+      "fg": "#fff9ef",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "亮色·提示框弱化文字/提示框",
+      "fg": "#9fb0c8",
+      "bg": "#161e2d"
+    },
+    {
+      "name": "暗色·提示框文字/提示框",
+      "fg": "#161e2d",
+      "bg": "#fbf1df"
+    },
+    {
+      "name": "暗色·提示框弱化文字/提示框",
+      "fg": "#485979",
+      "bg": "#fbf1df"
     }
   ]
 }

@@ -68,6 +68,10 @@ export const KeyPopupActiveTab = 'popupActiveTab' // last active tab
 
 // Stat ratio storage keys
 export const KeyCreatorRewardsStats = 'creatorRewardsStats'
+export const KeyCreatorRewardsHistory = 'creatorRewardsHistory' // 奖励计划 90 天累计曝光的每日记录
+export const KeyImpressionsDaily = 'impressionsDaily' // 账号分析的每日整体 / 蓝 V 曝光
+export const KeyAccountOverviewQueryId = 'accountOverviewQueryId' // 账号分析接口编号，X 页面里抓到的
+export const KeyCreatorRewardsCollapsed = 'creatorRewardsCollapsed' // 弹窗里奖励计划看板是否收起（'on' = 收起），属于数据，不是设置项
 export const KeyStatRatioTargetHandle = 'statRatioTargetHandle'
 export const KeyStatRatioEnabled = 'statRatioEnabled'
 export const KeyProfileActivityStats = 'profileActivityStats'

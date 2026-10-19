@@ -97,6 +97,12 @@
   --color-accent-ring: light-dark(var(--color-primary-600), var(--color-primary-400));
   --color-accent-track: light-dark(var(--color-paper-200), var(--color-ink-800));
   --color-switch-off: light-dark(var(--color-ink-400), var(--color-ink-500));
+  /* 图表里未选中的柱子：对卡片底色约 3:1 */
+  --color-chart-muted: light-dark(var(--color-paper-500), var(--color-ink-500));
+  /* 悬停提示框：与页面明暗相反，浮在卡片上也能分清 */
+  --color-tooltip-bg: light-dark(var(--color-ink-900), var(--color-paper-100));
+  --color-tooltip-text: light-dark(var(--color-paper-50), var(--color-ink-900));
+  --color-tooltip-muted: light-dark(var(--color-ink-300), var(--color-ink-600));
   --color-danger: light-dark(var(--color-danger-700), var(--color-danger-400));
   --color-warning: light-dark(var(--color-warning-700), var(--color-warning-400));
   --color-success: light-dark(var(--color-success-700), var(--color-success-400));
