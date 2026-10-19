@@ -134,6 +134,7 @@ Insights
 
 Create & Publish
 - Quote my posts: search your own posts and articles from the editor and insert a link
+- Image grid and ordering: 2 to 4 attached images are shown in two columns, uncropped and numbered in posting order; drag an image to change the order, and the post, scheduled post, or draft uses the new order
 - AI quote drafts: two quote-post drafts from an OpenAI-compatible service you set up with your own API key
 - Schedule overview: every scheduled post with its time and the gap to the previous one, plus a schedule panel in the right sidebar
 
