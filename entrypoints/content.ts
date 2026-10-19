@@ -37,6 +37,7 @@ import {
   KeyBookmarkCount,
   KeyMediaDownload,
   KeyAiRepostEnabled,
+  KeyComposerMediaGrid,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
   TWEET_FILTER_RELEVANT_KEYS,
@@ -131,7 +132,7 @@ export default defineContentScript({
           void dynamicFeatures.general(['tweet'])
         }
 
-        if (changedSettingKeys.includes(KeyAiRepostEnabled)) {
+        if (changedSettingKeys.includes(KeyAiRepostEnabled) || changedSettingKeys.includes(KeyComposerMediaGrid)) {
           void dynamicFeatures.general(['composer'])
         }
       }

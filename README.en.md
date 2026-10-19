@@ -46,7 +46,7 @@ The settings popup has five tabs. The names below match the popup:
 | [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
-| [04 Create & Publish](#04-create--publish) | Quote my posts, AI quote drafts, schedule overview |
+| [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, AI quote drafts, schedule overview |
 | [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 ---
@@ -179,6 +179,14 @@ Adds a button to the post, quote, and reply editors. Search your own posts and a
 - Turn off Sync while X is open under Create → Quote my posts. Cached posts stay searchable, and you can still sync manually.
 - X's API does not always return the full history; the local copy may keep deleted posts or earlier versions of edited posts. It never posts anything automatically.
 
+#### Image grid and ordering
+
+When you attach 2 to 4 images, they are shown in two columns of equal tiles, left to right and top to bottom in posting order, with the order number in the bottom-right corner. Landscape and portrait images are shown uncropped. Drag an image to another tile and release; the post, scheduled post, or draft uses the new order, with no need to remove and upload again.
+
+- A single click on an image opens X's Edit media as before. Press Esc while dragging to cancel.
+- It changes the image order that X's editor keeps; post requests are not intercepted or modified. If X's data can't be read, X's layout is kept, and a failed drag shows a message.
+- With a video or GIF, X's layout is kept. Turn it off under Create → Image grid and ordering.
+
 #### AI quote drafts
 
 In the post and quote editors, click the AI draft button to the right of Everyone. The extension reads the full text of the quoted post and uses your model to write two drafts. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
@@ -232,7 +240,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 | **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
-| **Create** (Create & Publish) | Quote my posts, AI quote drafts, schedule overview |
+| **Create** (Create & Publish) | Quote my posts, image grid and ordering, AI quote drafts, schedule overview |
 | **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 The Filter tab has two levels: the first shows each feature's switch and status; click Settings, Manage muted words, Manage lists, or All records at the bottom right of a card to open the second level, and use the back button at the top left to return.

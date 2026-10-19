@@ -9,6 +9,7 @@ import {
   KeyScheduledPanorama,
   KeyBookmarkCount,
   KeyMediaDownload,
+  KeyComposerMediaGrid,
 } from '../../storage-keys'
 import {
   addCommunitiesButton, addListsButton,
@@ -22,6 +23,7 @@ import {
 } from '../options/timeline'
 import { syncRadarPageMarker } from '../options/radar'
 import { addComposerInsertLinkButton } from '../options/composer'
+import { setComposerMediaGridEnabled, updateComposerMediaGrids } from '../options/composer-media'
 import { addScheduledRelativeTimes, maintainScheduledPostsCache, removeScheduledPanorama } from '../options/scheduled-time'
 import { addStatRatioBadges } from '../options/stat-ratio'
 import { changeTweetButton, changeHighlightNonFollowers } from '../options/interface'
@@ -61,8 +63,18 @@ let cachedTweetSettings: {
   mediaDownload: boolean
 } | null = null
 
+let cachedComposerMediaGrid: boolean | null = null
+
 export function invalidateDynamicSettingsCache() {
   cachedTweetSettings = null
+  cachedComposerMediaGrid = null
+}
+
+async function getCachedComposerMediaGrid() {
+  if (cachedComposerMediaGrid === null) {
+    cachedComposerMediaGrid = (await getStorage(KeyComposerMediaGrid)) !== 'off'
+  }
+  return cachedComposerMediaGrid
 }
 
 async function getCachedTweetSettings() {
@@ -130,6 +142,8 @@ export const dynamicFeatures = {
 
         if (includesScope(scopes, 'composer')) {
           addComposerInsertLinkButton()
+          setComposerMediaGridEnabled(await getCachedComposerMediaGrid())
+          updateComposerMediaGrids()
           void updateAiRepostComposerButton()
           updateArticleToc()
           updateBookmarkCounters()

@@ -44,6 +44,7 @@ import {
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
+  KeyComposerMediaGrid,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -123,6 +124,7 @@ export interface ExtensionSettings {
   [KeyScheduledPanorama]: ToggleValue
   [KeyScheduledSidebar]: ToggleValue
   [KeyOwnPostAutoSync]: ToggleValue
+  [KeyComposerMediaGrid]: ToggleValue
   [KeyRadarWidth]: RadarWidthValue
   [KeyTweetFilterEnabled]: ToggleValue
   [KeyTweetFilterAction]: TweetFilterAction
@@ -179,6 +181,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
+  KeyComposerMediaGrid,
   KeyTweetFilterEnabled,
   KeyJumpToReplies,
   KeySortRepliesByTime,

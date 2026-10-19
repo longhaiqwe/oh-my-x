@@ -68,6 +68,7 @@ import {
   extractUserMetrics,
   type UserMetrics,
 } from '../shared/user-metrics-interceptor'
+import { installComposerMediaBridge } from '../shared/composer-media-bridge'
 
 export default defineContentScript({
   matches: [
@@ -673,6 +674,9 @@ export default defineContentScript({
         )
       }
     }
+
+    // 发帖框多图排序：内容脚本在附件区派发事件，这里读 X 的图片数据、改图片顺序
+    installComposerMediaBridge(() => interceptEnabled)
 
     // 扩展总开关状态由 isolated world 通过 postMessage 推送（MAIN world 无法读 storage）。
     // 带 XF_BRIDGE_MARKER 防止页面其他脚本伪造状态消息。

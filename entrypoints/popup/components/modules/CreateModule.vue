@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { KeyScheduledPanorama, KeyScheduledSidebar } from '../../../../storage-keys'
+import { KeyComposerMediaGrid, KeyScheduledPanorama, KeyScheduledSidebar } from '../../../../storage-keys'
 import { useI18n } from '../../composables/useI18n'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import FeatureCard from '../ui/FeatureCard.vue'
@@ -15,6 +15,11 @@ const { featureText } = useI18n()
  <section class="flex flex-col gap-4">
   <ModuleHeader module-id="create" />
   <OwnPostsCard />
+  <FeatureCard feature-id="composerMedia">
+   <template #control>
+    <FeatureSwitch :storage-key="KeyComposerMediaGrid" :label="featureText('composerMedia', 'label')" />
+   </template>
+  </FeatureCard>
   <AiRepostCard />
   <FeatureCard feature-id="scheduledPanorama">
    <template #control>

@@ -36,6 +36,7 @@ import {
   KeyNavigationWidth,
   KeyNotificationsButton,
   KeyOwnPostAutoSync,
+  KeyComposerMediaGrid,
   KeyProfileActivityStats,
   KeyProfileButton,
   KeyQuickInteraction,
@@ -249,6 +250,11 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'ownPosts',
     module: 'create',
     storageKeys: [KeyOwnPostAutoSync],
+  },
+  {
+    id: 'composerMedia',
+    module: 'create',
+    storageKeys: [KeyComposerMediaGrid],
   },
   {
     id: 'aiRepost',
