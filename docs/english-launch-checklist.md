@@ -6,7 +6,7 @@
 
 | 文件 | 改了什么 |
 |------|---------|
-| `README.en.md` | 英文版，和中文版逐节对应。截图仍是中文界面，顶部有说明 |
+| `README.en.md` | 英文版，和中文版逐节对应。暂时不放截图（2026-10-19 去掉，只保留顶部 logo），顶部有提示，欢迎英文用户按 `docs/images/en/` 同名文件提交截图 |
 | `README.md` | 顶部加 English 链接；「简体中文界面」改为「中文 / English 界面」；补界面语言切换说明；「评论过短」「矩阵引流」两条规则按现在的判断写；补默认词库按界面语言、AI 草稿按界面语言 |
 | `.github/workflows/release.yml` | 发布说明的安装和升级步骤改成中文、英文两段 |
 | `PRIVACY.md` | 补 `scripting` 权限的用途；补 localStorage 里存了什么；AI 授权入口改成英文界面的名字（附中文名）；更新日期改为 2026-10-19 |
@@ -36,7 +36,9 @@ gh repo edit longhaiqwe/oh-my-x --description "Adds missing features to X (Twitt
 
 前提：X 页面截图要 X 本身也是英文界面。需要把 X 账号的显示语言改成 English，或用一个英文测试账号，这一步由你来做。
 
-建议放法：英文图放 `docs/images/en/`，文件名和中文图相同；全部换完后，把 `README.en.md` 里的图片路径改到 `en/`，并删掉顶部「截图是中文界面」的说明。
+英文 README 现在不放截图。英文图准备好后放 `docs/images/en/`，文件名和中文图相同，再按中文 README 里的位置加回 `README.en.md`。
+
+中文图也有一张要重截：`engage-lists-nav.webp` 上还是「我的 Lists」，2026-10-19 已改名为「我的列表」。
 
 下面的分类按文件名、尺寸和 README 里的用途推断，没有逐张看图。
 
