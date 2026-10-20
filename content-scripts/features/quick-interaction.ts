@@ -1,5 +1,5 @@
-import { KeyQuickInteraction, KeyQuickInteractionDock } from '../../storage-keys'
-import { getStorage, setStorage } from '../utilities/storage'
+import { defaultPreferences, KeyQuickInteraction, KeyQuickInteractionDock } from '../../storage-keys'
+import { setStorage } from '../utilities/storage'
 import addStyles from '../utilities/addStyles'
 import { t } from '../../shared/i18n'
 
@@ -478,6 +478,8 @@ export class QuickInteractionManager {
   private keydownListenerAttached = false
   private isShortcutsEnabled = true
   private isDockEnabled = true
+  private updateVersion = 0
+  private closingDock = false
 
   private constructor() {
     this.handleKeyDown = this.handleKeyDown.bind(this)
@@ -649,8 +651,13 @@ export class QuickInteractionManager {
 
       dock.querySelector('.xf-qi-btn-close')?.addEventListener('click', async (e) => {
         e.stopPropagation()
+        // 先作废旧读取；保存结束前，DOM observer 不能用尚未写入的 on 重建悬浮条。
+        this.updateVersion++
+        this.closingDock = true
+        this.isDockEnabled = false
         this.removeDock()
         await setStorage({ [KeyQuickInteractionDock]: 'off' })
+        this.closingDock = false
       })
 
       document.body.appendChild(dock)
@@ -712,9 +719,25 @@ export class QuickInteractionManager {
    * 主更新循环（由 dynamic observer 驱动）
    */
   public async update() {
-    const data = await getStorage([KeyQuickInteraction, KeyQuickInteractionDock])
-    this.isShortcutsEnabled = data?.[KeyQuickInteraction] !== 'off'
-    this.isDockEnabled = data?.[KeyQuickInteractionDock] !== 'off'
+    const version = ++this.updateVersion
+    if (this.closingDock) return
+
+    let data: Record<string, unknown>
+    try {
+      if (typeof browser === 'undefined' || !browser.runtime?.id) {
+        this.destroy()
+        return
+      }
+      // getStorage 会把读取失败也回退为默认 on。此处只有成功读取后缺失的键
+      // 才能用默认值；扩展重载后，旧页面应撤下工具条而不是重新开启它。
+      data = await browser.storage.local.get([KeyQuickInteraction, KeyQuickInteractionDock])
+    } catch {
+      if (version === this.updateVersion) this.destroy()
+      return
+    }
+    if (version !== this.updateVersion) return
+    this.isShortcutsEnabled = (data[KeyQuickInteraction] ?? defaultPreferences[KeyQuickInteraction]) === 'on'
+    this.isDockEnabled = (data[KeyQuickInteractionDock] ?? defaultPreferences[KeyQuickInteractionDock]) === 'on'
 
     if (!this.isShortcutsEnabled || !isTweetDetailPage()) {
       this.removeDock()
@@ -734,6 +757,7 @@ export class QuickInteractionManager {
   }
 
   public destroy() {
+    this.updateVersion++
     this.removeDock()
     this.detachKeydownListener()
   }
