@@ -226,4 +226,61 @@ describe('content-scripts/features/ai-repost DOM behavior', () => {
     replaceComposeEditorText(modalEl, '选项二：共鸣延伸文本')
     expect(editor.textContent).toBe('选项二：共鸣延伸文本')
   })
+
+  it('回复弹窗没有受众按钮时，兜底行放在编辑器上方，再次运行不删按钮', async () => {
+    // 结构取自 X 回复弹窗：头像和内容横向排，编辑器外面还有一层横向 flex
+    document.body.innerHTML = `
+      <div aria-labelledby="modal-header" role="dialog">
+        <div style="display: flex; flex-direction: row">
+          <div class="avatar"></div>
+          <div class="content" style="display: flex; flex-direction: column">
+            <div class="editor-row" style="display: flex; flex-direction: row">
+              <div data-testid="tweetTextarea_0_label" style="display: flex; flex-direction: row">
+                <div class="DraftEditor-root">
+                  <div class="DraftEditor-editorContainer">
+                    <div contenteditable="true" data-testid="tweetTextarea_0">发到发到</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+
+    await updateAiRepostComposerButton()
+    const bar = document.querySelector('.xf-ai-repost-fallback-bar')
+    const trigger = document.querySelector('.xf-ai-repost-trigger')
+    expect(bar?.contains(trigger)).toBe(true)
+    expect(bar?.parentElement).toBe(document.querySelector('.content'))
+    expect(bar?.nextElementSibling).toBe(document.querySelector('.editor-row'))
+
+    // 每次输入都会再跑一次
+    for (let i = 0; i < 3; i++) await updateAiRepostComposerButton()
+    expect(document.querySelectorAll('.xf-ai-repost-trigger')).toHaveLength(1)
+    expect(document.querySelector('.xf-ai-repost-trigger')).toBe(trigger)
+    expect(document.querySelector('.xf-ai-repost-fallback-bar')).toBe(bar)
+  })
+
+  it('受众按钮后出现时，按钮移到它右侧并删掉空的兜底行', async () => {
+    document.body.innerHTML = `
+      <div aria-labelledby="modal-header" role="dialog">
+        <div class="audience-slot"></div>
+        <div class="DraftEditor-root">
+          <div class="DraftEditor-editorContainer">
+            <div contenteditable="true" data-testid="tweetTextarea_0"></div>
+          </div>
+        </div>
+      </div>
+    `
+
+    await updateAiRepostComposerButton()
+    const trigger = document.querySelector('.xf-ai-repost-trigger')
+    expect(trigger?.parentElement?.classList.contains('xf-ai-repost-fallback-bar')).toBe(true)
+
+    document.querySelector('.audience-slot')!.innerHTML = '<button type="button" aria-haspopup="menu">每个人</button>'
+    await updateAiRepostComposerButton()
+    expect(document.querySelector('.audience-slot button')?.nextElementSibling).toBe(trigger)
+    expect(document.querySelector('.xf-ai-repost-fallback-bar')).toBeNull()
+  })
 })

@@ -1082,6 +1082,24 @@ function applyAudienceRowStyle(parentEl: HTMLElement) {
 }
 
 /**
+ * 兜底行插在编辑器上方、独占一行。回复弹窗里编辑器的父级是横向 flex，
+ * 直接插在编辑器前面会把按钮放到文字左边并把文字挤到右侧，所以往上找到竖向排列的那一层
+ */
+function findFallbackBarAnchor(modalEl: HTMLElement, editor: HTMLElement): HTMLElement {
+  let anchor =
+    editor.closest<HTMLElement>('[data-testid="tweetTextarea_0_label"]') ||
+    editor.closest<HTMLElement>('.DraftEditor-root') ||
+    editor
+  while (anchor.parentElement && anchor.parentElement !== modalEl) {
+    const style = getComputedStyle(anchor.parentElement)
+    const isRow = style.display.includes('flex') && !style.flexDirection.startsWith('column')
+    if (!isRow) break
+    anchor = anchor.parentElement
+  }
+  return anchor
+}
+
+/**
  * 向发帖/Repost 弹窗注入「AI 总结」按钮（位于受众选择按钮「每个人 ∨」右侧水平并排）
  */
 export async function updateAiRepostComposerButton() {
@@ -1114,8 +1132,11 @@ export async function updateAiRepostComposerButton() {
             }
           }
         }
-        const fallbackParent = existingBtn.closest('.xf-ai-repost-fallback-bar')
-        if (fallbackParent) fallbackParent.remove()
+        // 按钮移到受众按钮旁边后，只删掉留下的空兜底行；按钮还在兜底行里时不能删，
+        // 否则每次输入都会删掉再重建，按钮和文字来回跳
+        modalEl.querySelectorAll('.xf-ai-repost-fallback-bar').forEach((bar) => {
+          if (!bar.contains(existingBtn)) bar.remove()
+        })
         return
       }
 
@@ -1160,11 +1181,7 @@ export async function updateAiRepostComposerButton() {
         const fallbackBar = document.createElement('div')
         fallbackBar.className = 'xf-ai-repost-fallback-bar'
         fallbackBar.appendChild(triggerBtn)
-        const editorContainer =
-          editor.closest('[data-testid="tweetTextarea_0_label"]') ||
-          editor.closest('.DraftEditor-root') ||
-          editor
-        editorContainer.insertAdjacentElement('beforebegin', fallbackBar)
+        findFallbackBarAnchor(modalEl, editor).insertAdjacentElement('beforebegin', fallbackBar)
         anchorRow = fallbackBar
       }
 
