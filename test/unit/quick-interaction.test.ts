@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { KeyQuickInteraction, KeyQuickInteractionDock } from '../../storage-keys'
 import {
   QuickInteractionManager,
   isTweetDetailPage,
@@ -220,6 +221,8 @@ describe('quick-interaction: Action triggers', () => {
 
 describe('quick-interaction: QuickInteractionManager & keyboard events', () => {
   let manager: QuickInteractionManager
+  const storageGet = vi.fn<() => Promise<Record<string, unknown>>>()
+  const storageSet = vi.fn<() => Promise<void>>()
 
   beforeEach(() => {
     document.body.innerHTML = ''
@@ -227,6 +230,17 @@ describe('quick-interaction: QuickInteractionManager & keyboard events', () => {
     manager.destroy()
     vi.restoreAllMocks()
     window.history.replaceState({}, '', '/user/status/123456')
+    storageGet.mockReset().mockResolvedValue({})
+    storageSet.mockReset().mockResolvedValue(undefined)
+    vi.stubGlobal('browser', {
+      runtime: { id: 'test-extension' },
+      storage: { local: { get: storageGet, set: storageSet } },
+    })
+  })
+
+  afterEach(() => {
+    manager.destroy()
+    vi.unstubAllGlobals()
   })
 
   it('renders dock on update when on detail page with close button', async () => {
@@ -253,9 +267,7 @@ describe('quick-interaction: QuickInteractionManager & keyboard events', () => {
 
   it('keeps keydown shortcuts working even when dock is hidden', async () => {
     // 模拟用户在设置中关闭了悬浮条，但开启了快捷键
-    const storage = await import('../../content-scripts/utilities/storage')
-    const { KeyQuickInteraction, KeyQuickInteractionDock } = await import('../../storage-keys')
-    vi.spyOn(storage, 'getStorage').mockResolvedValue({
+    storageGet.mockResolvedValue({
       [KeyQuickInteraction]: 'on',
       [KeyQuickInteractionDock]: 'off',
     })
@@ -278,6 +290,76 @@ describe('quick-interaction: QuickInteractionManager & keyboard events', () => {
       new KeyboardEvent('keydown', { key: '3', bubbles: true, cancelable: true }),
     )
     expect(likeSpy).toHaveBeenCalled()
+  })
+
+  it('does not reopen a disabled dock when storage becomes unavailable', async () => {
+    storageGet.mockResolvedValue({ [KeyQuickInteractionDock]: 'off' })
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+
+    storageGet.mockRejectedValue(new Error('Extension context invalidated.'))
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+  })
+
+  it('removes the dock when the extension context is invalidated', async () => {
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).not.toBeNull()
+    vi.stubGlobal('browser', { ...browser, runtime: {} })
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+  })
+
+  it('ignores an older enabled read that finishes after a disabled read', async () => {
+    const oldRead = Promise.withResolvers<Record<string, unknown>>()
+    storageGet.mockReturnValueOnce(oldRead.promise)
+    const oldUpdate = manager.update()
+    storageGet.mockResolvedValue({ [KeyQuickInteractionDock]: 'off' })
+    await manager.update()
+    oldRead.resolve({ [KeyQuickInteractionDock]: 'on' })
+    await oldUpdate
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+  })
+
+  it('keeps the dock closed during a pending save and ignores earlier reads', async () => {
+    await manager.update()
+    const oldRead = Promise.withResolvers<Record<string, unknown>>()
+    storageGet.mockReturnValueOnce(oldRead.promise)
+    const oldUpdate = manager.update()
+    const save = Promise.withResolvers<void>()
+    storageSet.mockReturnValueOnce(save.promise)
+    document.querySelector<HTMLElement>('.xf-qi-btn-close')!.click()
+    expect(browser.storage.local.set).toHaveBeenCalledWith({ [KeyQuickInteractionDock]: 'off' })
+
+    await manager.update()
+    oldRead.resolve({ [KeyQuickInteractionDock]: 'on' })
+    await oldUpdate
+    const dockDuringSave = document.querySelector('.xf-quick-interaction-dock')
+    save.resolve()
+    await save.promise
+    expect(dockDuringSave).toBeNull()
+  })
+
+  it('does not recreate the dock after destroy while a read is pending', async () => {
+    const read = Promise.withResolvers<Record<string, unknown>>()
+    storageGet.mockReturnValueOnce(read.promise)
+    const update = manager.update()
+    manager.destroy()
+    read.resolve({ [KeyQuickInteractionDock]: 'on' })
+    await update
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+  })
+
+  it('allows the dock to be enabled again after closing and saving', async () => {
+    await manager.update()
+    document.querySelector<HTMLElement>('.xf-qi-btn-close')!.click()
+    await vi.waitFor(() => expect(storageSet).toHaveResolved())
+    storageGet.mockResolvedValue({ [KeyQuickInteractionDock]: 'off' })
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).toBeNull()
+    storageGet.mockResolvedValue({ [KeyQuickInteractionDock]: 'on' })
+    await manager.update()
+    expect(document.querySelector('.xf-quick-interaction-dock')).not.toBeNull()
   })
 
   it('handles keydown 1, 2, 3, 4 properly', async () => {
