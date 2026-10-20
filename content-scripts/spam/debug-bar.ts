@@ -1,6 +1,8 @@
 import type { SpamEvaluation } from '../../shared/spam-types'
 import { formatRuleHit } from '../../shared/spam-types'
-import { t } from '../../shared/i18n'
+import { t, type MessageKey } from '../../shared/i18n'
+import { errorText } from '../../shared/errors'
+import type { AiDisplay } from './ai-scorer'
 import {
   DEBUG_BAR_ID,
   DEBUG_BAR_VERSION,
@@ -11,9 +13,41 @@ import {
 } from './dom-attrs'
 import type { SpamConfig } from './types'
 
-export function getDebugScoreKey(evaluation: SpamEvaluation, threshold: number) {
+function aiKey(ai?: AiDisplay): string {
+  if (!ai) return ''
+  if (ai.status === 'done') return `done:${ai.score}:${ai.signals.join(',')}`
+  if (ai.status === 'paused') return `paused:${ai.reason}:${errorText(ai.error)}`
+  return ai.status
+}
+
+export function getDebugScoreKey(evaluation: SpamEvaluation, threshold: number, ai?: AiDisplay) {
   const wouldHide = evaluation.score >= threshold
-  return `${evaluation.score}|${wouldHide}|${evaluation.hits.map((h) => h.id).join(',')}`
+  const key = `${evaluation.score}|${wouldHide}|${evaluation.hits.map((h) => h.id).join(',')}`
+  return ai ? `${key}|${aiKey(ai)}` : key
+}
+
+/** 调试条上 AI 判断那一行的文字和颜色 */
+export function describeAiDisplay(ai: AiDisplay): { text: string; color: string } {
+  const muted = 'rgb(83,100,113)'
+  switch (ai.status) {
+    case 'done': {
+      const color = ai.score >= 70 ? 'rgb(185,28,28)' : ai.score >= 31 ? 'rgb(161,98,7)' : muted
+      const parts = [t('spamPage.aiScore', { score: ai.score })]
+      if (ai.signals.length) parts.push(ai.signals.map((s) => t(`aiSignal.${s}` as MessageKey)).join('、'))
+      if (ai.reason) parts.push(ai.reason)
+      return { text: parts.join(' · '), color }
+    }
+    case 'pending':
+      return { text: t('spamPage.aiPending'), color: muted }
+    case 'manual':
+      return { text: t('spamPage.aiManual'), color: muted }
+    case 'failed':
+      return { text: t('spamPage.aiFailed'), color: 'rgb(185,28,28)' }
+    case 'paused':
+      return ai.reason === 'limit'
+        ? { text: t('spamPage.aiLimit'), color: muted }
+        : { text: t('spamPage.aiPaused', { error: errorText(ai.error, 'error.aiFailed') }), color: 'rgb(185,28,28)' }
+  }
 }
 
 function hashString(input: string) {
@@ -36,12 +70,13 @@ export function getDebugConfigKey(config: SpamConfig) {
     sortedValues(config.enabledRules),
     sortedValues(config.whitelist),
     sortedValues(config.blacklist),
+    config.ai ? `${config.ai.autoScope}:${config.ai.threshold}` : 'ai-off',
   ].join('\u001e'))
 }
 
-export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HTMLElement {
+export function buildDebugBar(evaluation: SpamEvaluation, threshold: number, ai?: AiDisplay): HTMLElement {
   const wouldHide = evaluation.score >= threshold
-  const scoreKey = getDebugScoreKey(evaluation, threshold)
+  const scoreKey = getDebugScoreKey(evaluation, threshold, ai)
 
   const bgColor = wouldHide ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.10)'
   const borderColor = wouldHide ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.30)'
@@ -74,7 +109,8 @@ export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HT
     'box-shadow:0 1px 6px rgba(0,0,0,0.12)',
     'backdrop-filter:saturate(180%) blur(6px)',
     'contain:layout style paint',
-    'max-height:42px',
+    // 有 AI 判断那一行时多留一行高度
+    `max-height:${ai ? 58 : 42}px`,
     'overflow:hidden',
     'overflow-anchor:none',
   ].join(';')
@@ -98,6 +134,15 @@ export function buildDebugBar(evaluation: SpamEvaluation, threshold: number): HT
     const list = document.createElement('div')
     list.textContent = evaluation.hits.map((h) => `✓ ${formatRuleHit(h)}`).join(' · ')
     bar.appendChild(list)
+  }
+
+  if (ai) {
+    const { text, color } = describeAiDisplay(ai)
+    const row = document.createElement('div')
+    row.setAttribute('data-xf-ai-row', '1')
+    row.style.cssText = `color:${color};font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`
+    row.textContent = text
+    bar.appendChild(row)
   }
 
   return bar
@@ -174,14 +219,14 @@ export function removeScrollStabilityStyles() {
   document.getElementById(SCROLL_STABILITY_STYLE_ID)?.remove()
 }
 
-export function ensureBar(article: HTMLElement, evaluation: SpamEvaluation, config: SpamConfig) {
+export function ensureBar(article: HTMLElement, evaluation: SpamEvaluation, config: SpamConfig, ai?: AiDisplay) {
   if (!config.debug) return
   if (isInsideDialog(article)) {
     removeDebugBar(article)
     return
   }
 
-  const scoreKey = getDebugScoreKey(evaluation, config.threshold)
+  const scoreKey = getDebugScoreKey(evaluation, config.threshold, ai)
   const configKey = getDebugConfigKey(config)
   const existing = article.querySelector<HTMLElement>(`#${DEBUG_BAR_ID}`)
   if (existing) {
@@ -194,7 +239,7 @@ export function ensureBar(article: HTMLElement, evaluation: SpamEvaluation, conf
   }
 
   ensureDebugContainingBlock(article)
-  const bar = buildDebugBar(evaluation, config.threshold)
+  const bar = buildDebugBar(evaluation, config.threshold, ai)
   bar.setAttribute(DEBUG_CONFIG_ATTR, configKey)
   article.appendChild(bar)
 }

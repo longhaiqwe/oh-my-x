@@ -24,6 +24,11 @@ import {
   KeySpamRulesEnabled,
   KeySpamThreshold,
   KeySpamWhitelist,
+  KeySpamAiEnabled,
+  KeySpamAiAutoScope,
+  KeySpamAiThreshold,
+  KeySpamAiModel,
+  KeySpamAiDailyLimit,
   KeyTimelineWidth,
   KeyTopicsButton,
   KeyTweetButton,
@@ -77,6 +82,8 @@ export type ViralLevels = { normal: boolean; potential: boolean; viral: boolean 
 export type RadarWidthValue = 'off' | 'wide' | 'full'
 export type TweetFilterAction = 'collapse' | 'hide'
 export type UserFollowerCountMode = 'all' | 'list' | 'off'
+/** AI 打分的自动判断范围：只我的帖子 / 所有对话页 / 不自动 */
+export type SpamAiAutoScope = 'own' | 'all' | 'off'
 
 export interface ExtensionSettings {
   [KeyExtensionStatus]: ToggleValue
@@ -108,6 +115,11 @@ export interface ExtensionSettings {
   [KeySpamKeywordList]: string
   [KeySpamWhitelist]: string
   [KeySpamBlacklist]: string
+  [KeySpamAiEnabled]: ToggleValue
+  [KeySpamAiAutoScope]: SpamAiAutoScope
+  [KeySpamAiThreshold]: number
+  [KeySpamAiModel]: string
+  [KeySpamAiDailyLimit]: number
   [KeySidebarColumn]: ToggleValue
   [KeyStatRatioTargetHandle]: string
   [KeyStatRatioEnabled]: ToggleValue
@@ -170,6 +182,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyMoreMenuButton,
   KeySpamFilterEnabled,
   KeySpamDebugMode,
+  KeySpamAiEnabled,
   KeySidebarColumn,
   KeyStatRatioEnabled,
   KeyHighlightNonFollowers,
@@ -204,6 +217,8 @@ const NUMERIC_RANGES: Partial<Record<string, { min: number; max: number }>> = {
   [KeyTimelineWidth]: { min: 600, max: 800 },
   [KeyNavigationWidth]: { min: 200, max: 275 },
   [KeySpamThreshold]: { min: 20, max: 150 },
+  [KeySpamAiThreshold]: { min: 0, max: 100 },
+  [KeySpamAiDailyLimit]: { min: 0, max: 5000 },
   [KeyViralPotentialThreshold]: { min: 0, max: 50000 },
   [KeyViralViralThreshold]: { min: 0, max: 50000 },
 }
@@ -217,6 +232,10 @@ function normalizeNumber(
   if (!Number.isFinite(n)) return fallback
   if (!range) return n
   return Math.min(range.max, Math.max(range.min, n))
+}
+
+export function normalizeSpamAiAutoScope(value: unknown, fallback: SpamAiAutoScope = 'own'): SpamAiAutoScope {
+  return value === 'own' || value === 'all' || value === 'off' ? value : fallback
 }
 
 function normalizeNavLabels(value: unknown, fallback: NavigationLabelMode): NavigationLabelMode {
@@ -309,10 +328,14 @@ export function normalizeSettings(raw: Partial<Record<string, unknown>> = {}): E
       key === KeyTimelineWidth ||
       key === KeyNavigationWidth ||
       key === KeySpamThreshold ||
+      key === KeySpamAiThreshold ||
+      key === KeySpamAiDailyLimit ||
       key === KeyViralPotentialThreshold ||
       key === KeyViralViralThreshold
     ) {
       result[key] = normalizeNumber(value, fallback as number, NUMERIC_RANGES[key])
+    } else if (key === KeySpamAiAutoScope) {
+      result[key] = normalizeSpamAiAutoScope(value, fallback as SpamAiAutoScope)
     } else if (key === KeyUiLanguage) {
       result[key] = normalizeLanguageSetting(value)
     } else if (key === KeyNavigationButtonsLabels) {

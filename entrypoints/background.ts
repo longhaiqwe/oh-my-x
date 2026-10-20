@@ -1,4 +1,15 @@
-import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, aiPermissionOrigin, type AiRequest, type AiResponse } from '../shared/ai-request'
+import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, REPLY_SCORE_LOOKUP, aiPermissionOrigin, type AiRequest, type AiResponse } from '../shared/ai-request'
+import {
+  REPLY_SCORE_BATCH_SIZE,
+  REPLY_SCORE_PROMPT_VERSION,
+  buildReplyScoreMessages,
+  parseReplyScoreResponse,
+  type ReplyScore,
+  type ReplyScoreItem,
+  type ReplyScoreParent,
+} from '../shared/ai-reply-score'
+import { createReplyScoreRepository, toReplyScore } from '../shared/reply-score-db'
+import { createReplyScoreUsage } from '../shared/reply-score-usage'
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
 import { migrateSpamStorage } from '../shared/spam-migration'
@@ -12,6 +23,8 @@ import {
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
   KeyAiRepostModel,
+  KeySpamAiDailyLimit,
+  KeySpamAiModel,
   KeyCreatorRewardsStats,
   KeyCreatorRewardsHistory,
   KeyImpressionsDaily,
@@ -261,7 +274,17 @@ async function callAiRepostApi(
     samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
   }
   const messages = buildRepostMessages(source, customPrompt, style, locale)
+  const content = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
+  return parseAiRepostResponse(content, locale)
+}
 
+/** 调用 OpenAI 兼容的 /chat/completions，返回模型输出的文字 */
+async function postChatCompletion(
+  endpoint: string,
+  apiKey: string,
+  body: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<string> {
   const res = await fetch(endpoint, {
     method: 'POST',
     signal,
@@ -271,11 +294,7 @@ async function callAiRepostApi(
       'content-type': 'application/json',
       authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.65,
-    }),
+    body: JSON.stringify(body),
   })
 
   const rawText = await res.text()
@@ -292,12 +311,131 @@ async function callAiRepostApi(
     throw new AppError('error.aiHttp', { status: res.status, detail: errDetail })
   }
 
-  const content =
+  return String(
     json?.choices?.[0]?.message?.content ??
-    json?.choices?.[0]?.text ??
-    json?.output_text ??
-    ''
-  return parseAiRepostResponse(String(content), locale)
+      json?.choices?.[0]?.text ??
+      json?.output_text ??
+      '',
+  )
+}
+
+// ---------- 回复区 AI 打分 ----------
+
+const replyScores = createReplyScoreRepository()
+const replyScoreUsage = createReplyScoreUsage()
+const TWEET_ID_RE = /^\d{1,25}$/
+const DEFAULT_REPLY_SCORE_DAILY_LIMIT = Number(defaultPreferences[KeySpamAiDailyLimit]) || 300
+
+// 已知支持 response_format: json_object 的服务；其他 OpenAI 兼容服务可能不认这个参数，不带
+const JSON_MODE_HOSTS = new Set(['api.openai.com', 'api.deepseek.com'])
+
+function supportsJsonMode(endpoint: string): boolean {
+  try { return JSON_MODE_HOSTS.has(new URL(endpoint).hostname) } catch { return false }
+}
+
+function sanitizeScoreParent(raw: any): ReplyScoreParent | null {
+  if (!raw || typeof raw !== 'object') return null
+  const text = typeof raw.text === 'string' ? raw.text : ''
+  return { id: String(raw.id ?? ''), author: String(raw.author ?? ''), text }
+}
+
+function sanitizeScoreItems(raw: unknown): ReplyScoreItem[] {
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<string>()
+  const items: ReplyScoreItem[] = []
+  for (const item of raw) {
+    const id = String(item?.id ?? '')
+    const text = typeof item?.text === 'string' ? item.text.trim() : ''
+    if (!TWEET_ID_RE.test(id) || !text || seen.has(id)) continue
+    seen.add(id)
+    const delay = Number(item.delaySeconds)
+    const followers = Number(item.followers)
+    items.push({
+      id,
+      author: String(item.author ?? ''),
+      text,
+      delaySeconds: item.delaySeconds != null && Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : null,
+      followers: item.followers != null && Number.isFinite(followers) && followers >= 0 ? Math.floor(followers) : null,
+      verified: typeof item.verified === 'boolean' ? item.verified : null,
+    })
+    if (items.length >= REPLY_SCORE_BATCH_SIZE) break
+  }
+  return items
+}
+
+function sanitizeTweetIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return [...new Set(raw.map(String).filter((id) => TWEET_ID_RE.test(id)))].slice(0, 200)
+}
+
+function dailyLimitOf(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.min(5000, Math.max(0, Math.floor(n))) : DEFAULT_REPLY_SCORE_DAILY_LIMIT
+}
+
+async function scoreReplies(
+  message: Extract<AiRequest, { type: 'XF_SCORE_REPLIES' }>,
+  signal: AbortSignal,
+): Promise<AiResponse> {
+  const parent = sanitizeScoreParent(message.parent)
+  const replies = sanitizeScoreItems(message.replies)
+  if (!parent || !replies.length) throw new AppError('error.aiUnsupported')
+  const mode = message.mode === 'manual' ? 'manual' : 'auto'
+  const locale: Locale = message.locale === 'en' || message.locale === 'zh-CN' ? message.locale : getLocale()
+
+  const cached = await replyScores.getMany(replies.map((r) => r.id))
+  const scores: ReplyScore[] = [...cached.values()].map(toReplyScore)
+  if (cached.size) replyScoreUsage.add({ cached: cached.size })
+  let batch = replies.filter((r) => !cached.has(r.id))
+  if (!batch.length) return { ok: true, scores }
+
+  const stored = await browser.storage.local.get([
+    KeyAiRepostBaseUrl,
+    KeyAiRepostApiKey,
+    KeyAiRepostModel,
+    KeySpamAiModel,
+    KeySpamAiDailyLimit,
+  ])
+  if (mode === 'auto') {
+    const usage = await replyScoreUsage.read()
+    const remaining = dailyLimitOf(stored[KeySpamAiDailyLimit] ?? DEFAULT_REPLY_SCORE_DAILY_LIMIT) - usage.auto
+    if (remaining <= 0) return { ok: true, scores, limitReached: true }
+    batch = batch.slice(0, remaining)
+  }
+
+  const baseUrl = String(stored[KeyAiRepostBaseUrl] ?? defaultPreferences[KeyAiRepostBaseUrl]).trim()
+  const apiKey = String(stored[KeyAiRepostApiKey] ?? '').trim()
+  const model =
+    String(stored[KeySpamAiModel] ?? '').trim() ||
+    String(stored[KeyAiRepostModel] ?? defaultPreferences[KeyAiRepostModel]).trim()
+  if (!apiKey) throw new AppError('error.aiNoKey')
+  if (!model) throw new AppError('error.aiNoModel')
+
+  const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
+
+  let fresh: ReplyScore[]
+  try {
+    const content = await postChatCompletion(endpoint, apiKey, {
+      model,
+      messages: buildReplyScoreMessages(parent, batch, locale),
+      temperature: 0,
+      ...(supportsJsonMode(endpoint) ? { response_format: { type: 'json_object' } } : {}),
+    }, signal)
+    fresh = parseReplyScoreResponse(content, batch.map((r) => r.id))
+  } catch (error) {
+    if (!signal.aborted) replyScoreUsage.add({ [mode]: batch.length, failed: batch.length })
+    throw error
+  }
+
+  replyScoreUsage.add({ [mode]: batch.length, failed: batch.length - fresh.length })
+  const savedAt = Date.now()
+  try {
+    await replyScores.putMany(fresh.map((score) => ({ ...score, model, promptVersion: REPLY_SCORE_PROMPT_VERSION, savedAt })))
+  } catch (error) {
+    console.debug('[oh-my-x] AI 打分结果写入缓存失败', error)
+  }
+  return { ok: true, scores: [...scores, ...fresh], model }
 }
 
 async function testAiConnection(config: {
@@ -511,6 +649,8 @@ async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promis
       const source = await fetchTweetFullContentById(String(message.tweetId || ''), signal)
       return { ok: Boolean(source), source }
     }
+    case 'XF_SCORE_REPLIES':
+      return await scoreReplies(message, signal)
     default: throw new AppError('error.aiUnsupported')
   }
 }
@@ -565,6 +705,22 @@ export default defineBackground(() => {
       .then(tabs => Promise.allSettled(tabs.filter(tab=>tab.id!=null).map(tab=>browser.tabs.sendMessage(tab.id!,{type:LIBRARY_SYNC}))))
       .catch(()=>{})
   })
+  // AI 打分只查缓存，不调用模型
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== REPLY_SCORE_LOOKUP) return
+    if (sender?.id !== browser.runtime.id) return
+    void (async () => {
+      try {
+        const found = await replyScores.getMany(sanitizeTweetIds(message.ids))
+        if (found.size) replyScoreUsage.add({ cached: found.size })
+        respond({ ok: true, scores: [...found.values()].map(toReplyScore) })
+      } catch (error) {
+        respond({ ok: false, error: toTransferable(error, 'error.readFailed') })
+      }
+    })()
+    return true
+  })
+
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if(message?.type !== LIBRARY_MESSAGE) return
     void (async()=>{

@@ -20,6 +20,21 @@ const BOUND_ATTR = 'data-xf-follower-bound'
 export const userMetricsMemory: Record<string, UserMetrics> = {}
 
 /**
+ * 已知的粉丝数：先读拦截器写在作者名区域上的值（要和 handle 对得上），再读内存缓存；都没有时返回 null。
+ * 不受「粉丝数」显示开关影响，AI 打分也用它。
+ */
+export function knownFollowerCount(handle: string, userNameEl?: Element | null): number | null {
+  const lower = handle.toLowerCase()
+  if (!lower) return null
+  if (userNameEl && userNameEl.getAttribute('data-xf-screen-name')?.toLowerCase() === lower) {
+    const n = parseInt(userNameEl.getAttribute('data-xf-followers-count') || '', 10)
+    if (!isNaN(n) && n >= 0) return n
+  }
+  const cached = userMetricsMemory[lower]
+  return cached && cached.screenName.toLowerCase() === lower && cached.followersCount >= 0 ? cached.followersCount : null
+}
+
+/**
  * 从 sessionStorage 恢复历史缓存
  */
 function restoreMetricsFromStorage() {

@@ -1,8 +1,19 @@
 import { t } from '../../shared/i18n'
 import { evaluateSpam } from '../../shared/spam-rules'
 import { recordIntercept } from '../../shared/spam-logger'
-import { extractTweetInfo } from '../../shared/parse-tweet'
+import {
+  extractAuthorNameElement,
+  extractAuthorVerified,
+  extractTweetId,
+  extractTweetInfo,
+  extractTweetTime,
+  type TweetInfo,
+} from '../../shared/parse-tweet'
 import type { SpamEvaluation, SpamRuleId } from '../../shared/spam-types'
+import { replyDelaySeconds } from '../../shared/ai-reply-score'
+import { getOwnHandle } from '../../shared/own-posts'
+import { knownFollowerCount } from '../features/user-followers'
+import { aiScorer, type AiDisplay } from './ai-scorer'
 import { injectKeywordButton } from './keyword-picker'
 import { applyAllow, applyHideDirect, resetArticleSpamState } from './article-state'
 import { getSpamConfig, invalidateSpamConfigCache } from './config'
@@ -15,7 +26,7 @@ import {
   removeDebugBar,
   removeScrollStabilityStyles,
 } from './debug-bar'
-import { DEBUG_BAR_ID, DEBUG_BAR_VERSION, DEBUG_CONFIG_ATTR, PROCESSED_ATTR, SCORE_ATTR, STATE_ATTR, XF_SELF_SELECTOR } from './dom-attrs'
+import { AI_VERSION_ATTR, DEBUG_BAR_ID, DEBUG_BAR_VERSION, DEBUG_CONFIG_ATTR, PROCESSED_ATTR, SCORE_ATTR, STATE_ATTR, XF_SELF_SELECTOR } from './dom-attrs'
 import type { SpamConfig } from './types'
 
 export { applyReplace } from './article-state'
@@ -29,7 +40,63 @@ const SPAM_FP_ATTR = 'data-xf-spam-fp'
 // 黑/白名单、阈值、启用规则的变更都走 invalidateSpamConfig，从而触发重算。
 let spamConfigVersion = 0
 
-async function processArticle(article: HTMLElement, config: SpamConfig) {
+/** 一段对话的主帖：作为 AI 打分的上下文 */
+interface ThreadInfo {
+  id: string
+  author: string
+  text: string
+  time: number | null
+}
+
+function threadOf(article: HTMLElement): ThreadInfo | null {
+  const id = extractTweetId(article)
+  if (!id) return null
+  const info = extractTweetInfo(document, article)
+  return { id, author: info?.authorHandle ?? '', text: info?.text ?? '', time: extractTweetTime(article) }
+}
+
+/** 调试条加上当前的 AI 结果版本，扫描时据此判断要不要重画 */
+function showDebugBar(article: HTMLElement, evaluation: SpamEvaluation, config: SpamConfig, ai?: AiDisplay) {
+  ensureBar(article, evaluation, config, ai)
+  article.querySelector(`#${DEBUG_BAR_ID}`)?.setAttribute(AI_VERSION_ATTR, String(aiScorer.version()))
+}
+
+/**
+ * 这条回复的 AI 判断状态；不送模型时返回 undefined。
+ * 第 1 步只在调试模式下判断和显示（docs/plans/ai-reply-scoring.md 第 6 节）。
+ */
+function aiDisplayFor(
+  article: HTMLElement,
+  info: TweetInfo,
+  evaluation: SpamEvaluation,
+  config: SpamConfig,
+  thread: ThreadInfo | null,
+): AiDisplay | undefined {
+  if (!config.ai || !config.debug || !thread) return undefined
+  // 规则已经会隐藏的不送模型；没有正文（纯图片）的也不送
+  if (evaluation.score >= config.threshold || !info.text) return undefined
+  const id = extractTweetId(article)
+  if (!id || id === thread.id) return undefined
+  const own = getOwnHandle()?.toLowerCase() || ''
+  if (own && info.authorHandle.toLowerCase() === own) return undefined
+  const auto =
+    config.ai.autoScope === 'all' ||
+    (config.ai.autoScope === 'own' && Boolean(own) && thread.author.toLowerCase() === own)
+  return aiScorer.request(
+    {
+      id,
+      author: info.authorHandle,
+      text: info.text,
+      delaySeconds: replyDelaySeconds(thread.time, extractTweetTime(article)),
+      followers: knownFollowerCount(info.authorHandle, extractAuthorNameElement(article)),
+      verified: extractAuthorVerified(article),
+    },
+    { id: thread.id, author: thread.author, text: thread.text },
+    auto,
+  )
+}
+
+async function processArticle(article: HTMLElement, config: SpamConfig, thread: ThreadInfo | null = null) {
   // 轻量级预指纹短路（非 debug）：
   // 在昂贵的 extractTweetInfo（TreeWalker 遍历 DOM）之前，用 textContent 长度 +
   // 首尾 16 字符 + 配置版本快速判断推文是否已变更。
@@ -61,7 +128,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
     if (config.debug) {
       applyAllow(article)
       article.setAttribute(SCORE_ATTR, String(evaluation.score))
-      ensureBar(article, evaluation, config)
+      showDebugBar(article, evaluation, config)
     } else {
       if (article.getAttribute(STATE_ATTR) !== 'hidden') {
         void recordIntercept({
@@ -102,7 +169,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
 
   if (config.debug) {
     if (article.getAttribute(STATE_ATTR) === 'hidden') applyAllow(article)
-    ensureBar(article, evaluation, config)
+    showDebugBar(article, evaluation, config, aiDisplayFor(article, info, evaluation, config, thread))
     return
   }
 
@@ -132,6 +199,8 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
 export function invalidateSpamConfig() {
   invalidateSpamConfigCache()
   spamConfigVersion++
+  // 设置或 AI 连接改了：解除 AI 判断的暂停，失败次数清零
+  aiScorer.reset()
 }
 
 let scanScheduled = false
@@ -177,7 +246,33 @@ const CONVERSATION_ARIA_RE = /conversation|对话|会話|conversa|konversation/i
 
 interface ScanScope {
   articles: HTMLElement[]
-  mainTweetIndex: number
+  /** 主帖和排在主帖上方的上级推文：不评分 */
+  nonReplies: Set<HTMLElement>
+  /** 这段对话的主帖；拿不到时为 null */
+  thread: ThreadInfo | null
+}
+
+/** 详情页的主帖记忆：主帖滚出页面后，仍能认出主帖和上级推文、拿到主帖正文 */
+interface ThreadMemory {
+  thread: ThreadInfo | null
+  nonReplyIds: Set<string>
+}
+
+const threadMemory = new Map<string, ThreadMemory>()
+const THREAD_MEMORY_LIMIT = 50
+
+function rememberThread(statusId: string, articles: HTMLElement[], mainIndex: number): ThreadMemory {
+  const memory = threadMemory.get(statusId) ?? { thread: null, nonReplyIds: new Set<string>() }
+  for (let i = 0; i <= mainIndex; i++) {
+    const id = extractTweetId(articles[i])
+    if (id) memory.nonReplyIds.add(id)
+  }
+  // 主帖正文取到一次就够了；正文为空时（页面还没渲染完）再取
+  if (!memory.thread?.text) memory.thread = threadOf(articles[mainIndex]) ?? memory.thread
+  threadMemory.delete(statusId)
+  threadMemory.set(statusId, memory)
+  if (threadMemory.size > THREAD_MEMORY_LIMIT) threadMemory.delete(threadMemory.keys().next().value as string)
+  return memory
 }
 
 function isConversationLabel(label: string): boolean {
@@ -228,6 +323,7 @@ export function collectConversationRoots(root: ParentNode = document): HTMLEleme
   return innermostRoots(found)
 }
 
+/** 主帖在 articles 里的位置；主帖和行内回复框都不在页面上时返回 -1 */
 function findMainTweetIndex(scopeRoot: HTMLElement, articles: HTMLElement[], statusId?: string): number {
   if (statusId) {
     const matched = articles.findIndex((art) => art.querySelector(`a[href*="/status/${statusId}"]`))
@@ -244,16 +340,32 @@ function findMainTweetIndex(scopeRoot: HTMLElement, articles: HTMLElement[], sta
     if (lastBefore >= 0) return lastBefore
   }
 
-  return 0
+  return -1
 }
 
 function collectStatusPageScope(statusId?: string): ScanScope | null {
   const articles = tweetsIn(document)
   if (!articles.length) return null
-  return {
-    articles,
-    mainTweetIndex: findMainTweetIndex(document.body, articles, statusId),
+  const mainIndex = findMainTweetIndex(document.body, articles, statusId)
+  if (mainIndex >= 0) {
+    const memory = statusId ? rememberThread(statusId, articles, mainIndex) : null
+    return {
+      articles,
+      nonReplies: new Set(articles.slice(0, mainIndex + 1)),
+      thread: memory ? memory.thread : threadOf(articles[mainIndex]),
+    }
   }
+  // 往下翻评论时 X 会把主帖和行内回复框移出页面：按记住的 ID 认主帖和上级推文，其余都是回复
+  const memory = statusId ? threadMemory.get(statusId) : undefined
+  if (memory) {
+    const nonReplies = new Set(articles.filter((article) => {
+      const id = extractTweetId(article)
+      return id !== null && memory.nonReplyIds.has(id)
+    }))
+    return { articles, nonReplies, thread: memory.thread }
+  }
+  // 没见过主帖（页面刚打开、还没渲染完）：把第一条当主帖
+  return { articles, nonReplies: new Set(articles.slice(0, 1)), thread: threadOf(articles[0]) }
 }
 
 function collectDeckConversationScopes(): ScanScope[] {
@@ -261,7 +373,12 @@ function collectDeckConversationScopes(): ScanScope[] {
     .map((root) => {
       const articles = tweetsIn(root)
       if (!articles.length) return null
-      return { articles, mainTweetIndex: findMainTweetIndex(root, articles) }
+      const mainIndex = Math.max(0, findMainTweetIndex(root, articles))
+      return {
+        articles,
+        nonReplies: new Set(articles.slice(0, mainIndex + 1)),
+        thread: threadOf(articles[mainIndex]),
+      }
     })
     .filter((scope): scope is ScanScope => scope !== null)
 }
@@ -283,13 +400,13 @@ function clearPageSpamState() {
 }
 
 function scanScope(scope: ScanScope, config: SpamConfig, force: boolean, debugConfigKey: string) {
-  for (let i = 0; i < scope.articles.length; i++) {
-    const article = scope.articles[i]
+  const aiVersion = String(aiScorer.version())
+  for (const article of scope.articles) {
     if (article.closest('[data-xf-spam-hidden-replacement]')) continue
     if (config.debug && isInsideDialog(article)) removeDebugBar(article)
 
     // 主贴（及主贴前置上下文）：不进入评分体系、不展示调试条
-    if (i <= scope.mainTweetIndex) {
+    if (scope.nonReplies.has(article)) {
       removeDebugBar(article)
       if (article.getAttribute(STATE_ATTR) === 'hidden') applyAllow(article)
       article.removeAttribute(PROCESSED_ATTR)
@@ -298,20 +415,21 @@ function scanScope(scope: ScanScope, config: SpamConfig, force: boolean, debugCo
       continue
     }
 
-    // 评论推文（index > mainTweetIndex）：进入评分体系
+    // 评论推文：进入评分体系
     if (!force && config.debug && article.getAttribute(PROCESSED_ATTR)) {
       const bar = article.querySelector<HTMLElement>(`#${DEBUG_BAR_ID}`)
       if (
         bar?.getAttribute('data-xf-score-key') &&
         bar.getAttribute('data-xf-debug-version') === DEBUG_BAR_VERSION &&
-        bar.getAttribute(DEBUG_CONFIG_ATTR) === debugConfigKey
+        bar.getAttribute(DEBUG_CONFIG_ATTR) === debugConfigKey &&
+        bar.getAttribute(AI_VERSION_ATTR) === aiVersion
       ) {
         injectKeywordButton(article)
         continue
       }
     }
 
-    void processArticle(article, config)
+    void processArticle(article, config, scope.thread)
     injectKeywordButton(article)
   }
 }
@@ -328,6 +446,9 @@ export async function runScan(force = false) {
     cleanupOrphanReplacements()
     return
   }
+
+  // AI 判断没开（或不在调试模式）时清掉排队中的请求
+  if (!config.ai || !config.debug) aiScorer.stop()
 
   const { isDetailPage, statusId } = isTweetDetailPage()
 
@@ -424,6 +545,7 @@ export function isSelfMutation(records: MutationRecord[]): boolean {
 }
 
 let popstateListener: (() => void) | null = null
+let stopAiListener: (() => void) | null = null
 
 export function startSpamObserver() {
   if (observer) return
@@ -450,6 +572,9 @@ export function startSpamObserver() {
     window.addEventListener('popstate', popstateListener)
   }
 
+  // AI 判断结果回来后重扫，调试条按新结果重画
+  stopAiListener ??= aiScorer.onChange(() => void scheduleScan())
+
   void runScan()
 }
 
@@ -460,5 +585,8 @@ export function stopSpamObserver() {
     window.removeEventListener('popstate', popstateListener)
     popstateListener = null
   }
+  stopAiListener?.()
+  stopAiListener = null
+  aiScorer.stop()
   removeScrollStabilityStyles()
 }

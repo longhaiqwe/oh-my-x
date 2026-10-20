@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "typecheck": "vue-tsc --noEmit",
     "check": "npm run typecheck && npm test && npm run build"
   },

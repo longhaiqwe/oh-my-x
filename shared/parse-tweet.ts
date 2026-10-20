@@ -54,6 +54,53 @@ export function collectVisibleText(
   return result.replace(/\s+/g, ' ').trim()
 }
 
+// 推文永久链接：/handle/status/数字。只认相对地址，排除 /i/web/status 这类没有作者的地址
+const STATUS_PATH_RE = /^\/([A-Za-z0-9_]{1,15})\/status\/(\d+)/
+
+function permalinkOf(article: HTMLElement): { handle: string; id: string } | null {
+  // 时间戳所在的链接是推文自己的地址；引用推文里也有时间戳，要跳过
+  for (const time of Array.from(article.querySelectorAll('time'))) {
+    if (isInsideQuotedTweet(time, article)) continue
+    const m = time.closest('a[href*="/status/"]')?.getAttribute('href')?.match(STATUS_PATH_RE)
+    if (m) return { handle: m[1], id: m[2] }
+  }
+  // 没有时间戳时（页面还没渲染完），取第一个不在引用推文里的 /status/ 链接
+  for (const a of Array.from(article.querySelectorAll('a[href*="/status/"]'))) {
+    if (isInsideQuotedTweet(a, article)) continue
+    const m = a.getAttribute('href')?.match(STATUS_PATH_RE)
+    if (m && !NAVIGATION_HANDLES.has(m[1].toLowerCase())) return { handle: m[1], id: m[2] }
+  }
+  return null
+}
+
+/** 推文 ID；取不到时返回 null */
+export function extractTweetId(article: HTMLElement): string | null {
+  return permalinkOf(article)?.id ?? null
+}
+
+/** 推文的发布时间（毫秒）；取不到时返回 null */
+export function extractTweetTime(article: HTMLElement): number | null {
+  for (const time of Array.from(article.querySelectorAll('time[datetime]'))) {
+    if (isInsideQuotedTweet(time, article)) continue
+    const ms = Date.parse(time.getAttribute('datetime') || '')
+    return Number.isNaN(ms) ? null : ms
+  }
+  return null
+}
+
+/** 推文作者的名字区域（[data-testid="User-Name"]），排除引用推文里的 */
+export function extractAuthorNameElement(article: HTMLElement): HTMLElement | null {
+  const all = Array.from(article.querySelectorAll<HTMLElement>('[data-testid="User-Name"]'))
+  return all.find((el) => !isInsideQuotedTweet(el, article)) || all[0] || null
+}
+
+/** 推文作者是否带认证标志（蓝 V）；取不到作者名区域时返回 null */
+export function extractAuthorVerified(article: HTMLElement): boolean | null {
+  const nameEl = extractAuthorNameElement(article)
+  if (!nameEl) return null
+  return Boolean(nameEl.querySelector('[data-testid="icon-verified"]'))
+}
+
 /**
  * 从推文 article 元素解析出 authorName/handle/text
  * 解析失败时返回 null（既没文本也没昵称）
@@ -79,9 +126,7 @@ export function extractTweetInfo(
   }
 
   // 获取主推文昵称（排除引用推文中的 User-Name）
-  const allUserNames = Array.from(article.querySelectorAll<HTMLElement>('[data-testid="User-Name"]'))
-  const userNameEl = allUserNames.find((el) => !isInsideQuotedTweet(el, article)) || allUserNames[0]
-  const authorName = collectVisibleText(doc, userNameEl)
+  const authorName = collectVisibleText(doc, extractAuthorNameElement(article))
 
   // 支持普通 Tweet (`tweetText`) 以及 X 文章 Article (`twitter-article-title` / `longformRichTextComponent` / `twitterArticleRichTextView`)
   let text = ''

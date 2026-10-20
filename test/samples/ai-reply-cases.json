@@ -1,0 +1,363 @@
+{
+  "description": "回复区 AI 打分的样例集：构造的对话，每条回复标好预期（ai / human）。followers（粉丝数）和 verified（是否蓝 V）可选。zh-weekly、en-notes 两段是「认同 + 复述原帖细节 + 补一句」的写法。test/unit/ai-reply-score.test.ts 检查格式；npm run test:live 用真实接口打分并对照预期。",
+  "threads": [
+    {
+      "id": "zh-signup",
+      "locale": "zh-CN",
+      "parent": {
+        "id": "zh-signup-0",
+        "author": "dev_lin",
+        "text": "上线第三天，把注册流程从 5 步砍到 2 步，转化率从 11% 涨到 19%。砍掉的是填写公司名和选择行业。"
+      },
+      "replies": [
+        {
+          "id": "zh-signup-1",
+          "author": "growth_hub_88",
+          "delaySeconds": 38,
+          "expect": "ai",
+          "text": "太有启发了！🚀 简化流程真的是提升转化的关键。用户体验永远是第一位的，你觉得还有哪些环节可以继续优化呢？💡"
+        },
+        {
+          "id": "zh-signup-2",
+          "author": "xiaozhou_pm",
+          "delaySeconds": 5400,
+          "expect": "human",
+          "text": "公司名砍了之后销售那边不炸吗，我们之前也想砍，被运营拦下来了"
+        },
+        {
+          "id": "zh-signup-3",
+          "author": "insight_daily",
+          "delaySeconds": 52,
+          "expect": "ai",
+          "text": "非常认同！把注册从 5 步减到 2 步，转化率从 11% 提升到 19%，这充分说明了简化流程的价值。本质上，这不是在做减法，而是在尊重用户的时间。"
+        },
+        {
+          "id": "zh-signup-4",
+          "author": "laochen",
+          "delaySeconds": 2400,
+          "expect": "human",
+          "text": "19% 是注册完成率还是付费？两个差挺多的"
+        },
+        {
+          "id": "zh-signup-5",
+          "author": "maomao",
+          "delaySeconds": 7200,
+          "expect": "human",
+          "text": "牛 我们表单 9 步。。不敢看数据"
+        },
+        {
+          "id": "zh-signup-6",
+          "author": "pm_thinking",
+          "delaySeconds": 70,
+          "expect": "ai",
+          "text": "这个案例值得每一个产品经理深入思考。值得注意的是，数据驱动的决策才是增长的核心。继续加油！💪"
+        },
+        {
+          "id": "zh-signup-7",
+          "author": "a_bu",
+          "delaySeconds": 9000,
+          "expect": "human",
+          "text": "选行业那个下拉框我每次都随便点第一个 哈哈"
+        }
+      ]
+    },
+    {
+      "id": "zh-book",
+      "locale": "zh-CN",
+      "parent": {
+        "id": "zh-book-0",
+        "author": "achuan_writes",
+        "text": "今天终于把拖了半年的书稿交了，一共 21 万字，删掉了大概 8 万。最难删的是我最喜欢的那两章。"
+      },
+      "replies": [
+        {
+          "id": "zh-book-1",
+          "author": "daily_energy",
+          "delaySeconds": 45,
+          "expect": "ai",
+          "text": "恭喜完成书稿！🎉 坚持就是胜利，期待你的新书早日出版，加油！✨"
+        },
+        {
+          "id": "zh-book-2",
+          "author": "dudu",
+          "delaySeconds": 3000,
+          "expect": "human",
+          "text": "删掉的两章能不能发公众号 想看"
+        },
+        {
+          "id": "zh-book-3",
+          "author": "deep_reading_ai",
+          "delaySeconds": 60,
+          "expect": "ai",
+          "text": "写作的本质不是增加，而是删减。从 21 万字删到 13 万字，这个过程本身就是一种成长。你认为删减中最大的挑战是什么？"
+        },
+        {
+          "id": "zh-book-4",
+          "author": "xiaoyu",
+          "delaySeconds": 4000,
+          "expect": "human",
+          "text": "8 万字。。我写 8 千都费劲"
+        },
+        {
+          "id": "zh-book-5",
+          "author": "old_li",
+          "delaySeconds": 6000,
+          "expect": "human",
+          "text": "编辑是谁啊 下手这么狠"
+        },
+        {
+          "id": "zh-book-6",
+          "author": "wisdom_share",
+          "delaySeconds": 35,
+          "expect": "ai",
+          "text": "Great insight！删减确实是写作中最重要的环节之一。真正优秀的作品，往往在于取舍之间。"
+        }
+      ]
+    },
+    {
+      "id": "en-stripe",
+      "locale": "en",
+      "parent": {
+        "id": "en-stripe-0",
+        "author": "maya_builds",
+        "text": "Shipped our first paid plan yesterday. 14 signups, 3 refunds within an hour because the Stripe webhook double-charged them. Fixed now, but ouch."
+      },
+      "replies": [
+        {
+          "id": "en-stripe-1",
+          "author": "growth_mindset_ai",
+          "delaySeconds": 40,
+          "expect": "ai",
+          "text": "Congratulations on this huge milestone! 🚀 Every challenge is a learning opportunity. What's the most important lesson you've learned from this launch? 💡"
+        },
+        {
+          "id": "en-stripe-2",
+          "author": "kev_dev",
+          "delaySeconds": 3600,
+          "expect": "human",
+          "text": "idempotency keys saved us from the exact same thing last year. did stripe refund the fees too?"
+        },
+        {
+          "id": "en-stripe-3",
+          "author": "saas_wisdom",
+          "delaySeconds": 55,
+          "expect": "ai",
+          "text": "This is such a valuable reminder. It's not just about shipping fast, it's about shipping reliably. At its core, trust is the foundation of every successful SaaS business."
+        },
+        {
+          "id": "en-stripe-4",
+          "author": "jen_r",
+          "delaySeconds": 5000,
+          "expect": "human",
+          "text": "3 refunds out of 14 is honestly not bad given the double charge lol"
+        },
+        {
+          "id": "en-stripe-5",
+          "author": "backend_bob",
+          "delaySeconds": 2600,
+          "expect": "human",
+          "text": "which webhook event were you listening to? checkout.session.completed can show up twice if you also handle invoice.paid"
+        },
+        {
+          "id": "en-stripe-6",
+          "author": "hustle_daily",
+          "delaySeconds": 30,
+          "expect": "ai",
+          "text": "Absolutely love this transparency! Building in public is a game-changer. Keep up the amazing work! 🙌"
+        }
+      ]
+    },
+    {
+      "id": "en-standup",
+      "locale": "en",
+      "parent": {
+        "id": "en-standup-0",
+        "author": "tomr",
+        "text": "Hot take: most standups should be a Slack message. We switched our team of 6 to async updates for a month and nobody missed the meeting."
+      },
+      "replies": [
+        {
+          "id": "en-standup-1",
+          "author": "future_of_work_hq",
+          "delaySeconds": 48,
+          "expect": "ai",
+          "text": "Great point! Async communication is truly the future of work. It's not about meetings, it's about outcomes. What do you think is the biggest challenge in going async?"
+        },
+        {
+          "id": "en-standup-2",
+          "author": "priya_eng",
+          "delaySeconds": 4200,
+          "expect": "human",
+          "text": "we tried this and people just stopped posting updates after week 2. how did you keep it going"
+        },
+        {
+          "id": "en-standup-3",
+          "author": "mgr_sam",
+          "delaySeconds": 7000,
+          "expect": "human",
+          "text": "6 people is easy mode tbh. try it with 25 and three timezones"
+        },
+        {
+          "id": "en-standup-4",
+          "author": "lead_with_purpose",
+          "delaySeconds": 62,
+          "expect": "ai",
+          "text": "This resonates deeply. Async updates save time, respect focus, and empower teams to work smarter. Ultimately, great teams communicate with intention."
+        },
+        {
+          "id": "en-standup-5",
+          "author": "quiet_carl",
+          "delaySeconds": 9000,
+          "expect": "human",
+          "text": "our standup is the only time I see my coworkers' faces so I'd actually miss it"
+        },
+        {
+          "id": "en-standup-6",
+          "author": "productivity_boost",
+          "delaySeconds": 33,
+          "expect": "ai",
+          "text": "Absolutely! Async standups boost productivity and save valuable time. A total game-changer for remote teams! 🚀"
+        }
+      ]
+    },
+    {
+      "id": "zh-weekly",
+      "locale": "zh-CN",
+      "parent": {
+        "id": "zh-weekly-0",
+        "author": "ops_wang",
+        "text": "把周报改成了每周五下午自动生成：从 Linear 拉本周关闭的任务，按项目分组，再让模型写一段总结，发到飞书群。以前要花 40 分钟，现在 5 分钟检查一下就行。"
+      },
+      "replies": [
+        {
+          "id": "zh-weekly-1",
+          "author": "ai_tools_daily",
+          "delaySeconds": 900,
+          "followers": 64,
+          "verified": true,
+          "expect": "ai",
+          "text": "这套很实用：Linear 拉任务 → 按项目分组 → 模型总结 → 发飞书，从 40 分钟降到 5 分钟，省下的时间很可观。要是能把没关掉的任务也单独列一栏，就更完整了。"
+        },
+        {
+          "id": "zh-weekly-2",
+          "author": "efficiency_lab",
+          "delaySeconds": 1500,
+          "followers": 31,
+          "verified": true,
+          "expect": "ai",
+          "text": "从 40 分钟到 5 分钟，这个提效很稳。拉数据交给脚本，人只做最后检查，分工很清晰。总结那步是用固定模板，还是每周让模型自由写？"
+        },
+        {
+          "id": "zh-weekly-3",
+          "author": "laozhang_dev",
+          "delaySeconds": 5200,
+          "followers": 412,
+          "verified": false,
+          "expect": "human",
+          "text": "我们也这么干过，后来老板说模型写的总结太像通稿，又改回手写了 哈哈"
+        },
+        {
+          "id": "zh-weekly-4",
+          "author": "workflow_note",
+          "delaySeconds": 2100,
+          "followers": 18,
+          "verified": true,
+          "expect": "ai",
+          "text": "按项目分组再总结这一步很关键，信息不会散。脚本拉取 + 人工复核，比纯手写稳多了，周报的源头也只剩 Linear 一个。"
+        },
+        {
+          "id": "zh-weekly-5",
+          "author": "xiaoqi_pm",
+          "delaySeconds": 7400,
+          "followers": 136,
+          "verified": true,
+          "expect": "human",
+          "text": "Linear 的 API 拉已关闭任务是按 UTC 算的吧，周五下午跑的话东八区周五晚上关的会不会漏？我之前就漏过两次"
+        },
+        {
+          "id": "zh-weekly-6",
+          "author": "mumu",
+          "delaySeconds": 9100,
+          "followers": 87,
+          "verified": false,
+          "expect": "human",
+          "text": "5 分钟检查是真的吗 我每次光改模型写错的项目名就要 10 分钟"
+        },
+        {
+          "id": "zh-weekly-7",
+          "author": "agent_builder_cn",
+          "delaySeconds": 1300,
+          "followers": 52,
+          "verified": true,
+          "expect": "ai",
+          "text": "Linear → 模型 → 飞书群，这条链路很清晰。最省心的是任务源头只有一个，周报不会漏项，也不用再挨个翻看板。"
+        }
+      ]
+    },
+    {
+      "id": "en-notes",
+      "locale": "en",
+      "parent": {
+        "id": "en-notes-0",
+        "author": "dana_codes",
+        "text": "Moved all my meeting notes to plain markdown files in one git repo. A small script tags them by project and pushes a weekly digest to Slack. Search is just ripgrep now, and I stopped paying for two note apps."
+      },
+      "replies": [
+        {
+          "id": "en-notes-1",
+          "author": "ai_workflow_pro",
+          "delaySeconds": 840,
+          "followers": 43,
+          "verified": true,
+          "expect": "ai",
+          "text": "Love this setup: markdown in one repo → script tags by project → weekly digest to Slack. One source of truth, and ripgrep makes search instant. Would be even better if the digest also flagged action items."
+        },
+        {
+          "id": "en-notes-2",
+          "author": "build_in_public_ai",
+          "delaySeconds": 1260,
+          "followers": 27,
+          "verified": true,
+          "expect": "ai",
+          "text": "Plain markdown + git is such a solid foundation. Dropping two paid note apps for ripgrep is a clean win. Do you tag notes with front matter, or does the script infer the project from the folder?"
+        },
+        {
+          "id": "en-notes-3",
+          "author": "sam_k",
+          "delaySeconds": 6100,
+          "followers": 380,
+          "verified": false,
+          "expect": "human",
+          "text": "tried this for a year, the thing that killed it for me was images. pasting screenshots into md files in git got ugly fast. how do you handle those"
+        },
+        {
+          "id": "en-notes-4",
+          "author": "lean_stack_daily",
+          "delaySeconds": 1900,
+          "followers": 15,
+          "verified": true,
+          "expect": "ai",
+          "text": "Keeping notes in one repo with a weekly Slack digest is solid. Simple tools, one place, and search just works. That's how note-taking should be."
+        },
+        {
+          "id": "en-notes-5",
+          "author": "grepfan",
+          "delaySeconds": 3900,
+          "followers": 1450,
+          "verified": true,
+          "expect": "human",
+          "text": "ripgrep over notes is underrated. I alias `notes` to `rg -i --type md ~/notes` and that's 90% of my usage"
+        },
+        {
+          "id": "en-notes-6",
+          "author": "pete_r",
+          "delaySeconds": 8800,
+          "followers": 95,
+          "verified": false,
+          "expect": "human",
+          "text": "lol I did the exact same thing and then rebuilt Notion in bash over 6 months. good luck"
+        }
+      ]
+    }
+  ]
+}

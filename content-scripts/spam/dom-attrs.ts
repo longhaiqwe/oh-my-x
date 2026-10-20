@@ -5,6 +5,8 @@ export const DEBUG_BAR_ID = 'x-focus-spam-debug-bar'
 export const DEBUG_BAR_VERSION = '2'
 export const DEBUG_CONFIG_ATTR = 'data-xf-config-key'
 export const DEBUG_POSITIONED_ATTR = 'data-xf-spam-debug-positioned'
+/** 调试条画的是哪一版 AI 判断结果；和 aiScorer.version() 不一致时要重画 */
+export const AI_VERSION_ATTR = 'data-xf-ai-version'
 export const SCROLL_STABILITY_STYLE_ID = 'x-focus-spam-scroll-stability'
 
 export const XF_SELF_SELECTOR = [

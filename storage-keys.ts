@@ -65,6 +65,13 @@ export const KeySpamWhitelist = 'spamWhitelist' // @user
 export const KeySpamBlacklist = 'spamBlacklist' // @user
 export const KeySpamLog = 'spamLog' // recent intercepts
 export const KeySpamStats = 'spamStats' // aggregated daily stats
+// 回复区 AI 打分（方案见 docs/plans/ai-reply-scoring.md）
+export const KeySpamAiEnabled = 'spamAiEnabled'
+export const KeySpamAiAutoScope = 'spamAiAutoScope' // 自动判断范围：own（只我的帖子）/ all（所有对话页）/ off（不自动）
+export const KeySpamAiThreshold = 'spamAiThreshold' // AI 嫌疑分达到这个值折叠（0–100）
+export const KeySpamAiModel = 'spamAiModel' // 打分用的模型；留空用 AI 总结转发的模型
+export const KeySpamAiDailyLimit = 'spamAiDailyLimit' // 每天自动判断的条数上限
+export const KeySpamAiUsage = 'spamAiUsage' // 当天的判断条数统计（后台写）
 export const KeyPopupActiveTab = 'popupActiveTab' // last active tab
 
 // Stat ratio storage keys
@@ -132,6 +139,11 @@ export const allSettingsKeys = [
   KeySpamKeywordList,
   KeySpamWhitelist,
   KeySpamBlacklist,
+  KeySpamAiEnabled,
+  KeySpamAiAutoScope,
+  KeySpamAiThreshold,
+  KeySpamAiModel,
+  KeySpamAiDailyLimit,
   KeySidebarColumn,
   KeyStatRatioTargetHandle,
   KeyStatRatioEnabled,
@@ -192,6 +204,15 @@ export const SPAM_RELEVANT_KEYS = new Set<string>([
   KeySpamRulesEnabled,
   KeySpamWhitelist,
   KeySpamBlacklist,
+  KeySpamAiEnabled,
+  KeySpamAiAutoScope,
+  KeySpamAiThreshold,
+  KeySpamAiModel,
+  KeySpamAiDailyLimit,
+  // AI 连接改了以后，因为没配置而暂停的 AI 打分要重新开始
+  KeyAiRepostBaseUrl,
+  KeyAiRepostApiKey,
+  KeyAiRepostModel,
 ])
 
 // 触发 爆款雷达 重新处理的 key 集合
@@ -361,6 +382,11 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeySpamKeywordList]: defaultSpamKeywords.join('\n'),
   [KeySpamWhitelist]: '',
   [KeySpamBlacklist]: '',
+  [KeySpamAiEnabled]: 'off',
+  [KeySpamAiAutoScope]: 'own',
+  [KeySpamAiThreshold]: 70,
+  [KeySpamAiModel]: '',
+  [KeySpamAiDailyLimit]: 300,
   [KeySidebarColumn]: 'off',
   [KeyStatRatioTargetHandle]: '*',
   [KeyStatRatioEnabled]: 'on',

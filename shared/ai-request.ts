@@ -1,6 +1,7 @@
 import { AppError, type TransferableError } from './errors'
 import { resolveChatCompletionsUrl, type AiRepostOptionsResult, type RepostSourceInput } from './ai-repost'
 import type { Locale } from './i18n'
+import type { ReplyScore, ReplyScoreItem, ReplyScoreParent } from './ai-reply-score'
 
 export const AI_REQUEST_PORT = 'XF_AI_REQUEST'
 // Stay below MV3's 30-second limit for receiving a fetch response.
@@ -11,13 +12,22 @@ export type AiRequest =
   | { type: 'XF_GENERATE_REPOST_OPTIONS'; source: RepostSourceInput; overrideConfig?: AiConfig; locale?: Locale }
   | { type: 'XF_TEST_AI_CONNECTION'; config: AiConfig }
   | { type: 'XF_FETCH_TWEET_FULL_TEXT'; tweetId: string }
+  /** 回复区 AI 打分。mode：auto 计入每日上限，manual 不计入；locale 决定理由用哪种语言写 */
+  | { type: 'XF_SCORE_REPLIES'; parent: ReplyScoreParent; replies: ReplyScoreItem[]; mode: 'auto' | 'manual'; locale?: Locale }
 export interface AiResponse extends Partial<AiRepostOptionsResult> {
   ok: boolean
   /** 错误代号或原文，显示时用 errorText() 翻译 */
   error?: TransferableError
   model?: string
   source?: RepostSourceInput | null
+  /** XF_SCORE_REPLIES：缓存命中的和新判断的结果 */
+  scores?: ReplyScore[]
+  /** XF_SCORE_REPLIES：今天的自动判断已达上限，这次没有发请求 */
+  limitReached?: boolean
 }
+
+/** 只查 AI 打分缓存，不调用模型。走 runtime.sendMessage，回复 { ok, scores } */
+export const REPLY_SCORE_LOOKUP = 'XF_LOOKUP_REPLY_SCORES'
 
 // 只有本机服务可以用 HTTP；要和 wxt.config.ts 的 optional_host_permissions 一致
 const AI_LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1']

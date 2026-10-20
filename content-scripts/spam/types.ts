@@ -1,4 +1,11 @@
 import type { SpamRuleId } from '../../shared/spam-types'
+import type { SpamAiAutoScope } from '../../shared/settings'
+
+/** AI 打分的配置；关闭时为 null */
+export interface SpamAiConfig {
+  autoScope: SpamAiAutoScope
+  threshold: number
+}
 
 export interface SpamConfig {
   threshold: number
@@ -9,4 +16,5 @@ export interface SpamConfig {
   enabledRules: Set<SpamRuleId>
   whitelist: Set<string>
   blacklist: Set<string>
+  ai: SpamAiConfig | null
 }

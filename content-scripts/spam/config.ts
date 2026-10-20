@@ -1,4 +1,7 @@
 import {
+  KeySpamAiAutoScope,
+  KeySpamAiEnabled,
+  KeySpamAiThreshold,
   KeySpamBlacklist,
   KeySpamDebugMode,
   KeySpamFilterEnabled,
@@ -9,12 +12,18 @@ import {
 } from '../../storage-keys'
 import { normalizeForSpam, parseEnabledRules, parseHandleList, parseKeywordList } from '../../shared/spam-rules'
 import { migrateSpamStorage } from '../../shared/spam-migration'
+import { normalizeSpamAiAutoScope } from '../../shared/settings'
 import type { SpamRuleId } from '../../shared/spam-types'
 import { getStorage } from '../utilities/storage'
 import type { SpamConfig } from './types'
 
 function handleSet(raw: string | undefined | null): Set<string> {
   return new Set(parseHandleList(raw))
+}
+
+function aiThresholdOf(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 70
 }
 
 let migrationChecked = false
@@ -33,6 +42,9 @@ async function loadConfig(): Promise<SpamConfig | null> {
     KeySpamRulesEnabled,
     KeySpamWhitelist,
     KeySpamBlacklist,
+    KeySpamAiEnabled,
+    KeySpamAiAutoScope,
+    KeySpamAiThreshold,
   ])
 
   if (values[KeySpamFilterEnabled] !== 'on') return null
@@ -50,6 +62,12 @@ async function loadConfig(): Promise<SpamConfig | null> {
     enabledRules: parseEnabledRules(String(values[KeySpamRulesEnabled] ?? '')) as Set<SpamRuleId>,
     whitelist: handleSet(String(values[KeySpamWhitelist] ?? '')),
     blacklist: handleSet(String(values[KeySpamBlacklist] ?? '')),
+    ai: values[KeySpamAiEnabled] === 'on'
+      ? {
+          autoScope: normalizeSpamAiAutoScope(values[KeySpamAiAutoScope]),
+          threshold: aiThresholdOf(values[KeySpamAiThreshold]),
+        }
+      : null,
   }
 }
 
