@@ -3,6 +3,7 @@ import {
   addRewardsSnapshot,
   buildAccountOverviewVariables,
   buildDailyConversion,
+  isImpressionsMissingYesterday,
   isRewardsHistoryMissingToday,
   mergeImpressionsDays,
   parseAccountOverviewDaily,
@@ -166,5 +167,21 @@ describe('存储解析与合并', () => {
     expect(history).toEqual({ '2026-10-16': 219700, '2026-10-17': 224600 })
     expect(JSON.parse(store[KeyCreatorRewardsStats] as string).impressionsCount).toBe(224600)
     expect(JSON.parse(store[KeyCreatorRewardsHistory] as string)).toEqual(history)
+  })
+})
+
+describe('isImpressionsMissingYesterday 账号分析缺昨天的数据', () => {
+  const days = { '2026-10-18': { total: 24575, verified: 7160 } }
+
+  it('UTC 10-20 时还没有 10-19 就算缺', () => {
+    expect(isImpressionsMissingYesterday({ days, updatedAt: 1 }, utc('2026-10-20T02:52:00'))).toBe(true)
+  })
+
+  it('有昨天的数据就不缺', () => {
+    expect(isImpressionsMissingYesterday({ days, updatedAt: 1 }, utc('2026-10-19T10:00:00'))).toBe(false)
+  })
+
+  it('没有缓存算缺', () => {
+    expect(isImpressionsMissingYesterday(null, utc('2026-10-20T02:52:00'))).toBe(true)
   })
 })

@@ -11,6 +11,7 @@ import type { CreatorRewardsStats } from '../../../../shared/creator-rewards'
 import { formatImpressionsCount, isCreatorRewardsStale } from '../../../../shared/creator-rewards'
 import {
   buildDailyConversion,
+  isImpressionsMissingYesterday,
   isRewardsHistoryMissingToday,
   parseImpressionsCache,
   parseRewardsHistory,
@@ -36,6 +37,7 @@ type RefreshResponse = {
 
 /** 账号分析的当天数据会持续变，超过一小时重新取 */
 const IMPRESSIONS_MAX_AGE_MS = 60 * 60 * 1000
+const IMPRESSIONS_RETRY_MS = 10 * 60 * 1000
 /** 柱子最高 32px，与 h-8 的图区一致 */
 const BAR_MAX_HEIGHT = 32
 
@@ -182,7 +184,11 @@ function needsRefresh(): boolean {
   // 进度过了每天 10:30 的分界线、还没记到当天的累计数，或账号分析数据超过一小时
   if (!stats.value || isCreatorRewardsStale(stats.value.updatedAt)) return true
   if (isRewardsHistoryMissingToday(history.value)) return true
-  return !impressions.value || Date.now() - impressions.value.updatedAt > IMPRESSIONS_MAX_AGE_MS
+  if (!impressions.value) return true
+  const age = Date.now() - impressions.value.updatedAt
+  // 账号分析还没出昨天的数：打开弹窗时补取，10 分钟内最多一次
+  if (isImpressionsMissingYesterday(impressions.value) && age > IMPRESSIONS_RETRY_MS) return true
+  return age > IMPRESSIONS_MAX_AGE_MS
 }
 
 // 收起状态：弹窗本地缓存一份，打开时直接按缓存渲染，不会先展开再收起；插件存储里的值为准
@@ -346,7 +352,9 @@ onMounted(() => {
               <span class="text-xl font-semibold tracking-tight text-text">{{ stats.impressionsText }}</span>
               <span class="text-xs text-muted-text">/ {{ stats.targetImpressionsText }}</span>
             </div>
-            <span class="text-xs tabular-nums text-muted-text">{{ remainingText }}</span>
+            <span class="text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-accent-subtle text-accent-subtle-text">
+              {{ progressPercent }}%
+            </span>
           </div>
           <div
             class="w-full bg-accent-track rounded-full h-2 overflow-hidden"
@@ -355,12 +363,14 @@ onMounted(() => {
             aria-valuemin="0"
             aria-valuemax="100"
             :aria-label="t('rewards.progressLabel')"
-            :title="`${progressPercent}%`"
           >
             <div class="bg-accent h-2 rounded-full transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
           </div>
           <!-- 累计数一天只变一次，当天多次刷新数字不变 -->
-          <p class="text-xs text-muted-text">{{ t('rewards.dailyUpdate', { time: dailyUpdateTime }) }}</p>
+          <div class="flex items-baseline justify-between gap-2 text-xs text-muted-text">
+            <p>{{ t('rewards.dailyUpdate', { time: dailyUpdateTime }) }}</p>
+            <p class="tabular-nums">{{ remainingText }}</p>
+          </div>
         </div>
 
         <!-- 选中那天：整体曝光 → 蓝 V 曝光 → 计入奖励；下方是近 7 天计入奖励。用统计框底色和进度分开，不用分隔线；框内居中 -->
@@ -404,6 +414,8 @@ onMounted(() => {
                 </template>
               </HintTooltip>
             </div>
+            <!-- 账号分析出前一天的数比奖励计划晚，没出时说明一下，后台会补取 -->
+            <p v-if="selectedRow.total === null" class="text-xs text-center text-muted-text">{{ t('rewards.analyticsPending') }}</p>
           </div>
 
           <!-- 近 7 天计入奖励，点柱子切换上面的日期；没有数据时不显示 -->

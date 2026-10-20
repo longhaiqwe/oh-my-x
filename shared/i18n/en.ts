@@ -250,6 +250,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   'rewards.dailyUpdate': 'Updates once a day at {time}',
   'rewards.expandLabel': 'Expand rewards dashboard',
   'rewards.collapseLabel': 'Collapse rewards dashboard',
+  'rewards.analyticsPending': 'X Analytics has not published this day yet. It will fill in automatically.',
   'rewards.refresh': 'Refresh data',
   'rewards.openInX': 'Open in X',
   'rewards.openInXLabel': 'Open the rewards page in X',

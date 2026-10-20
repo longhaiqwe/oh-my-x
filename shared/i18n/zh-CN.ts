@@ -267,6 +267,7 @@ export const zhCN = {
   'rewards.dailyUpdate': '每天 {time} 更新一次',
   'rewards.expandLabel': '展开奖励计划看板',
   'rewards.collapseLabel': '收起奖励计划看板',
+  'rewards.analyticsPending': 'X 账号分析还没出这一天的数据，出来后自动补上',
   'rewards.refresh': '刷新数据',
   'rewards.openInX': '在 X 中打开',
   'rewards.openInXLabel': '在 X 中打开奖励计划页面',

@@ -83,6 +83,14 @@ export function isRewardsHistoryMissingToday(history: RewardsHistory, now = Date
   return history[rewardsDataDate(now)] === undefined
 }
 
+/**
+ * 账号分析还没有昨天（UTC）的数据，需要再取。
+ * 账号分析出前一天的数比奖励计划晚：2026-10-20 实测 UTC 02:52（北京 10:52）只到前天，10-18 的 UTC 06:35 已有前一天。
+ */
+export function isImpressionsMissingYesterday(cache: ImpressionsDailyCache | null, now = Date.now()): boolean {
+  return !cache?.days[shiftDateKey(utcDateKey(now), -1)]
+}
+
 function parseJsonObject(raw: unknown): Record<string, unknown> | null {
   let value = raw
   if (typeof value === 'string') {

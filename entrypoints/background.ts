@@ -27,6 +27,7 @@ import {
   ACCOUNT_OVERVIEW_OPERATION,
   FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID,
   buildAccountOverviewVariables,
+  isImpressionsMissingYesterday,
   isRewardsHistoryMissingToday,
   mergeImpressionsDays,
   parseAccountOverviewDaily,
@@ -467,7 +468,7 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
     const csrf = await getCsrfToken()
     if (!csrf) return // 用户当前未在浏览器登录 X，跳过
 
-    const stored = await browser.storage.local.get([KeyCreatorRewardsStats, KeyCreatorRewardsHistory])
+    const stored = await browser.storage.local.get([KeyCreatorRewardsStats, KeyCreatorRewardsHistory, KeyImpressionsDaily])
     const raw = stored[KeyCreatorRewardsStats]
     let updatedAt: number | undefined
     if (typeof raw === 'string') {
@@ -483,6 +484,9 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
     if (isCreatorRewardsStale(updatedAt) || isRewardsHistoryMissingToday(history)) {
       console.info('[oh-my-x] 创作者奖励数据已到每日刷新节点，执行静默同步...')
       await refreshCreatorRewardsData()
+    } else if (isImpressionsMissingYesterday(parseImpressionsCache(stored[KeyImpressionsDaily]))) {
+      // 账号分析比奖励计划晚出前一天的数，每次闹钟（30 分钟）补取一次，直到取到
+      await fetchImpressionsDailyFromApi()
     }
   } catch (e) {
     console.debug('[oh-my-x] 自动同步创作者奖励数据跳过或失败', e)
