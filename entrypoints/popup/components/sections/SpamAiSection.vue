@@ -215,6 +215,8 @@ onBeforeUnmount(() => {
   </template>
 
   <div v-if="enabled" class="flex flex-col gap-4">
+   <!-- 说明整个功能会发送哪些内容，放在开关下面第一行 -->
+   <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiPrivacy') }}</p>
    <p v-if="!hasKey" class="text-xs leading-normal text-warning">{{ t('spamFilter.aiNoKey') }}</p>
    <div v-else-if="!granted" class="flex flex-wrap items-center justify-between gap-2">
     <p class="text-xs leading-normal text-warning">{{ t('spamFilter.aiNotGranted') }}</p>
@@ -341,8 +343,6 @@ onBeforeUnmount(() => {
      >{{ t('spamFilter.aiLabelsExport') }}</button>
     </div>
    </div>
-
-   <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiPrivacy', { limit: dailyLimit }) }}</p>
   </div>
  </FeatureCard>
 </template>

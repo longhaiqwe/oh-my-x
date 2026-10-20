@@ -764,7 +764,7 @@ export const zhCN = {
   'spamFilter.aiScopeOwn': '我的帖子',
   'spamFilter.aiScopeAll': '所有对话',
   'spamFilter.aiScopeOff': '只手动',
-  'spamFilter.aiPrivacy': '开启后，对话页的回复正文、作者用户名、粉丝数和是否认证会发送到你在「AI 总结转发」里填写的模型服务。每天最多自动判断 {limit} 条。',
+  'spamFilter.aiPrivacy': '开启后，对话页的回复正文、作者用户名、粉丝数和是否认证会发送到你在「AI 总结转发」里填写的模型服务。',
   'spamPage.aiScore': 'AI {score}',
   'spamPage.aiPending': 'AI 判断中',
   'spamPage.aiManual': 'AI 未判断：不在自动判断范围内',

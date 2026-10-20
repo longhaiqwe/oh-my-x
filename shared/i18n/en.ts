@@ -742,7 +742,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   'spamFilter.aiScopeOwn': 'My posts',
   'spamFilter.aiScopeAll': 'All threads',
   'spamFilter.aiScopeOff': 'Manual only',
-  'spamFilter.aiPrivacy': 'When on, reply text, author usernames, follower counts and verification status on conversation pages are sent to the model service you set in AI quote drafts. Up to {limit} replies are checked automatically per day.',
+  'spamFilter.aiPrivacy': 'When on, reply text, author usernames, follower counts and verification status on conversation pages are sent to the model service you set in AI quote drafts.',
   'spamPage.aiScore': 'AI {score}',
   'spamPage.aiPending': 'AI checking',
   'spamPage.aiManual': 'AI not checked: outside the automatic scope',

@@ -93,6 +93,11 @@ describe('AI 判断设置区', () => {
       expect(text).toContain(title)
     }
     expect(text).toContain('Today: auto 12 · manual 3 · reused 40 · collapsed 5 · failed 1')
+    // 发送内容的说明放在开关下面第一行，不在「我的标注」后面；不重复每日上限
+    const privacy = text.indexOf('When on, reply text')
+    expect(privacy).toBeGreaterThan(-1)
+    expect(privacy).toBeLessThan(text.indexOf('Check automatically on'))
+    expect(text).not.toContain('Up to 300 replies')
     expect(text).toContain('75')
     expect(CJK.test(text)).toBe(false)
     const placeholders = [...root.querySelectorAll('input')].map((i) => i.getAttribute('placeholder') ?? '')
