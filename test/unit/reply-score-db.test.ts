@@ -45,8 +45,8 @@ describe('AI 打分用量', () => {
   afterEach(() => vi.useRealTimers())
 
   it('不是今天的记录归零，损坏的字段按 0 算', () => {
-    expect(parseReplyScoreUsage({ date: '2026-10-19', auto: 5 }, '2026-10-20')).toEqual({ date: '2026-10-20', auto: 0, manual: 0, cached: 0, failed: 0 })
-    expect(parseReplyScoreUsage({ date: '2026-10-20', auto: 5.7, manual: -1, cached: 'x' }, '2026-10-20')).toEqual({ date: '2026-10-20', auto: 5, manual: 0, cached: 0, failed: 0 })
+    expect(parseReplyScoreUsage({ date: '2026-10-19', auto: 5 }, '2026-10-20')).toEqual({ date: '2026-10-20', auto: 0, manual: 0, cached: 0, failed: 0, folded: 0 })
+    expect(parseReplyScoreUsage({ date: '2026-10-20', auto: 5.7, manual: -1, cached: 'x' }, '2026-10-20')).toEqual({ date: '2026-10-20', auto: 5, manual: 0, cached: 0, failed: 0, folded: 0 })
   })
 
   it('累计后 5 秒合并写一次；读取时包括还没写入的部分', async () => {
@@ -60,7 +60,7 @@ describe('AI 打分用量', () => {
     expect(storage.set).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(5_000)
     expect(storage.set).toHaveBeenCalledTimes(1)
-    expect(store[KeySpamAiUsage]).toEqual({ date: '2026-10-20', auto: 13, manual: 0, cached: 3, failed: 1 })
+    expect(store[KeySpamAiUsage]).toEqual({ date: '2026-10-20', auto: 13, manual: 0, cached: 3, failed: 1, folded: 0 })
     expect((await usage.read()).auto).toBe(13)
   })
 
@@ -74,8 +74,8 @@ describe('AI 打分用量', () => {
     day = '2026-10-21'
     usage.add({ auto: 1 })
     await vi.advanceTimersByTimeAsync(0)
-    expect(storage.set).toHaveBeenCalledWith({ [KeySpamAiUsage]: { date: '2026-10-20', auto: 4, manual: 0, cached: 0, failed: 0 } })
+    expect(storage.set).toHaveBeenCalledWith({ [KeySpamAiUsage]: { date: '2026-10-20', auto: 4, manual: 0, cached: 0, failed: 0, folded: 0 } })
     await vi.advanceTimersByTimeAsync(5_000)
-    expect(store[KeySpamAiUsage]).toEqual({ date: '2026-10-21', auto: 1, manual: 0, cached: 0, failed: 0 })
+    expect(store[KeySpamAiUsage]).toEqual({ date: '2026-10-21', auto: 1, manual: 0, cached: 0, failed: 0, folded: 0 })
   })
 })

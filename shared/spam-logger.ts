@@ -42,6 +42,7 @@ function emptyCategoryStats(): Record<SpamCategory, number> {
     marketing: 0,
     low_quality: 0,
     normal: 0,
+    ai: 0,
   }
 }
 

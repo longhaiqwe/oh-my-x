@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   KeySpamAiAutoScope,
   KeySpamAiEnabled,
+  KeySpamAiThreshold,
   KeySpamBlacklist,
   KeySpamDebugMode,
   KeySpamFilterEnabled,
@@ -17,12 +18,15 @@ const fakeScorer = vi.hoisted(() => ({
   onChange: vi.fn(() => () => {}),
   reset: vi.fn(),
   stop: vi.fn(),
+  peek: vi.fn((_id: string) => 'none'),
+  status: vi.fn(() => ({ paused: null as any, busy: false })),
+  manual: vi.fn((_entries: unknown[]) => 1),
 }))
 vi.mock('../../content-scripts/spam/ai-scorer', () => ({ aiScorer: fakeScorer }))
 
 const { invalidateSpamConfig, runScan } = await import('../../content-scripts/spam/scanner')
 
-function mockConfig({ debug = true, ai = true, scope = 'own' } = {}) {
+function mockConfig({ debug = true, ai = true, scope = 'own', aiThreshold = 70 } = {}) {
   ;(globalThis as any).browser.runtime.id = 'test-runtime'
   ;(globalThis as any).browser.storage.local.get = async () => ({
     [KeySpamFilterEnabled]: 'on',
@@ -35,9 +39,18 @@ function mockConfig({ debug = true, ai = true, scope = 'own' } = {}) {
     [KeySpamBlacklist]: '',
     [KeySpamAiEnabled]: ai ? 'on' : 'off',
     [KeySpamAiAutoScope]: scope,
+    [KeySpamAiThreshold]: aiThreshold,
   })
   invalidateSpamConfig()
 }
+
+// 带操作栏的回复（分数标签放在操作栏里）
+const actions = '<div role="group"><button data-testid="reply"></button><button data-testid="like"></button></div>'
+// 帖子页顶部的「← 帖子」标题栏
+const header = '<div data-testid="primaryColumn"><div id="header-row"><div><button data-testid="app-bar-back"></button></div><div>帖子</div><div></div></div></div>'
+const tag = (id: string) => document.querySelector<HTMLElement>(`#t${id} [data-xf-ai-tag]`)
+const pill = () => document.querySelector<HTMLButtonElement>('[data-xf-ai-pill]')
+const done = (score: number) => ({ status: 'done', score, signals: ['S2', 'S11'], reason: '复述原帖' })
 
 function tweet(id: string, handle: string, text: string, time: string, extra = '') {
   return `
@@ -57,6 +70,12 @@ beforeEach(() => {
   fakeScorer.request.mockReset()
   fakeScorer.request.mockReturnValue({ status: 'done', score: 82, signals: ['S1', 'S6'], reason: '换个帖子也成立' })
   fakeScorer.stop.mockClear()
+  fakeScorer.peek.mockReset()
+  fakeScorer.peek.mockReturnValue('none')
+  fakeScorer.status.mockReset()
+  fakeScorer.status.mockReturnValue({ paused: null, busy: false })
+  fakeScorer.manual.mockClear()
+  ;(globalThis as any).browser.runtime.sendMessage = vi.fn(() => Promise.resolve())
 })
 
 afterEach(() => {
@@ -64,6 +83,7 @@ afterEach(() => {
   document.body.innerHTML = ''
   ;(globalThis as any).browser.storage.local.get = async () => ({})
   delete (globalThis as any).browser.runtime.id
+  delete (globalThis as any).browser.runtime.sendMessage
   invalidateSpamConfig()
 })
 
@@ -174,15 +194,16 @@ describe('AI 判断（调试模式）', () => {
     expect(bar('6002')!.querySelector('[data-xf-ai-row]')).toBeNull()
   })
 
-  it('不在调试模式或没开 AI 判断时不送模型，并清掉排队', async () => {
+  it('没开 AI 判断时不送模型，清掉排队和页面上的 AI 标签', async () => {
     window.history.pushState({}, '', '/alice/status/7001')
-    document.body.innerHTML = own('alice') + tweet('7001', 'alice', '主帖', '2026-10-20T08:00:00.000Z') + tweet('7002', 'bob', '回复', '2026-10-20T08:01:00.000Z')
-    mockConfig({ debug: false })
+    document.body.innerHTML = own('alice') + tweet('7001', 'alice', '主帖', '2026-10-20T08:00:00.000Z') + tweet('7002', 'bob', '回复', '2026-10-20T08:01:00.000Z', actions)
+    mockConfig({ debug: false, ai: false })
     await runScan(true)
     mockConfig({ debug: true, ai: false })
     await runScan(true)
     expect(fakeScorer.request).not.toHaveBeenCalled()
     expect(fakeScorer.stop).toHaveBeenCalledTimes(2)
+    expect(tag('7002')).toBeNull()
   })
 
   it('AI 结果版本变了，调试条按新状态重画', async () => {
@@ -202,5 +223,129 @@ describe('AI 判断（调试模式）', () => {
     await runScan(false)
     expect(bar('8002')!.querySelector('[data-xf-ai-row]')!.textContent).toBe('AI 暂停：请先配置 AI API Key')
     fakeScorer.version.mockReturnValue(0)
+  })
+})
+
+describe('AI 判断（正常模式）', () => {
+  const page = (mainAuthor: string, replyHtml: string) =>
+    header + own('me') + tweet('100', mainAuthor, '主帖正文', '2026-10-20T08:00:00.000Z') + replyHtml
+
+  it('分数没到阈值：回复照常显示，操作栏末尾有分数标签，悬停能看到理由和信号', async () => {
+    window.history.pushState({}, '', '/me/status/100')
+    mockConfig({ debug: false })
+    fakeScorer.request.mockReturnValue(done(40))
+    document.body.innerHTML = page('me', tweet('101', 'bob', '这套很实用', '2026-10-20T08:01:00.000Z', actions))
+    await runScan(true)
+    const reply = document.querySelector<HTMLElement>('#t101')!
+    expect(reply.style.display).not.toBe('none')
+    expect(tag('101')!.textContent).toBe('AI 40')
+    expect(tag('101')!.querySelector('.xf-ai-score')!.getAttribute('title')).toBe('AI 嫌疑分 40/100\n复述原帖\n命中：复述原帖、认同+复述+补一句')
+    expect(document.querySelector('#x-focus-spam-debug-bar')).toBeNull()
+  })
+
+  it('判断中也显示标签', async () => {
+    window.history.pushState({}, '', '/me/status/110')
+    mockConfig({ debug: false })
+    fakeScorer.request.mockReturnValue({ status: 'pending' })
+    document.body.innerHTML = header + own('me') + tweet('110', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('111', 'bob', '回复', '2026-10-20T08:01:00.000Z', actions)
+    await runScan(true)
+    expect(tag('111')!.textContent).toBe('AI 判断中')
+  })
+
+  it('分数到了阈值：折叠成一行，记日志、计一次折叠；点「展开」显示原回复，标签后面有「收起」', async () => {
+    window.history.pushState({}, '', '/me/status/120')
+    mockConfig({ debug: false, aiThreshold: 70 })
+    fakeScorer.request.mockReturnValue(done(85))
+    document.body.innerHTML = header + own('me') + tweet('120', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('121', 'bob', '这套很实用', '2026-10-20T08:01:00.000Z', actions)
+    await runScan(true)
+
+    const reply = document.querySelector<HTMLElement>('#t121')!
+    expect(reply.style.display).toBe('none')
+    expect(reply.getAttribute('data-xf-spam-hidden-by')).toBe('ai')
+    const fold = reply.previousElementSibling!
+    expect(fold.matches('[data-xf-spam-hidden-replacement]')).toBe(true)
+    expect(fold.textContent).toContain('AI 85')
+    expect(fold.textContent).toContain('已折叠 · 复述原帖、认同+复述+补一句 · @bob')
+    expect((globalThis as any).browser.runtime.sendMessage).toHaveBeenCalledWith({ type: 'XF_REPLY_SCORE_FOLDED' })
+
+    // 再扫一遍：不重复计数
+    await runScan(true)
+    expect((globalThis as any).browser.runtime.sendMessage).toHaveBeenCalledTimes(1)
+
+    fold.querySelector<HTMLButtonElement>('.xf-ai-fold-btn')!.click()
+    await vi.waitFor(() => expect(reply.style.display).not.toBe('none'))
+    expect(reply.previousElementSibling?.matches('[data-xf-spam-hidden-replacement]') ?? false).toBe(false)
+    expect(tag('121')!.textContent).toBe('AI 85收起')
+
+    tag('121')!.querySelector<HTMLButtonElement>('.xf-ai-link')!.click()
+    await vi.waitFor(() => expect(reply.style.display).toBe('none'))
+  })
+
+  it('规则已经隐藏的回复不送模型、没有标签', async () => {
+    window.history.pushState({}, '', '/me/status/130')
+    mockConfig({ debug: false })
+    document.body.innerHTML = header + own('me') + tweet('130', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('131', 'spammer', '点击主页领取福利', '2026-10-20T08:01:00.000Z', actions)
+    await runScan(true)
+    const reply = document.querySelector<HTMLElement>('#t131')!
+    expect(reply.getAttribute('data-xf-spam-hidden-by')).toBe('rule')
+    expect(fakeScorer.request).not.toHaveBeenCalled()
+    expect(tag('131')).toBeNull()
+  })
+
+  it('别人的帖子、范围是「我的帖子」：标题栏按钮显示能手动判断的条数，点了把这些回复送去手动判断', async () => {
+    window.history.pushState({}, '', '/alice/status/140')
+    mockConfig({ debug: false, scope: 'own' })
+    fakeScorer.request.mockReturnValue({ status: 'manual' })
+    document.body.innerHTML = header + own('me') + tweet('140', 'alice', '主帖', '2026-10-20T08:00:00.000Z') +
+      tweet('141', 'bob', '回复一', '2026-10-20T08:01:00.000Z', actions) +
+      tweet('142', 'carl', '回复二', '2026-10-20T08:02:00.000Z', actions)
+    await runScan(true)
+    expect(fakeScorer.request.mock.calls.map((c) => c[2])).toEqual([false, false])
+    expect(pill()!.textContent).toBe('AI 判断本页 2 条')
+    expect(pill()!.parentElement!.id).toBe('header-row')
+    pill()!.click()
+    expect(fakeScorer.manual).toHaveBeenCalledTimes(1)
+    const entries = fakeScorer.manual.mock.calls[0][0] as any[]
+    expect(entries.map((e) => e.item.id)).toEqual(['141', '142'])
+    expect(entries[0].parent).toEqual({ id: '140', author: 'alice', text: '主帖' })
+  })
+
+  it('标题栏按钮的其他状态：判断中、已判断、没配置（点了打开设置页）、出错', async () => {
+    window.history.pushState({}, '', '/me/status/150')
+    mockConfig({ debug: false })
+    fakeScorer.request.mockReturnValue({ status: 'pending' })
+    document.body.innerHTML = header + own('me') + tweet('150', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('151', 'bob', '回复', '2026-10-20T08:01:00.000Z', actions)
+
+    fakeScorer.peek.mockReturnValue('pending')
+    await runScan(true)
+    expect(pill()!.textContent).toBe('AI 判断中 · 已判断 0 条')
+
+    fakeScorer.peek.mockReturnValue('done')
+    await runScan(true)
+    expect(pill()!.textContent).toBe('AI 已判断 1 条')
+    expect(pill()!.getAttribute('data-clickable')).toBe('0')
+
+    fakeScorer.peek.mockReturnValue('none')
+    fakeScorer.status.mockReturnValue({ paused: { reason: 'needsConfig', error: { code: 'error.aiNoKey' } }, busy: false })
+    await runScan(true)
+    expect(pill()!.textContent).toBe('AI 未配置好 · 打开设置')
+    expect(pill()!.title).toBe('请先配置 AI API Key')
+    expect(pill()!.getAttribute('data-tone')).toBe('warn')
+    pill()!.click()
+    expect((globalThis as any).browser.runtime.sendMessage).toHaveBeenCalledWith({ type: 'XF_OPEN_SETTINGS' })
+
+    fakeScorer.status.mockReturnValue({ paused: { reason: 'error', error: 'network down' }, busy: false })
+    await runScan(true)
+    expect(pill()!.textContent).toBe('AI 出错了 · 点此重试')
+    pill()!.click()
+    expect(fakeScorer.manual).toHaveBeenCalled()
+  })
+
+  it('没开 AI 判断时不显示标题栏按钮', async () => {
+    window.history.pushState({}, '', '/me/status/160')
+    mockConfig({ debug: false, ai: false })
+    document.body.innerHTML = header + own('me') + tweet('160', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('161', 'bob', '回复', '2026-10-20T08:01:00.000Z', actions)
+    await runScan(true)
+    expect(pill()).toBeNull()
   })
 })

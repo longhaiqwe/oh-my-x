@@ -27,6 +27,7 @@ npm run clean         # 删除 build/（以及旧版的 .output/）
 npm test              # 运行单元测试
 npm run test:watch    # 监听模式
 npm run test:coverage # 测试 + 覆盖率报告
+npm run test:live     # 用真实模型接口跑 AI 打分样例集（需 AI_API_KEY 等环境变量，会产生费用）
 npm run typecheck     # vue-tsc --noEmit（含 Vue 模板）
 npm run check         # 类型检查 + 全量测试 + 生产构建
 ```
@@ -196,6 +197,13 @@ oh-my-x/
 ### 规则引擎（`shared/spam-rules.ts` + `spam-types.ts`）
 - 可叠加评分规则（具体规则与分数见 `spam-types.ts` 规则元数据）。分类优先级 `porn_spam > marketing > bot > low_quality > normal`。
 - `evaluateSpam({ text, authorName, authorHandle, keywords, enabledRules })`：空 `keywords` 数组表示用户明确清空，不回退默认词库。
+
+### AI 打分（试验，方案见 `docs/plans/ai-reply-scoring.md`）
+- 「AI 判断」打开后，规则没隐藏的回复送给「AI 总结转发」配置的模型打 AI 嫌疑分（0–100）；分数达到阈值的回复折叠成一行（`HIDDEN_BY_ATTR` 记成 `ai`，规则隐藏记成 `rule`），没到的在操作栏末尾显示分数标签。调试模式只在调试条上多一行 AI 结果，不折叠。
+- 提示词、请求内容、返回解析：`shared/ai-reply-score.ts`（改提示词要把 `REPLY_SCORE_PROMPT_VERSION` 加 1，旧缓存作废）。样例集：`shared/ai-reply-samples.json` + `ai-reply-samples.ts`。
+- 页面侧：`content-scripts/spam/ai-scorer.ts`（查缓存 → 攒批 → 送后台，暂停原因、手动判断），`ai-badge.ts`（分数标签、折叠条、帖子页标题栏上的 AI 按钮）。扫描器按详情页记住主帖和上级推文 ID，主帖滚出页面后也能分清回复。
+- 后台：`XF_SCORE_REPLIES`（打分，结果缓存在 IndexedDB `oh-my-x-reply-scores`，7 天、5000 条）、`XF_LOOKUP_REPLY_SCORES`（只查缓存）、`XF_TEST_REPLY_SCORE_SAMPLES`（设置页跑样例集，不写缓存不计用量）；当天用量在 `spamAiUsage`，每 5 秒合并写一次。
+- `npm run test:live`：用真实接口跑样例集（key 从环境变量读，会产生费用，不进 `npm run check`）。
 
 ### 日志/统计（`shared/spam-logger.ts`）
 - `recordIntercept()` 用串行化队列避免单上下文并发丢写（注意：仅串行化当前 JS realm，跨标签页仍可能丢写）。

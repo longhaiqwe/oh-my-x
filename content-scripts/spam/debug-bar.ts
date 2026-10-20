@@ -1,6 +1,7 @@
 import type { SpamEvaluation } from '../../shared/spam-types'
 import { formatRuleHit } from '../../shared/spam-types'
-import { t, type MessageKey } from '../../shared/i18n'
+import { t } from '../../shared/i18n'
+import { aiSignalNames } from './ai-badge'
 import { errorText } from '../../shared/errors'
 import type { AiDisplay } from './ai-scorer'
 import {
@@ -33,7 +34,7 @@ export function describeAiDisplay(ai: AiDisplay): { text: string; color: string 
     case 'done': {
       const color = ai.score >= 70 ? 'rgb(185,28,28)' : ai.score >= 31 ? 'rgb(161,98,7)' : muted
       const parts = [t('spamPage.aiScore', { score: ai.score })]
-      if (ai.signals.length) parts.push(ai.signals.map((s) => t(`aiSignal.${s}` as MessageKey)).join('、'))
+      if (ai.signals.length) parts.push(aiSignalNames(ai.signals))
       if (ai.reason) parts.push(ai.reason)
       return { text: parts.join(' · '), color }
     }

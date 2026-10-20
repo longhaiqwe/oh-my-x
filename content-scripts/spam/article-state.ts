@@ -1,4 +1,4 @@
-import { PROCESSED_ATTR, SCORE_ATTR, STATE_ATTR } from './dom-attrs'
+import { HIDDEN_BY_ATTR, PROCESSED_ATTR, SCORE_ATTR, STATE_ATTR } from './dom-attrs'
 
 export function removeAllReplacements(article: HTMLElement) {
   let prev = article.previousElementSibling
@@ -33,6 +33,7 @@ export function applyHideDirect(article: HTMLElement) {
 
 export function applyAllow(article: HTMLElement) {
   article.removeAttribute(STATE_ATTR)
+  article.removeAttribute(HIDDEN_BY_ATTR)
   article.removeAttribute(SCORE_ATTR)
   article.querySelectorAll('.x-focus-spam-placeholder').forEach((el) => el.remove())
   removeAllReplacements(article)
@@ -45,6 +46,7 @@ export function applyAllow(article: HTMLElement) {
 
 export function resetArticleSpamState(article: HTMLElement) {
   article.removeAttribute(STATE_ATTR)
+  article.removeAttribute(HIDDEN_BY_ATTR)
   article.removeAttribute(SCORE_ATTR)
   article.removeAttribute(PROCESSED_ATTR)
   article.style.display = ''

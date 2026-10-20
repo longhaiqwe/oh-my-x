@@ -184,3 +184,70 @@ describe('AI 打分队列', () => {
     expect(deps.score).not.toHaveBeenCalled()
   })
 })
+
+describe('手动判断', () => {
+  it('点了马上发（不等 2 秒），请求标成 manual，每次最多一批', async () => {
+    const scorer = createAiScorer(deps)
+    const entries = Array.from({ length: 25 }, (_, i) => ({ item: item(String(i + 1)), parent }))
+    expect(scorer.manual(entries)).toBe(20)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(deps.score).toHaveBeenCalledTimes(1)
+    const message = deps.score.mock.calls[0][0]
+    expect(message.mode).toBe('manual')
+    expect(message.replies).toHaveLength(20)
+    await settle()
+    expect(scorer.peek('1')).toBe('done')
+    expect(scorer.peek('21')).toBe('none')
+  })
+
+  it('今日自动额度用完后，手动判断照样能发', async () => {
+    deps.score.mockResolvedValueOnce({ ok: true, scores: [], limitReached: true })
+    const scorer = createAiScorer(deps)
+    scorer.request(item('1'), parent, true)
+    await settle()
+    expect(scorer.status().paused?.reason).toBe('limit')
+    scorer.manual([{ item: item('1'), parent }])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(deps.score).toHaveBeenCalledTimes(2)
+    expect(deps.score.mock.calls[1][0].mode).toBe('manual')
+  })
+
+  it('手动点击也是重试：解除出错暂停，失败过 2 次的也重新发', async () => {
+    deps.score.mockRejectedValueOnce(new Error('network down'))
+    const scorer = createAiScorer(deps)
+    scorer.request(item('1'), parent, true)
+    await settle()
+    expect(scorer.status().paused?.reason).toBe('error')
+    expect(scorer.peek('1')).toBe('none')
+    scorer.manual([{ item: item('1'), parent }])
+    expect(scorer.status().paused).toBeNull()
+    await settle()
+    expect(scorer.peek('1')).toBe('done')
+  })
+
+  it('已经有结果或正在请求的不重复发', async () => {
+    deps.lookup.mockResolvedValue([score('1')])
+    const scorer = createAiScorer(deps)
+    scorer.request(item('1'), parent, false)
+    await settle()
+    expect(scorer.manual([{ item: item('1'), parent }])).toBe(0)
+    expect(deps.score).not.toHaveBeenCalled()
+  })
+
+  it('status：有请求在路上时 busy；暂停后排队的自动条目不算在等', async () => {
+    let release!: () => void
+    deps.score.mockImplementationOnce((message: any) => new Promise<AiResponse>((resolve) => {
+      release = () => resolve({ ok: false, error: { code: 'error.aiNoKey' } })
+    }))
+    const scorer = createAiScorer(deps)
+    scorer.manual([{ item: item('1'), parent }])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(scorer.status().busy).toBe(true)
+    scorer.request(item('2'), parent, true)
+    await settle(AI_LOOKUP_DELAY_MS)
+    release()
+    await settle()
+    expect(scorer.status()).toEqual({ paused: { reason: 'needsConfig', error: { code: 'error.aiNoKey' } }, busy: false })
+    expect(scorer.peek('2')).toBe('none')
+  })
+})

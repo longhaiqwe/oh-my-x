@@ -49,6 +49,8 @@ interface QueueEntry {
   item: ReplyScoreItem
   parent: ReplyScoreParent
   auto: boolean
+  /** 用户点了「判断本页回复」：马上发，不受每日上限和失败次数限制 */
+  manual?: boolean
 }
 
 const defaultDeps: AiScorerDeps = {
@@ -107,13 +109,22 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
     pause(NEEDS_CONFIG_CODES.has(code) ? 'needsConfig' : 'error', error)
   }
 
+  // 每日上限到了第二天自动解除
+  function refreshLimitPause() {
+    if (paused?.reason === 'limit' && paused.day !== deps.today()) paused = null
+  }
+
+  /** 暂停时这条能不能发：手动判断不受每日上限限制 */
+  function sendable(entry: QueueEntry): boolean {
+    return !paused || (Boolean(entry.manual) && paused.reason === 'limit')
+  }
+
   function tryEnqueue(entry: QueueEntry): AiDisplay {
     const { id } = entry.item
-    if (!entry.auto) return { status: 'manual' }
-    if ((attempts.get(id) ?? 0) >= AI_MAX_ATTEMPTS) return { status: 'failed' }
-    // 每日上限到了第二天自动解除
-    if (paused?.reason === 'limit' && paused.day !== deps.today()) paused = null
-    if (paused) return { status: 'paused', reason: paused.reason, error: paused.error }
+    if (!entry.auto && !entry.manual) return { status: 'manual' }
+    if (!entry.manual && (attempts.get(id) ?? 0) >= AI_MAX_ATTEMPTS) return { status: 'failed' }
+    refreshLimitPause()
+    if (!sendable(entry)) return { status: 'paused', reason: paused!.reason, error: paused!.error }
     scoreQueue.set(id, entry)
     scheduleScore()
     return PENDING
@@ -148,7 +159,9 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
 
   function scheduleScore() {
     if (controller) return // 当前请求结束后会再排
-    if (scoreQueue.size >= REPLY_SCORE_BATCH_SIZE) {
+    // 手动判断不等；自动判断满一批就发
+    const hasManual = [...scoreQueue.values()].some((e) => e.manual)
+    if (hasManual || scoreQueue.size >= REPLY_SCORE_BATCH_SIZE) {
       if (scoreTimer) clearTimeout(scoreTimer)
       scoreTimer = null
       void flushScore()
@@ -163,11 +176,15 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
   }
 
   async function flushScore() {
-    if (controller || paused || !scoreQueue.size) return
-    // 同一批只放同一个主帖下的回复（Deck 可能同时开着几个对话栏）
-    const first = scoreQueue.values().next().value as QueueEntry
-    const batch = [...scoreQueue.values()]
-      .filter((e) => e.parent.id === first.parent.id)
+    if (controller) return
+    refreshLimitPause()
+    const eligible = [...scoreQueue.values()].filter(sendable)
+    if (!eligible.length) return
+    // 手动判断优先；同一批只放同一个主帖下、同一种方式的回复（Deck 可能同时开着几个对话栏）
+    const first = eligible.find((e) => e.manual) ?? eligible[0]
+    const manual = Boolean(first.manual)
+    const batch = eligible
+      .filter((e) => e.parent.id === first.parent.id && Boolean(e.manual) === manual)
       .slice(0, REPLY_SCORE_BATCH_SIZE)
     for (const entry of batch) {
       scoreQueue.delete(entry.item.id)
@@ -182,7 +199,7 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
     }
     try {
       const res = await deps.score(
-        { type: 'XF_SCORE_REPLIES', parent: first.parent, replies: batch.map((e) => e.item), mode: 'auto', locale: getLocale() },
+        { type: 'XF_SCORE_REPLIES', parent: first.parent, replies: batch.map((e) => e.item), mode: manual ? 'manual' : 'auto', locale: getLocale() },
         own.signal,
       )
       if (own.signal.aborted) return
@@ -203,7 +220,7 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
         controller = null
         for (const entry of batch) inFlight.delete(entry.item.id)
         changed()
-        if (scoreQueue.size && !paused) scheduleScore()
+        if (scoreQueue.size) scheduleScore()
       }
     }
   }
@@ -231,6 +248,53 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
         return PENDING
       }
       return tryEnqueue(entry)
+    },
+    /**
+     * 手动判断：用户点了「判断本页回复」。每次最多送一批（20 条），不受每日上限限制；
+     * 同时当作重试：解除因出错、没配置而进入的暂停，这些回复的失败次数清零。返回这次排队的条数。
+     */
+    manual(entries: Array<{ item: ReplyScoreItem; parent: ReplyScoreParent }>): number {
+      checkNavigation()
+      if (paused && paused.reason !== 'limit') paused = null
+      let count = 0
+      for (const { item, parent } of entries) {
+        if (count >= REPLY_SCORE_BATCH_SIZE) break
+        if (results.has(item.id) || inFlight.has(item.id)) continue
+        attempts.delete(item.id)
+        const queued = lookupQueue.get(item.id) ?? scoreQueue.get(item.id)
+        if (queued) {
+          queued.item = item
+          queued.manual = true
+        } else {
+          scoreQueue.set(item.id, { item, parent, auto: false, manual: true })
+        }
+        count += 1
+      }
+      if (count) {
+        scheduleScore()
+        changed()
+      }
+      return count
+    },
+    /** 只看状态，不排队：done 有结果，pending 在查缓存、排队或请求中，none 都不是 */
+    peek(id: string): 'done' | 'pending' | 'none' {
+      if (results.has(id)) return 'done'
+      if (inFlight.has(id) || lookupQueue.has(id)) return 'pending'
+      // 暂停后留在队列里、发不出去的不算「判断中」，标题栏按钮要让用户能手动重试
+      const queued = scoreQueue.get(id)
+      if (queued) {
+        refreshLimitPause()
+        return sendable(queued) ? 'pending' : 'none'
+      }
+      return 'none'
+    },
+    /** 给标题栏按钮用：是否在暂停，以及有没有正在进行的请求 */
+    status(): { paused: { reason: AiPauseReason; error?: TransferableError } | null; busy: boolean } {
+      refreshLimitPause()
+      return {
+        paused: paused ? { reason: paused.reason, error: paused.error } : null,
+        busy: Boolean(controller) || lookupQueue.size > 0 || [...scoreQueue.values()].some(sendable),
+      }
     },
     /** 结果或状态每变一次加 1；扫描器用它判断调试条要不要重画 */
     version: () => version,

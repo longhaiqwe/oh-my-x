@@ -1,4 +1,14 @@
-import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, REPLY_SCORE_LOOKUP, aiPermissionOrigin, type AiRequest, type AiResponse } from '../shared/ai-request'
+import {
+  AI_REQUEST_PORT,
+  AI_REQUEST_TIMEOUT_MS,
+  OPEN_SETTINGS,
+  REPLY_SCORE_FOLDED,
+  REPLY_SCORE_LOOKUP,
+  aiPermissionOrigin,
+  type AiRequest,
+  type AiResponse,
+} from '../shared/ai-request'
+import { REPLY_SCORE_SAMPLE_THREADS } from '../shared/ai-reply-samples'
 import {
   REPLY_SCORE_BATCH_SIZE,
   REPLY_SCORE_PROMPT_VERSION,
@@ -274,17 +284,17 @@ async function callAiRepostApi(
     samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
   }
   const messages = buildRepostMessages(source, customPrompt, style, locale)
-  const content = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
+  const { content } = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
   return parseAiRepostResponse(content, locale)
 }
 
-/** 调用 OpenAI 兼容的 /chat/completions，返回模型输出的文字 */
+/** 调用 OpenAI 兼容的 /chat/completions，返回模型输出的文字，以及服务返回的用量（没返回时为 null） */
 async function postChatCompletion(
   endpoint: string,
   apiKey: string,
   body: Record<string, unknown>,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<{ content: string; usage: { promptTokens: number; completionTokens: number } | null }> {
   const res = await fetch(endpoint, {
     method: 'POST',
     signal,
@@ -311,12 +321,19 @@ async function postChatCompletion(
     throw new AppError('error.aiHttp', { status: res.status, detail: errDetail })
   }
 
-  return String(
-    json?.choices?.[0]?.message?.content ??
-      json?.choices?.[0]?.text ??
-      json?.output_text ??
-      '',
-  )
+  const prompt = Number(json?.usage?.prompt_tokens)
+  const completion = Number(json?.usage?.completion_tokens)
+  return {
+    content: String(
+      json?.choices?.[0]?.message?.content ??
+        json?.choices?.[0]?.text ??
+        json?.output_text ??
+        '',
+    ),
+    usage: Number.isFinite(prompt) || Number.isFinite(completion)
+      ? { promptTokens: Number.isFinite(prompt) ? prompt : 0, completionTokens: Number.isFinite(completion) ? completion : 0 }
+      : null,
+  }
 }
 
 // ---------- 回复区 AI 打分 ----------
@@ -373,6 +390,56 @@ function dailyLimitOf(value: unknown): number {
   return Number.isFinite(n) ? Math.min(5000, Math.max(0, Math.floor(n))) : DEFAULT_REPLY_SCORE_DAILY_LIMIT
 }
 
+interface ReplyScoreConnection {
+  endpoint: string
+  apiKey: string
+  model: string
+}
+
+/** 打分用的连接：AI 总结转发的接口地址和 key；填了「打分模型」就用它，否则用 AI 总结转发的模型 */
+async function replyScoreConnection(signal: AbortSignal): Promise<ReplyScoreConnection> {
+  const stored = await browser.storage.local.get([KeyAiRepostBaseUrl, KeyAiRepostApiKey, KeyAiRepostModel, KeySpamAiModel])
+  const baseUrl = String(stored[KeyAiRepostBaseUrl] ?? defaultPreferences[KeyAiRepostBaseUrl]).trim()
+  const apiKey = String(stored[KeyAiRepostApiKey] ?? '').trim()
+  const model =
+    String(stored[KeySpamAiModel] ?? '').trim() ||
+    String(stored[KeyAiRepostModel] ?? defaultPreferences[KeyAiRepostModel]).trim()
+  if (!apiKey) throw new AppError('error.aiNoKey')
+  if (!model) throw new AppError('error.aiNoModel')
+  const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
+  return { endpoint, apiKey, model }
+}
+
+function requestReplyScores(
+  connection: ReplyScoreConnection,
+  parent: ReplyScoreParent,
+  replies: ReplyScoreItem[],
+  locale: Locale,
+  signal: AbortSignal,
+) {
+  return postChatCompletion(connection.endpoint, connection.apiKey, {
+    model: connection.model,
+    messages: buildReplyScoreMessages(parent, replies, locale),
+    temperature: 0,
+    ...(supportsJsonMode(connection.endpoint) ? { response_format: { type: 'json_object' } } : {}),
+  }, signal)
+}
+
+/** 设置页「用样例集测试」：一次一段对话。不写缓存，不计入当天用量 */
+async function scoreReplySamples(
+  message: Extract<AiRequest, { type: 'XF_TEST_REPLY_SCORE_SAMPLES' }>,
+  signal: AbortSignal,
+): Promise<AiResponse> {
+  const thread = REPLY_SCORE_SAMPLE_THREADS[Number(message.threadIndex)]
+  if (!thread) throw new AppError('error.aiUnsupported')
+  const locale: Locale = message.locale === 'en' || message.locale === 'zh-CN' ? message.locale : getLocale()
+  const connection = await replyScoreConnection(signal)
+  const { content, usage } = await requestReplyScores(connection, thread.parent, thread.replies, locale, signal)
+  const scores = parseReplyScoreResponse(content, thread.replies.map((r) => r.id))
+  return { ok: true, scores, usage, model: connection.model }
+}
+
 async function scoreReplies(
   message: Extract<AiRequest, { type: 'XF_SCORE_REPLIES' }>,
   signal: AbortSignal,
@@ -389,39 +456,20 @@ async function scoreReplies(
   let batch = replies.filter((r) => !cached.has(r.id))
   if (!batch.length) return { ok: true, scores }
 
-  const stored = await browser.storage.local.get([
-    KeyAiRepostBaseUrl,
-    KeyAiRepostApiKey,
-    KeyAiRepostModel,
-    KeySpamAiModel,
-    KeySpamAiDailyLimit,
-  ])
   if (mode === 'auto') {
+    const stored = await browser.storage.local.get(KeySpamAiDailyLimit)
     const usage = await replyScoreUsage.read()
     const remaining = dailyLimitOf(stored[KeySpamAiDailyLimit] ?? DEFAULT_REPLY_SCORE_DAILY_LIMIT) - usage.auto
     if (remaining <= 0) return { ok: true, scores, limitReached: true }
     batch = batch.slice(0, remaining)
   }
 
-  const baseUrl = String(stored[KeyAiRepostBaseUrl] ?? defaultPreferences[KeyAiRepostBaseUrl]).trim()
-  const apiKey = String(stored[KeyAiRepostApiKey] ?? '').trim()
-  const model =
-    String(stored[KeySpamAiModel] ?? '').trim() ||
-    String(stored[KeyAiRepostModel] ?? defaultPreferences[KeyAiRepostModel]).trim()
-  if (!apiKey) throw new AppError('error.aiNoKey')
-  if (!model) throw new AppError('error.aiNoModel')
-
-  const endpoint = resolveChatCompletionsUrl(baseUrl)
-  await requireAiPermission(baseUrl, signal)
+  const connection = await replyScoreConnection(signal)
+  const { model } = connection
 
   let fresh: ReplyScore[]
   try {
-    const content = await postChatCompletion(endpoint, apiKey, {
-      model,
-      messages: buildReplyScoreMessages(parent, batch, locale),
-      temperature: 0,
-      ...(supportsJsonMode(endpoint) ? { response_format: { type: 'json_object' } } : {}),
-    }, signal)
+    const { content } = await requestReplyScores(connection, parent, batch, locale, signal)
     fresh = parseReplyScoreResponse(content, batch.map((r) => r.id))
   } catch (error) {
     if (!signal.aborted) replyScoreUsage.add({ [mode]: batch.length, failed: batch.length })
@@ -651,6 +699,8 @@ async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promis
     }
     case 'XF_SCORE_REPLIES':
       return await scoreReplies(message, signal)
+    case 'XF_TEST_REPLY_SCORE_SAMPLES':
+      return await scoreReplySamples(message, signal)
     default: throw new AppError('error.aiUnsupported')
   }
 }
@@ -662,8 +712,9 @@ export default defineBackground(() => {
     if (port.name !== AI_REQUEST_PORT) return
     const sender = port.sender
     const url = sender?.url || ''
+    // 弹窗和完整设置页（测试连接、用样例集测试）也可以发
     const validUrl = /^https:\/\/(x\.com|twitter\.com|mobile\.twitter\.com|pro\.x\.com)\//.test(url)
-      || url === `chrome-extension://${browser.runtime.id}/popup.html`
+      || new RegExp(`^chrome-extension://${browser.runtime.id}/(popup|options)\\.html(#.*)?$`).test(url)
     if (sender?.id !== browser.runtime.id || !validUrl) { port.disconnect(); return }
     const controller = new AbortController()
     let closed = false
@@ -705,6 +756,13 @@ export default defineBackground(() => {
       .then(tabs => Promise.allSettled(tabs.filter(tab=>tab.id!=null).map(tab=>browser.tabs.sendMessage(tab.id!,{type:LIBRARY_SYNC}))))
       .catch(()=>{})
   })
+  // AI 打分：页面上折叠了一条，当天折叠数加 1；X 页面上点「AI 未配置」打开设置页
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (sender?.id !== browser.runtime.id) return
+    if (message?.type === REPLY_SCORE_FOLDED) replyScoreUsage.add({ folded: 1 })
+    if (message?.type === OPEN_SETTINGS) void browser.tabs.create({ url: browser.runtime.getURL('/options.html#filter') })
+  })
+
   // AI 打分只查缓存，不调用模型
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== REPLY_SCORE_LOOKUP) return

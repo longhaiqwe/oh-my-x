@@ -9,14 +9,16 @@ export interface ReplyScoreUsage {
   manual: number
   cached: number
   failed: number
+  /** 超过阈值被折叠的条数（同一页面里同一条只算一次） */
+  folded: number
 }
 
 export type ReplyScoreUsageDelta = Partial<Omit<ReplyScoreUsage, 'date'>>
 
-const FIELDS = ['auto', 'manual', 'cached', 'failed'] as const
+const FIELDS = ['auto', 'manual', 'cached', 'failed', 'folded'] as const
 
 export function emptyReplyScoreUsage(date: string): ReplyScoreUsage {
-  return { date, auto: 0, manual: 0, cached: 0, failed: 0 }
+  return { date, auto: 0, manual: 0, cached: 0, failed: 0, folded: 0 }
 }
 
 /** 读到的值不是今天的就归零；字段缺失或损坏按 0 算 */

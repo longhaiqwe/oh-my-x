@@ -1,5 +1,5 @@
 {
-  "description": "回复区 AI 打分的样例集：构造的对话，每条回复标好预期（ai / human）。followers（粉丝数）和 verified（是否蓝 V）可选。zh-weekly、en-notes 两段是「认同 + 复述原帖细节 + 补一句」的写法。test/unit/ai-reply-score.test.ts 检查格式；npm run test:live 用真实接口打分并对照预期。",
+  "description": "回复区 AI 打分的样例集：构造的对话，每条回复标好预期（ai / human）。followers（粉丝数）和 verified（是否蓝 V）可选。zh-weekly、en-notes 两段是「认同 + 复述原帖细节 + 补一句」的写法。打包进插件，设置页「用样例集测试」和 npm run test:live 都用它；test/unit/ai-reply-score.test.ts 检查格式。",
   "threads": [
     {
       "id": "zh-signup",

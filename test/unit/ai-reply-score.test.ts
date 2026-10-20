@@ -153,7 +153,7 @@ describe('推文 ID 和发布时间', () => {
 })
 
 describe('样例集', () => {
-  const data = JSON.parse(readFileSync(join(__dirname, '../samples/ai-reply-cases.json'), 'utf8'))
+  const data = JSON.parse(readFileSync(join(__dirname, '../../shared/ai-reply-samples.json'), 'utf8'))
 
   it('格式正确：ID 不重复、预期只有 ai / human、中英文都有、两类都不少于 10 条', () => {
     const ids = new Set<string>()
@@ -178,5 +178,23 @@ describe('样例集', () => {
     expect(counts.human).toBeGreaterThanOrEqual(10)
     // 有「认同 + 复述原帖细节 + 补一句」写法的对话（中英文各一段）
     expect(data.threads.map((t: any) => t.id)).toEqual(expect.arrayContaining(['zh-weekly', 'en-notes']))
+  })
+})
+
+describe('样例集测试的汇总', () => {
+  it('按 ≥70 / ≤30 判定，分别统计 AI 和真人样例的相符条数、不确定和缺结果；没跑到的对话不计', async () => {
+    const { REPLY_SCORE_SAMPLE_THREADS, summarizeSampleRun, sampleVerdict } = await import('../../shared/ai-reply-samples')
+    expect([sampleVerdict(70), sampleVerdict(30), sampleVerdict(50), sampleVerdict(undefined)]).toEqual(['ai', 'human', 'unsure', 'missing'])
+    const thread = REPLY_SCORE_SAMPLE_THREADS[0]
+    const scores = thread.replies.map((r, i) => ({ id: r.id, score: i === 0 ? 50 : r.expect === 'ai' ? 90 : 10, signals: [], reason: '' }))
+    scores.pop()
+    const summary = summarizeSampleRun(REPLY_SCORE_SAMPLE_THREADS, new Map([[thread.id, scores]]))
+    const ai = thread.replies.filter((r) => r.expect === 'ai').length
+    expect(summary.total).toBe(thread.replies.length)
+    expect(summary.aiTotal).toBe(ai)
+    expect(summary.unsure).toBe(1)
+    expect(summary.missing).toBe(1)
+    expect(summary.matched).toBe(thread.replies.length - 2)
+    expect(summary.rows[0]).toMatchObject({ id: thread.replies[0].id, score: 50, verdict: 'unsure', matched: false })
   })
 })

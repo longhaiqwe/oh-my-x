@@ -1,30 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
-import { KeySpamThreshold, KeySpamDebugMode, KeySpamAiEnabled, KeySpamAiAutoScope, KeySpamAiDailyLimit, defaultPreferences } from '../../../../storage-keys'
+import { KeySpamThreshold, KeySpamDebugMode } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import { useI18n } from '../../composables/useI18n'
-import { useStorageKey } from '../../composables/useStorageKey'
 import FeatureCard from '../ui/FeatureCard.vue'
 import FeatureSwitch from '../ui/FeatureSwitch.vue'
-import SwitchToggle from '../ui/SwitchToggle.vue'
-import SubRow from '../ui/SubRow.vue'
-import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
 import RulesSection from './RulesSection.vue'
 import KeywordsSection from './KeywordsSection.vue'
+import SpamAiSection from './SpamAiSection.vue'
 
 // 垃圾回复过滤的第二层页面：阈值、检测规则、垃圾词库、调试模式、AI 判断（试验）
 const threshold = ref(55)
-const { t, featureText } = useI18n()
-
-// AI 判断第 1 步只有开关和自动判断范围；阈值、模型、每日上限的设置在第 2 步加
-const { value: aiEnabled, setValue: setAiEnabled } = useStorageKey(KeySpamAiEnabled)
-const aiDailyLimit = ref(Number(defaultPreferences[KeySpamAiDailyLimit]))
-const aiScopeOptions = computed(() => [
-  { value: 'own', label: t('spamFilter.aiScopeOwn') },
-  { value: 'all', label: t('spamFilter.aiScopeAll') },
-  { value: 'off', label: t('spamFilter.aiScopeOff') },
-])
+const { t } = useI18n()
 
 async function setThreshold(v: number) {
   threshold.value = v
@@ -33,8 +21,6 @@ async function setThreshold(v: number) {
 
 onMounted(async () => {
   threshold.value = Number(await getStorage(KeySpamThreshold)) || 55
-  const limit = Number(await getStorage(KeySpamAiDailyLimit))
-  if (Number.isFinite(limit)) aiDailyLimit.value = limit
 })
 </script>
 
@@ -75,15 +61,5 @@ onMounted(async () => {
   </template>
  </FeatureCard>
 
- <FeatureCard feature-id="spamAi">
-  <template #control>
-   <SwitchToggle :model-value="aiEnabled" :label="featureText('spamAi', 'label')" @update:model-value="setAiEnabled" />
-  </template>
-  <template v-if="aiEnabled">
-   <SubRow :title="t('spamFilter.aiScopeTitle')" :description="t('spamFilter.aiScopeDescription')">
-    <ToggleGroupControl :storage-key="KeySpamAiAutoScope" :options="aiScopeOptions" />
-   </SubRow>
-   <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiPrivacy', { limit: aiDailyLimit }) }}</p>
-  </template>
- </FeatureCard>
+ <SpamAiSection />
 </template>

@@ -154,3 +154,57 @@ describe('AI 打分（后台）', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+describe('样例集测试（后台）', () => {
+  it('按序号给一段样例对话打分，返回接口用量；不写缓存，不计入当天用量', async () => {
+    const { REPLY_SCORE_SAMPLE_THREADS } = await import('../../shared/ai-reply-samples')
+    const thread = REPLY_SCORE_SAMPLE_THREADS[1]
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ results: thread.replies.map((r) => ({ id: r.id, score: 80, signals: [], reason: 'x' })) }) } }],
+      usage: { prompt_tokens: 1200, completion_tokens: 300 },
+    })))
+    const res = await score({ type: 'XF_TEST_REPLY_SCORE_SAMPLES', threadIndex: 1, locale: 'en' })
+    expect(res).toMatchObject({ ok: true, usage: { promptTokens: 1200, completionTokens: 300 }, model: 'repost-model' })
+    expect(res.scores).toHaveLength(thread.replies.length)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.messages[0].content).toContain('## Output format')
+    expect(JSON.parse(body.messages[1].content).replies.map((r: any) => r.id)).toEqual(thread.replies.map((r) => r.id))
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(stored[KeySpamAiUsage]).toBeUndefined()
+    expect(await lookup(thread.replies.map((r) => r.id))).toEqual({ ok: true, scores: [] })
+  })
+
+  it('服务没返回用量时为 null；序号不存在时报错', async () => {
+    const { REPLY_SCORE_SAMPLE_THREADS } = await import('../../shared/ai-reply-samples')
+    fetchMock.mockImplementation(async () => modelReply(JSON.stringify({ results: [] })))
+    expect(await score({ type: 'XF_TEST_REPLY_SCORE_SAMPLES', threadIndex: 0 })).toMatchObject({ ok: true, usage: null })
+    expect(await score({ type: 'XF_TEST_REPLY_SCORE_SAMPLES', threadIndex: REPLY_SCORE_SAMPLE_THREADS.length })).toMatchObject({ ok: false, error: { code: 'error.aiUnsupported' } })
+  })
+
+  it('完整设置页可以发 AI 请求，其他扩展页面不行', async () => {
+    const fromOptions = portPair({ id: 'test-extension', url: 'chrome-extension://test-extension/options.html#filter' })
+    runtime.onConnect.emit(fromOptions.server)
+    fromOptions.client.postMessage(scoreMessage())
+    await flushMicrotasks()
+    expect(fromOptions.server.postMessage.mock.calls[0][0]).toMatchObject({ ok: true })
+
+    const fromOther = portPair({ id: 'test-extension', url: 'chrome-extension://test-extension/other.html' })
+    runtime.onConnect.emit(fromOther.server)
+    expect(fromOther.server.disconnect).toHaveBeenCalled()
+  })
+})
+
+describe('折叠计数和打开设置页（后台）', () => {
+  it('页面报一次折叠，当天折叠数加 1；打开设置页定位到过滤模块；别的扩展发来的不处理', async () => {
+    const create = vi.fn()
+    ;(globalThis as any).browser.tabs = { create }
+    ;(globalThis as any).browser.runtime.getURL = (path: string) => `chrome-extension://test-extension${path}`
+    const sender = { id: 'test-extension', url: 'https://x.com/a/status/1' }
+    runtime.onMessage.emit({ type: 'XF_REPLY_SCORE_FOLDED' }, sender, () => {})
+    runtime.onMessage.emit({ type: 'XF_REPLY_SCORE_FOLDED' }, { id: 'other' }, () => {})
+    runtime.onMessage.emit({ type: 'XF_OPEN_SETTINGS' }, sender, () => {})
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(stored[KeySpamAiUsage]).toMatchObject({ folded: 1 })
+    expect(create).toHaveBeenCalledWith({ url: 'chrome-extension://test-extension/options.html#filter' })
+  })
+})

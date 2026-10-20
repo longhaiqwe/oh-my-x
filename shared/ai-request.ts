@@ -14,6 +14,8 @@ export type AiRequest =
   | { type: 'XF_FETCH_TWEET_FULL_TEXT'; tweetId: string }
   /** 回复区 AI 打分。mode：auto 计入每日上限，manual 不计入；locale 决定理由用哪种语言写 */
   | { type: 'XF_SCORE_REPLIES'; parent: ReplyScoreParent; replies: ReplyScoreItem[]; mode: 'auto' | 'manual'; locale?: Locale }
+  /** 设置页「用样例集测试」：给样例集里第 threadIndex 段对话打分；不写缓存，不计入用量 */
+  | { type: 'XF_TEST_REPLY_SCORE_SAMPLES'; threadIndex: number; locale?: Locale }
 export interface AiResponse extends Partial<AiRepostOptionsResult> {
   ok: boolean
   /** 错误代号或原文，显示时用 errorText() 翻译 */
@@ -24,10 +26,16 @@ export interface AiResponse extends Partial<AiRepostOptionsResult> {
   scores?: ReplyScore[]
   /** XF_SCORE_REPLIES：今天的自动判断已达上限，这次没有发请求 */
   limitReached?: boolean
+  /** XF_TEST_REPLY_SCORE_SAMPLES：接口返回的用量；服务没返回时为 null */
+  usage?: { promptTokens: number; completionTokens: number } | null
 }
 
 /** 只查 AI 打分缓存，不调用模型。走 runtime.sendMessage，回复 { ok, scores } */
 export const REPLY_SCORE_LOOKUP = 'XF_LOOKUP_REPLY_SCORES'
+/** 页面上有一条回复被 AI 折叠了：后台把当天的折叠数加 1 */
+export const REPLY_SCORE_FOLDED = 'XF_REPLY_SCORE_FOLDED'
+/** 在新标签页打开完整设置页的「过滤」模块 */
+export const OPEN_SETTINGS = 'XF_OPEN_SETTINGS'
 
 // 只有本机服务可以用 HTTP；要和 wxt.config.ts 的 optional_host_permissions 一致
 const AI_LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1']

@@ -35,8 +35,9 @@ const todayByCategory = ref<Record<SpamCategory, number>>({
   marketing: 0,
   low_quality: 0,
   normal: 0,
+  ai: 0,
 })
-const order: SpamCategory[] = ['porn_spam', 'marketing', 'bot', 'low_quality']
+const order: SpamCategory[] = ['porn_spam', 'marketing', 'bot', 'low_quality', 'ai']
 const categoryRows = computed(() =>
   order
     .map((c) => ({ category: c, label: spamCategoryLabel(c, locale.value), count: todayByCategory.value[c] || 0 }))
