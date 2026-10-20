@@ -121,9 +121,9 @@ export interface LevelConfig {
 /**
  * 根据 曝光 / 粉丝 比例评估水平等级
  */
-export function getImpressionsRatioLevel(ratio: number): LevelConfig {
+export function getImpressionsRatioLevel(ratio: number): LevelConfig | null {
   if (ratio < 0.3) {
-    return { label: t('ratio.poor'), color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
+    return null
   } else if (ratio < 1.0) {
     return { label: t('ratio.fair'), color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
   } else if (ratio < 5.0) {
@@ -138,9 +138,9 @@ export function getImpressionsRatioLevel(ratio: number): LevelConfig {
 /**
  * 根据 互动数据 / 粉丝 比例评估水平等级
  */
-export function getEngagementRatioLevel(ratio: number): LevelConfig {
+export function getEngagementRatioLevel(ratio: number): LevelConfig | null {
   if (ratio < 0.005) { // < 0.5%
-    return { label: t('ratio.poor'), color: '#71767b', bg: 'rgba(113, 118, 123, 0.18)' }
+    return null
   } else if (ratio < 0.02) { // 0.5% ~ 2%
     return { label: t('ratio.fair'), color: '#1d9bf0', bg: 'rgba(29, 155, 240, 0.18)' }
   } else if (ratio < 0.05) { // 2% ~ 5%
@@ -428,42 +428,54 @@ export function addStatRatioBadges(targetUsername = '*') {
       if (!type) return
 
       const count = extractCountFromElement(btn)
-      let level: LevelConfig
+      let level: LevelConfig | null = null
       let mainTitle = ''
       let subDetails = ''
 
       if (type === 'analytics') {
         const ratio = count / followers
         level = getImpressionsRatioLevel(ratio)
-        const ratioDisplay = t('ratio.multiple', { value: ratio.toFixed(2) })
-        const pctDisplay = (ratio * 100).toFixed(1) + '%'
-        mainTitle = t('ratioPage.reachTitle', { ratio: ratioDisplay, pct: pctDisplay })
-        subDetails = t('ratioPage.reachDetail', { views: count.toLocaleString(getLocale()), followers: followers.toLocaleString(getLocale()) })
+        if (level) {
+          const ratioDisplay = t('ratio.multiple', { value: ratio.toFixed(2) })
+          const pctDisplay = (ratio * 100).toFixed(1) + '%'
+          mainTitle = t('ratioPage.reachTitle', { ratio: ratioDisplay, pct: pctDisplay })
+          subDetails = t('ratioPage.reachDetail', { views: count.toLocaleString(getLocale()), followers: followers.toLocaleString(getLocale()) })
+        }
       } else {
         const ratio = count / followers
         level = getEngagementRatioLevel(ratio)
-        const pctDisplay = (ratio * 100).toFixed(2) + '%'
+        if (level) {
+          const pctDisplay = (ratio * 100).toFixed(2) + '%'
 
-        let extraImpStr = ''
-        if (impressionsCount > 0) {
-          const impPct = ((count / impressionsCount) * 100).toFixed(2) + '%'
-          extraImpStr = t('ratioPage.shareOfViews', { pct: impPct })
-        }
+          let extraImpStr = ''
+          if (impressionsCount > 0) {
+            const impPct = ((count / impressionsCount) * 100).toFixed(2) + '%'
+            extraImpStr = t('ratioPage.shareOfViews', { pct: impPct })
+          }
 
-        const typeNameMap: Record<string, string> = {
-          reply: t('ratioPage.reply'),
-          retweet: t('ratioPage.retweet'),
-          like: t('ratioPage.like'),
-          bookmark: t('ratioPage.bookmark'),
+          const typeNameMap: Record<string, string> = {
+            reply: t('ratioPage.reply'),
+            retweet: t('ratioPage.retweet'),
+            like: t('ratioPage.like'),
+            bookmark: t('ratioPage.bookmark'),
+          }
+          const name = typeNameMap[type] || t('ratioPage.engagement')
+          mainTitle = t('ratioPage.engageTitle', { name, pct: pctDisplay })
+          subDetails = `${count.toLocaleString(getLocale())} / ${followers.toLocaleString(getLocale())}${extraImpStr}`
         }
-        const name = typeNameMap[type] || t('ratioPage.engagement')
-        mainTitle = t('ratioPage.engageTitle', { name, pct: pctDisplay })
-        subDetails = `${count.toLocaleString(getLocale())} / ${followers.toLocaleString(getLocale())}${extraImpStr}`
       }
 
       // 寻找放置 Badge 的挂载节点
       let container = btn.querySelector('.css-146c3p1') || btn
       let badge = container.querySelector('.xf-stat-ratio-badge') as HTMLElement | null
+
+      // 低于普通门槛（起步阶段）时不显示徽章；若之前存在徽章则移除
+      if (!level) {
+        if (badge) {
+          badge.remove()
+        }
+        return
+      }
 
       if (!badge) {
         badge = document.createElement('span')

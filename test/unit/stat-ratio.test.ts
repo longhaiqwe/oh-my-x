@@ -175,19 +175,47 @@ describe('stat-ratio.ts 单元测试', () => {
 
   describe('等级计算函数', () => {
     it('曝光 / 粉丝 比例等级判断', () => {
-      expect(getImpressionsRatioLevel(0.1).label).toBe('差')
-      expect(getImpressionsRatioLevel(0.5).label).toBe('普通')
-      expect(getImpressionsRatioLevel(2.5).label).toBe('良好')
-      expect(getImpressionsRatioLevel(8.0).label).toBe('优秀')
-      expect(getImpressionsRatioLevel(25.0).label).toBe('爆火')
+      expect(getImpressionsRatioLevel(0.1)).toBeNull()
+      expect(getImpressionsRatioLevel(0.5)?.label).toBe('普通')
+      expect(getImpressionsRatioLevel(2.5)?.label).toBe('良好')
+      expect(getImpressionsRatioLevel(8.0)?.label).toBe('优秀')
+      expect(getImpressionsRatioLevel(25.0)?.label).toBe('爆火')
     })
 
     it('互动 / 粉丝 比例等级判断', () => {
-      expect(getEngagementRatioLevel(0.002).label).toBe('差') // 0.2%
-      expect(getEngagementRatioLevel(0.01).label).toBe('普通') // 1%
-      expect(getEngagementRatioLevel(0.03).label).toBe('良好') // 3%
-      expect(getEngagementRatioLevel(0.10).label).toBe('优秀') // 10%
-      expect(getEngagementRatioLevel(0.30).label).toBe('爆火') // 30%
+      expect(getEngagementRatioLevel(0.002)).toBeNull() // 0.2% (低于 0.5% 不展示)
+      expect(getEngagementRatioLevel(0.01)?.label).toBe('普通') // 1%
+      expect(getEngagementRatioLevel(0.03)?.label).toBe('良好') // 3%
+      expect(getEngagementRatioLevel(0.10)?.label).toBe('优秀') // 10%
+      expect(getEngagementRatioLevel(0.30)?.label).toBe('爆火') // 30%
+    })
+  })
+
+  describe('低比例数据不渲染徽章（方案三）', () => {
+    beforeEach(() => {
+      document.body.innerHTML = ''
+    })
+
+    it('当互动和曝光均处于起步阶段时，不插入徽章', () => {
+      window.history.pushState({}, '', '/creator_user')
+      document.body.innerHTML = `
+        <a href="/creator_user/followers">10,000 关注者</a>
+        <article data-testid="tweet">
+          <div data-testid="UserAvatar-Container-creator_user"></div>
+          <div data-testid="User-Name"><a href="/creator_user">@creator_user</a></div>
+          <div>
+            <div role="group" id="id__low_stat">
+              <button aria-label="1 回复" data-testid="reply">1</button>
+              <button aria-label="1 喜欢" data-testid="like">1</button>
+              <a href="/creator_user/status/100/analytics" aria-label="50 次查看"><span data-testid="app-text-transition-container">50</span></a>
+            </div>
+          </div>
+        </article>
+      `
+
+      addStatRatioBadges('creator_user')
+      const group = document.querySelector('#id__low_stat')!
+      expect(group.querySelectorAll('.xf-stat-ratio-badge').length).toBe(0)
     })
   })
 
