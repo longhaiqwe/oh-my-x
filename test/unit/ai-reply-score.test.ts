@@ -198,3 +198,18 @@ describe('样例集测试的汇总', () => {
     expect(summary.rows[0]).toMatchObject({ id: thread.replies[0].id, score: 50, verdict: 'unsure', matched: false })
   })
 })
+
+describe('导出标注', () => {
+  it('每行一条 JSON，expect 和样例集一致（bot 记成 ai），带主帖和当时的 AI 结果', async () => {
+    const { labelsToJsonl } = await import('../../shared/ai-reply-samples')
+    const text = labelsToJsonl([
+      { id: '1', label: 'bot', author: 'bob', text: '这套很实用', parentAuthor: 'alice', parentText: '主帖', delaySeconds: 30, followers: 64, verified: true, ai: { score: 85, signals: ['S2'], reason: 'x', model: 'm', promptVersion: 2 }, labeledAt: Date.UTC(2026, 9, 20) },
+      { id: '2', label: 'human', author: 'carl', text: '我们也这么干过', parentAuthor: 'alice', parentText: '主帖', delaySeconds: null, followers: null, verified: null, ai: null, labeledAt: Date.UTC(2026, 9, 20, 1) },
+    ])
+    const lines = text.trimEnd().split('\n').map((l) => JSON.parse(l))
+    expect(text.endsWith('\n')).toBe(true)
+    expect(lines[0]).toMatchObject({ id: '1', expect: 'ai', label: 'bot', parent: { author: 'alice', text: '主帖' }, ai: { score: 85, model: 'm' }, labeledAt: '2026-10-20T00:00:00.000Z' })
+    expect(lines[1]).toMatchObject({ id: '2', expect: 'human', ai: null })
+    expect(labelsToJsonl([])).toBe('')
+  })
+})

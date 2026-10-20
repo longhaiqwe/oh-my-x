@@ -16,6 +16,7 @@ beforeEach(() => {
   deps = {
     lookup: vi.fn(async () => [] as ReplyScore[]),
     score: vi.fn(async (message: any): Promise<AiResponse> => ({ ok: true, scores: message.replies.map((r: any) => score(r.id)) })),
+    saveLabel: vi.fn(async () => ({ ok: true })),
     today: () => '2026-10-20',
     path: () => path,
   }
@@ -249,5 +250,32 @@ describe('手动判断', () => {
     await settle()
     expect(scorer.status()).toEqual({ paused: { reason: 'needsConfig', error: { code: 'error.aiNoKey' } }, busy: false })
     expect(scorer.peek('2')).toBe('none')
+  })
+})
+
+describe('标注', () => {
+  it('查缓存时一起取回标注；页面上刚改过的以页面为准', async () => {
+    deps.lookup.mockResolvedValue({ scores: [], labels: [{ id: '1', label: 'bot' }, { id: '2', label: 'human' }] })
+    const scorer = createAiScorer(deps)
+    scorer.setLabel({ id: '2', label: 'bot', item: item('2'), parent, ai: null })
+    scorer.request(item('1'), parent, false)
+    scorer.request(item('2'), parent, false)
+    await settle(AI_LOOKUP_DELAY_MS)
+    expect(scorer.label('1')).toBe('bot')
+    expect(scorer.label('2')).toBe('bot')
+  })
+
+  it('标注和撤销：页面上马上生效、通知扫描器，并交给后台保存', () => {
+    const scorer = createAiScorer(deps)
+    const onChange = vi.fn()
+    scorer.onChange(onChange)
+    const change = { id: '1', label: 'human' as const, item: item('1'), parent, ai: { score: 80, signals: ['S1'], reason: 'x' } }
+    scorer.setLabel(change)
+    expect(scorer.label('1')).toBe('human')
+    expect(deps.saveLabel).toHaveBeenCalledWith(change)
+    scorer.setLabel({ ...change, label: null })
+    expect(scorer.label('1')).toBeUndefined()
+    expect(deps.saveLabel).toHaveBeenLastCalledWith({ ...change, label: null })
+    expect(onChange).toHaveBeenCalledTimes(2)
   })
 })

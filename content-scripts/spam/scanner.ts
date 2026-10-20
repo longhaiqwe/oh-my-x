@@ -16,7 +16,8 @@ import { errorText } from '../../shared/errors'
 import { getOwnHandle } from '../../shared/own-posts'
 import { knownFollowerCount } from '../features/user-followers'
 import { aiScorer, type AiDisplay } from './ai-scorer'
-import { buildFoldBar, ensureAiPill, ensureScoreTag, findHeaderRow, removeAiBadges, type AiPillState } from './ai-badge'
+import { buildFoldBar, ensureAiPill, ensureScoreTag, findHeaderRow, foldBarKey, removeAiBadges, type AiPillState } from './ai-badge'
+import type { ReplyLabel } from '../../shared/reply-score-db'
 import { injectKeywordButton } from './keyword-picker'
 import { applyAllow, applyHideDirect, applyReplace, resetArticleSpamState } from './article-state'
 import { getSpamConfig, invalidateSpamConfigCache } from './config'
@@ -123,7 +124,7 @@ function aiDisplayFor(
   evaluation: SpamEvaluation,
   config: SpamConfig,
   thread: ThreadInfo | null,
-): { id: string; display: AiDisplay } | undefined {
+): AiEntry | undefined {
   if (!config.ai || !thread) return undefined
   if (evaluation.score >= config.threshold || !info.text) return undefined
   const id = extractTweetId(article)
@@ -140,7 +141,26 @@ function aiDisplayFor(
   }
   const parent: ReplyScoreParent = { id: thread.id, author: thread.author, text: thread.text }
   pageAiItems.set(id, { item, parent })
-  return { id, display: aiScorer.request(item, parent, isAutoThread(config, thread)) }
+  return { id, item, parent, display: aiScorer.request(item, parent, isAutoThread(config, thread)) }
+}
+
+interface AiEntry extends PageAiItem {
+  id: string
+  display: AiDisplay
+}
+
+/** 用户点了「机器人 / 真人」（next 为 null 是撤销）：标成机器人时清掉这条的「展开」状态，让它马上折叠 */
+function applyLabel(ai: AiEntry, next: ReplyLabel | null) {
+  if (next === 'bot' && expandedIds.delete(ai.id)) expandVersion++
+  const done = ai.display.status === 'done' ? ai.display : undefined
+  aiScorer.setLabel({
+    id: ai.id,
+    label: next,
+    item: ai.item,
+    parent: ai.parent,
+    ai: done ? { score: done.score, signals: done.signals, reason: done.reason } : null,
+  })
+  void runScan()
 }
 
 /** 这段对话在不在自动判断范围内 */
@@ -248,13 +268,18 @@ async function processArticle(article: HTMLElement, config: SpamConfig, thread: 
   }
 
   // 规则分数达到阈值：直接隐藏；否则 AI 分数达到阈值：折叠（点过「展开」的除外）
+  // 用户标注优先：标了「真人」不折叠，标了「机器人」直接折叠（没有分数也折叠）
   const done = ai?.display.status === 'done' ? ai.display : undefined
-  const wouldFold = Boolean(done && config.ai && done.score >= config.ai.threshold)
+  const label = ai ? aiScorer.label(ai.id) : undefined
+  const wouldFold = Boolean(ai && config.ai && (label === 'bot' || (label !== 'human' && done && done.score >= config.ai.threshold)))
   const expanded = wouldFold && expandedIds.has(ai!.id)
   const want = shouldHide ? 'rule' : wouldFold && !expanded ? 'ai' : 'show'
   const current = hiddenState(article)
+  const foldKey = want === 'ai' ? foldBarKey(done, label) : ''
+  const staleFold = want === 'ai' && current === 'ai' && article.previousElementSibling?.getAttribute('data-xf-fold-key') !== foldKey
+  const onLabel = ai ? (next: ReplyLabel | null) => applyLabel(ai, next) : undefined
 
-  if (want !== current || foldBarMissing(article)) {
+  if (want !== current || foldBarMissing(article) || staleFold) {
     applyAllow(article)
     if (want === 'rule') {
       void recordIntercept({
@@ -269,7 +294,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig, thread: 
       })
       applyHideDirect(article)
       article.setAttribute(HIDDEN_BY_ATTR, 'rule')
-    } else if (want === 'ai' && done && ai) {
+    } else if (want === 'ai' && ai) {
       if (current !== 'ai') {
         void recordIntercept({
           authorHandle: info.authorHandle,
@@ -280,20 +305,25 @@ async function processArticle(article: HTMLElement, config: SpamConfig, thread: 
           hits: [],
           action: 'filter',
           source: 'ai',
-          ai: { score: done.score, signals: done.signals, reason: done.reason },
+          ai: { score: done?.score ?? null, signals: done?.signals ?? [], reason: done?.reason ?? '', label },
         })
         if (!foldReported.has(ai.id)) {
           foldReported.add(ai.id)
           sendToBackground({ type: REPLY_SCORE_FOLDED })
         }
       }
-      applyReplace(article, buildFoldBar(done, info.authorHandle, () => setExpanded(ai.id, true)))
+      applyReplace(article, buildFoldBar({ display: done, handle: info.authorHandle, label, onExpand: () => setExpanded(ai.id, true), onLabel }))
+      article.previousElementSibling?.setAttribute('data-xf-fold-key', foldKey)
       article.setAttribute(HIDDEN_BY_ATTR, 'ai')
     }
   }
 
-  // 显示出来的回复带分数标签；展开过的折叠回复后面加「收起」
-  ensureScoreTag(article, want === 'show' ? ai?.display : undefined, expanded ? () => setExpanded(ai!.id, false) : undefined)
+  // 显示出来的回复带分数标签和标注按钮；展开过的折叠回复后面加「收起」
+  ensureScoreTag(article, want === 'show' ? ai?.display : undefined, {
+    label,
+    onLabel,
+    onCollapse: expanded ? () => setExpanded(ai!.id, false) : undefined,
+  })
 }
 
 export function invalidateSpamConfig() {

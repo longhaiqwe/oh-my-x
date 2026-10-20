@@ -3,6 +3,7 @@
 import samples from './ai-reply-samples.json'
 import type { ReplyScore, ReplyScoreItem, ReplyScoreParent } from './ai-reply-score'
 import type { Locale } from './i18n'
+import type { StoredReplyLabel } from './reply-score-db'
 
 export interface SampleReply extends ReplyScoreItem {
   expect: 'ai' | 'human'
@@ -84,4 +85,26 @@ export function summarizeSampleRun(threads: SampleThread[], scoresByThread: Map<
     }
   }
   return summary
+}
+
+/**
+ * 导出标注：每行一条 JSON（JSONL）。字段和样例集对得上（expect：bot 记成 ai，human 记成 human），
+ * 挑出来改写后可以并入样例集；原文是别人的回复，不要原样提交到公开仓库。
+ */
+export function labelsToJsonl(labels: StoredReplyLabel[]): string {
+  return labels
+    .map((entry) => JSON.stringify({
+      id: entry.id,
+      expect: entry.label === 'bot' ? 'ai' : 'human',
+      label: entry.label,
+      author: entry.author,
+      text: entry.text,
+      delaySeconds: entry.delaySeconds,
+      followers: entry.followers,
+      verified: entry.verified,
+      parent: { author: entry.parentAuthor, text: entry.parentText },
+      ai: entry.ai,
+      labeledAt: new Date(entry.labeledAt).toISOString(),
+    }))
+    .join('\n') + (labels.length ? '\n' : '')
 }

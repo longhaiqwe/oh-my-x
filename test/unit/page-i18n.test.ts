@@ -136,16 +136,22 @@ describe('X 页面上的界面：英文下没有中文', () => {
     applyLanguageSetting('en')
     const done = { status: 'done' as const, score: 85, signals: ['S2' as const, 'S11' as const], reason: 'restates the post' }
 
-    const fold = buildFoldBar(done, 'bob', () => {})
+    const fold = buildFoldBar({ display: done, handle: 'bob', onExpand: () => {}, onLabel: () => {} })
     expect(fold.textContent).toBe('AI 85Collapsed · Restates the post, Agree + restate + add-on · @bobShow')
+    expect([...fold.querySelectorAll('.xf-ai-label')].map((b) => b.getAttribute('title'))).toEqual(['Mark as bot', 'Mark as human'])
+    const byLabel = buildFoldBar({ handle: 'bob', label: 'bot', onExpand: () => {}, onLabel: () => {} })
+    expect(byLabel.textContent).toBe('Marked as bot · @bobShow')
+    expect(byLabel.querySelector('[data-label="bot"]')!.getAttribute('title')).toBe('Marked as bot. Click again to undo')
     expect(aiTitle(done)).toBe('AI suspicion score 85/100\nrestates the post\nMatched: Restates the post, Agree + restate + add-on')
 
     document.body.innerHTML = '<article><div role="group"><button data-testid="reply"></button><button data-testid="like"></button></div></article>'
     const article = document.querySelector<HTMLElement>('article')!
     ensureScoreTag(article, { status: 'pending' })
     expect(article.textContent).toBe('AI checking')
-    ensureScoreTag(article, done, () => {})
+    ensureScoreTag(article, done, { onCollapse: () => {} })
     expect(article.textContent).toBe('AI 85Collapse')
+    ensureScoreTag(article, done, { label: 'human', onLabel: () => {} })
+    expect(article.querySelector('[data-label="human"]')!.getAttribute('title')).toBe('Marked as human. Click again to undo')
 
     for (const ai of [done, { status: 'pending' as const }, { status: 'manual' as const }, { status: 'failed' as const }, { status: 'paused' as const, reason: 'limit' as const }, { status: 'paused' as const, reason: 'needsConfig' as const, error: { code: 'error.aiNoKey' as const } }]) {
       expect(CJK.test(describeAiDisplay(ai).text), JSON.stringify(ai)).toBe(false)

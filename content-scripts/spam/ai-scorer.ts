@@ -2,7 +2,9 @@
 // - 查缓存攒 300ms；送模型攒 2 秒或满 20 条
 // - 同一页面同时只有一个打分请求；切换页面时清空队列并取消请求
 // - 出错、没配置、达到每日上限时暂停自动判断，设置改动后（reset）重新开始
-// 结果按推文 ID 存在内存里，X 重建推文元素后按 ID 重新套用。
+// - 用户点「判断本页回复」时手动判断（manual）：马上发，不受每日上限限制
+// - 用户的「机器人 / 真人」标注：查缓存时一起取回，标注后先在页面生效再交给后台保存
+// 结果和标注按推文 ID 存在内存里，X 重建推文元素后按 ID 重新套用。
 import {
   REPLY_SCORE_BATCH_SIZE,
   type ReplyScore,
@@ -10,7 +12,8 @@ import {
   type ReplyScoreParent,
   type ReplyScoreSignal,
 } from '../../shared/ai-reply-score'
-import { REPLY_SCORE_LOOKUP, sendAiRequest, type AiRequest, type AiResponse } from '../../shared/ai-request'
+import { REPLY_LABEL_SET, REPLY_SCORE_LOOKUP, sendAiRequest, type AiRequest, type AiResponse } from '../../shared/ai-request'
+import type { ReplyLabel } from '../../shared/reply-score-db'
 import { isErrorPayload, toTransferable, type TransferableError } from '../../shared/errors'
 import { getLocale } from '../../shared/i18n'
 import { getTodayKey } from '../../shared/spam-logger'
@@ -29,9 +32,25 @@ export type AiDisplay =
 
 type ScoreMessage = Extract<AiRequest, { type: 'XF_SCORE_REPLIES' }>
 
+/** 交给后台保存的标注；label 为 null 表示撤销 */
+export interface LabelChange {
+  id: string
+  label: ReplyLabel | null
+  item: ReplyScoreItem
+  parent: ReplyScoreParent
+  /** 标注时的 AI 结果；还没打分时为 null */
+  ai: { score: number; signals: string[]; reason: string } | null
+}
+
+export interface LookupResult {
+  scores: ReplyScore[]
+  labels?: Array<{ id: string; label: ReplyLabel }>
+}
+
 export interface AiScorerDeps {
-  lookup(ids: string[]): Promise<ReplyScore[]>
+  lookup(ids: string[]): Promise<LookupResult | ReplyScore[]>
   score(message: ScoreMessage, signal: AbortSignal): Promise<AiResponse>
+  saveLabel(change: LabelChange): Promise<unknown>
   today(): string
   path(): string
 }
@@ -56,15 +75,18 @@ interface QueueEntry {
 const defaultDeps: AiScorerDeps = {
   async lookup(ids) {
     const res = await browser.runtime.sendMessage({ type: REPLY_SCORE_LOOKUP, ids })
-    return res?.ok && Array.isArray(res.scores) ? res.scores : []
+    if (!res?.ok) return { scores: [] }
+    return { scores: Array.isArray(res.scores) ? res.scores : [], labels: Array.isArray(res.labels) ? res.labels : [] }
   },
   score: sendAiRequest,
+  saveLabel: (change) => browser.runtime.sendMessage({ type: REPLY_LABEL_SET, ...change }),
   today: getTodayKey,
   path: () => location.pathname,
 }
 
 export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
   const results = new Map<string, ReplyScore>()
+  const labels = new Map<string, ReplyLabel>()
   const lookedUp = new Set<string>()
   const attempts = new Map<string, number>()
   const lookupQueue = new Map<string, QueueEntry>()
@@ -141,14 +163,17 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
     if (!entries.length) return
     for (let i = 0; i < entries.length; i += LOOKUP_CHUNK) {
       const chunk = entries.slice(i, i + LOOKUP_CHUNK)
-      let found: ReplyScore[] = []
+      let found: LookupResult = { scores: [] }
       try {
-        found = await deps.lookup(chunk.map((e) => e.item.id))
+        const res = await deps.lookup(chunk.map((e) => e.item.id))
+        found = Array.isArray(res) ? { scores: res } : res
       } catch (error) {
         // 插件更新后旧页面连不上后台；当作没有缓存
         console.debug('[oh-my-x] AI 打分缓存查询失败', error)
       }
-      for (const score of found) results.set(score.id, score)
+      for (const score of found.scores) results.set(score.id, score)
+      // 页面上刚改过的标注以页面为准
+      for (const { id, label } of found.labels ?? []) if (!labels.has(id)) labels.set(id, label)
       for (const entry of chunk) {
         lookedUp.add(entry.item.id)
         if (!results.has(entry.item.id)) tryEnqueue(entry)
@@ -287,6 +312,17 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
         return sendable(queued) ? 'pending' : 'none'
       }
       return 'none'
+    },
+    /** 这条回复的标注；没标过返回 undefined */
+    label(id: string): ReplyLabel | undefined {
+      return labels.get(id)
+    },
+    /** 标注或撤销（label 为 null）：页面上马上生效，再交给后台保存 */
+    setLabel(change: LabelChange) {
+      if (change.label) labels.set(change.id, change.label)
+      else labels.delete(change.id)
+      changed()
+      deps.saveLabel(change)?.catch?.((error: unknown) => console.debug('[oh-my-x] 标注保存失败', error))
     },
     /** 给标题栏按钮用：是否在暂停，以及有没有正在进行的请求 */
     status(): { paused: { reason: AiPauseReason; error?: TransferableError } | null; busy: boolean } {

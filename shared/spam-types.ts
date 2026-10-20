@@ -117,7 +117,14 @@ export interface SpamLogEntry {
   /** 谁隐藏的：rule 规则（旧记录没有这一项），ai AI 打分 */
   source?: 'rule' | 'ai'
   /** source 为 ai 时的模型结果 */
-  ai?: { score: number; signals: string[]; reason: string }
+  ai?: {
+    /** 只因为标了「机器人」而折叠、还没有分数时为 null */
+    score: number | null
+    signals: string[]
+    reason: string
+    /** 折叠时用户的标注 */
+    label?: 'bot' | 'human'
+  }
 }
 
 export interface SpamCategoryStat {

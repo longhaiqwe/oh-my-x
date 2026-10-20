@@ -14,8 +14,9 @@ import {
   defaultPreferences,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
-import { aiPermissionOrigin, requestAiPermission, sendAiRequest } from '../../../../shared/ai-request'
-import { REPLY_SCORE_SAMPLE_THREADS, summarizeSampleRun, type SampleRunSummary } from '../../../../shared/ai-reply-samples'
+import { REPLY_LABEL_LIST, aiPermissionOrigin, requestAiPermission, sendAiRequest } from '../../../../shared/ai-request'
+import { REPLY_SCORE_SAMPLE_THREADS, labelsToJsonl, summarizeSampleRun, type SampleRunSummary } from '../../../../shared/ai-reply-samples'
+import type { StoredReplyLabel } from '../../../../shared/reply-score-db'
 import type { ReplyScore } from '../../../../shared/ai-reply-score'
 import { parseReplyScoreUsage } from '../../../../shared/reply-score-usage'
 import { getTodayKey } from '../../../../shared/spam-logger'
@@ -157,6 +158,38 @@ function cancelSamples() {
   running.value = false
 }
 
+// ---------- 我的标注 ----------
+
+const labels = ref<StoredReplyLabel[]>([])
+const labelCounts = computed(() => ({
+  total: labels.value.length,
+  bot: labels.value.filter((l) => l.label === 'bot').length,
+  human: labels.value.filter((l) => l.label === 'human').length,
+}))
+
+async function loadLabels() {
+  try {
+    const res = await browser.runtime.sendMessage({ type: REPLY_LABEL_LIST })
+    labels.value = res?.ok && Array.isArray(res.labels) ? res.labels : []
+  } catch {
+    labels.value = []
+  }
+}
+
+/** 导出成 JSONL 文件（每行一条），文件名带日期 */
+async function exportLabels() {
+  await loadLabels()
+  if (!labels.value.length) return
+  const url = URL.createObjectURL(new Blob([labelsToJsonl(labels.value)], { type: 'application/x-ndjson' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `oh-my-x-reply-labels-${getTodayKey()}.jsonl`
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 onMounted(async () => {
   const stored = await getStorage([KeySpamAiThreshold, KeySpamAiModel, KeySpamAiDailyLimit])
   const th = Number(stored[KeySpamAiThreshold])
@@ -165,6 +198,7 @@ onMounted(async () => {
   const limit = Number(stored[KeySpamAiDailyLimit])
   if (Number.isFinite(limit)) dailyLimit.value = limit
   void checkGranted()
+  void loadLabels()
 })
 watch(baseUrl, () => void checkGranted())
 
@@ -288,6 +322,23 @@ onBeforeUnmount(() => {
        <p v-if="row.reason" class="text-xs leading-normal text-muted-text">{{ row.reason }}</p>
       </li>
      </ul>
+    </div>
+   </div>
+
+   <!-- 我的标注：条数和导出 -->
+   <div class="flex flex-col gap-2 pt-4 border-t border-border">
+    <p class="text-sm font-semibold text-text">{{ t('spamFilter.aiLabelsTitle') }}</p>
+    <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiLabelsDescription') }}</p>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+     <p class="text-xs text-secondary-text">
+      {{ labelCounts.total ? t('spamFilter.aiLabelsCount', labelCounts) : t('spamFilter.aiLabelsEmpty') }}
+     </p>
+     <button
+      type="button"
+      :disabled="!labelCounts.total"
+      class="min-h-6 px-2 rounded-control text-xs font-semibold whitespace-nowrap text-accent-text hover:bg-accent-subtle disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+      @click="exportLabels"
+     >{{ t('spamFilter.aiLabelsExport') }}</button>
     </div>
    </div>
 

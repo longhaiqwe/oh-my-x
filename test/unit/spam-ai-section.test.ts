@@ -24,6 +24,7 @@ const CJK = /[一-鿿]/
 let app: VueApp | undefined
 let root: HTMLDivElement
 let store: Record<string, unknown>
+let storedLabels: unknown[] = []
 
 async function settle() {
   for (let i = 0; i < 4; i++) {
@@ -41,6 +42,7 @@ function mount() {
 const button = (text: string) => [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text)
 
 beforeEach(() => {
+  storedLabels = []
   store = {
     [KeySpamAiEnabled]: 'on',
     [KeyAiRepostApiKey]: 'test-key',
@@ -50,7 +52,11 @@ beforeEach(() => {
   }
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
   vi.stubGlobal('browser', {
-    runtime: { id: 'test-extension', onMessage: { addListener: () => {} } },
+    runtime: {
+      id: 'test-extension',
+      onMessage: { addListener: () => {} },
+      sendMessage: vi.fn(async (message: any) => (message?.type === 'XF_REPLY_LABEL_LIST' ? { ok: true, labels: storedLabels } : undefined)),
+    },
     i18n: { getUILanguage: () => 'en' },
     permissions: { contains: vi.fn().mockResolvedValue(true), request: vi.fn().mockResolvedValue(true) },
     storage: {
@@ -141,5 +147,37 @@ describe('AI 判断设置区', () => {
     expect(root.textContent).toContain('Access to the AI endpoint is not granted')
     button('Grant access')!.click()
     expect((globalThis as any).browser.permissions.request).toHaveBeenCalledWith({ origins: ['https://ai.example/*'] })
+  })
+})
+
+describe('我的标注', () => {
+  const label = (id: string, value: 'bot' | 'human') => ({
+    id, label: value, author: 'bob', text: 'reply', parentAuthor: 'alice', parentText: 'post',
+    delaySeconds: 30, followers: 64, verified: true, ai: null, labeledAt: Date.UTC(2026, 9, 20),
+  })
+
+  it('没有标注时显示「No labels yet」，导出按钮不可用', async () => {
+    await mount()
+    expect(root.textContent).toContain('No labels yet')
+    expect(button('Export labels')!.disabled).toBe(true)
+  })
+
+  it('显示条数；导出成 JSONL 文件，文件名带日期', async () => {
+    storedLabels = [label('1', 'bot'), label('2', 'human'), label('3', 'bot')]
+    const blobs: Blob[] = []
+    vi.stubGlobal('URL', Object.assign(URL, {
+      createObjectURL: vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:labels' }),
+      revokeObjectURL: vi.fn(),
+    }))
+    const downloads: string[] = []
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download) })
+    await mount()
+    expect(root.textContent).toContain('3 labels: bot 2 · human 1')
+    button('Export labels')!.click()
+    await settle()
+    expect(downloads).toEqual([`oh-my-x-reply-labels-${getTodayKey()}.jsonl`])
+    const lines = (await blobs[0].text()).trimEnd().split('\n').map((l) => JSON.parse(l))
+    expect(lines.map((l) => [l.id, l.expect])).toEqual([['1', 'ai'], ['2', 'human'], ['3', 'ai']])
+    click.mockRestore()
   })
 })

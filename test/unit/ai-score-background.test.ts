@@ -98,7 +98,7 @@ describe('AI 打分（后台）', () => {
     await score()
     expect(await score()).toMatchObject({ ok: true, scores: [{ id: '101' }, { id: '102' }] })
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(await lookup(['101', '999', 'bad id'])).toEqual({ ok: true, scores: [{ id: '101', score: 85, signals: ['S1'], reason: '万能夸奖' }] })
+    expect(await lookup(['101', '999', 'bad id'])).toEqual({ ok: true, scores: [{ id: '101', score: 85, signals: ['S1'], reason: '万能夸奖' }], labels: [] })
   })
 
   it('查缓存只接受本插件发来的消息', async () => {
@@ -171,7 +171,7 @@ describe('样例集测试（后台）', () => {
     expect(JSON.parse(body.messages[1].content).replies.map((r: any) => r.id)).toEqual(thread.replies.map((r) => r.id))
     await vi.advanceTimersByTimeAsync(5_000)
     expect(stored[KeySpamAiUsage]).toBeUndefined()
-    expect(await lookup(thread.replies.map((r) => r.id))).toEqual({ ok: true, scores: [] })
+    expect(await lookup(thread.replies.map((r) => r.id))).toEqual({ ok: true, scores: [], labels: [] })
   })
 
   it('服务没返回用量时为 null；序号不存在时报错', async () => {
@@ -206,5 +206,42 @@ describe('折叠计数和打开设置页（后台）', () => {
     await vi.advanceTimersByTimeAsync(5_000)
     expect(stored[KeySpamAiUsage]).toMatchObject({ folded: 1 })
     expect(create).toHaveBeenCalledWith({ url: 'chrome-extension://test-extension/options.html#filter' })
+  })
+})
+
+describe('标注（后台）', () => {
+  const sender = { id: 'test-extension', url: 'https://x.com/a/status/1' }
+  function send(message: unknown, from: unknown = sender) {
+    return new Promise<any>((resolve) => {
+      runtime.onMessage.emit(message, from, resolve)
+      void flushMicrotasks().then(() => resolve(undefined))
+    })
+  }
+  const labelMessage = (label: 'bot' | 'human' | null, ai: unknown = { score: 85, signals: ['S1'], reason: '万能夸奖' }) => ({
+    type: 'XF_REPLY_LABEL_SET', id: '101', label, ai,
+    item: { id: '101', author: 'bob', text: '太有启发了！', delaySeconds: 30, followers: 64, verified: true },
+    parent: { id: '100', author: 'alice', text: '主帖正文' },
+  })
+
+  it('保存标注时带上回复内容和当时的 AI 结果，模型名从打分缓存里取；查缓存时一起返回', async () => {
+    await score()
+    expect(await send(labelMessage('bot'))).toEqual({ ok: true })
+    const { labels } = await send({ type: 'XF_REPLY_LABEL_LIST' })
+    expect(labels).toHaveLength(1)
+    expect(labels[0]).toMatchObject({
+      id: '101', label: 'bot', author: 'bob', text: '太有启发了！', parentAuthor: 'alice', parentText: '主帖正文',
+      delaySeconds: 30, followers: 64, verified: true,
+      ai: { score: 85, signals: ['S1'], reason: '万能夸奖', model: 'repost-model', promptVersion: 2 },
+    })
+    expect(await lookup(['101'])).toMatchObject({ labels: [{ id: '101', label: 'bot' }] })
+  })
+
+  it('撤销标注；没有 AI 结果时 ai 为 null；内容不合法时报错；别的扩展发来的不处理', async () => {
+    expect(await send(labelMessage('human', null))).toEqual({ ok: true })
+    expect((await send({ type: 'XF_REPLY_LABEL_LIST' })).labels[0]).toMatchObject({ label: 'human', ai: null })
+    expect(await send(labelMessage(null))).toEqual({ ok: true })
+    expect((await send({ type: 'XF_REPLY_LABEL_LIST' })).labels).toEqual([])
+    expect(await send({ ...labelMessage('bot'), id: '999' })).toMatchObject({ ok: false })
+    expect(await send(labelMessage('bot'), { id: 'other' })).toBeUndefined()
   })
 })

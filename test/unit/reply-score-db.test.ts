@@ -79,3 +79,29 @@ describe('AI 打分用量', () => {
     expect(store[KeySpamAiUsage]).toEqual({ date: '2026-10-21', auto: 1, manual: 0, cached: 0, failed: 0, folded: 0 })
   })
 })
+
+describe('标注存储', () => {
+  const label = (id: string, value: 'bot' | 'human', labeledAt: number) => ({
+    id, label: value, author: 'bob', text: '回复', parentAuthor: 'alice', parentText: '主帖',
+    delaySeconds: 30, followers: 64, verified: true, ai: null, labeledAt,
+  })
+
+  it('存、查、改、删，列出时按标注时间排序；标注不过期', async () => {
+    let now = 1000
+    const repo = createMemoryReplyScoreRepository(() => now)
+    await repo.putLabel(label('2', 'bot', 2000))
+    await repo.putLabel(label('1', 'human', 1000))
+    expect([...(await repo.getLabels(['1', '2', '3']))]).toEqual([['1', 'human'], ['2', 'bot']])
+    await repo.putLabel(label('1', 'bot', 3000))
+    now += REPLY_SCORE_TTL_MS * 10
+    expect((await repo.allLabels()).map((l) => [l.id, l.label])).toEqual([['2', 'bot'], ['1', 'bot']])
+    await repo.deleteLabel('2')
+    expect((await repo.allLabels()).map((l) => l.id)).toEqual(['1'])
+  })
+
+  it('没有 IndexedDB 时标注也退回内存存储', async () => {
+    const repo = createReplyScoreRepository('test-db-labels', () => 1000)
+    await repo.putLabel(label('9', 'bot', 1000))
+    expect((await repo.getLabels(['9'])).get('9')).toBe('bot')
+  })
+})

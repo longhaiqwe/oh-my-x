@@ -21,6 +21,8 @@ const fakeScorer = vi.hoisted(() => ({
   peek: vi.fn((_id: string) => 'none'),
   status: vi.fn(() => ({ paused: null as any, busy: false })),
   manual: vi.fn((_entries: unknown[]) => 1),
+  label: vi.fn((_id: string): 'bot' | 'human' | undefined => undefined),
+  setLabel: vi.fn(),
 }))
 vi.mock('../../content-scripts/spam/ai-scorer', () => ({ aiScorer: fakeScorer }))
 
@@ -75,6 +77,9 @@ beforeEach(() => {
   fakeScorer.status.mockReset()
   fakeScorer.status.mockReturnValue({ paused: null, busy: false })
   fakeScorer.manual.mockClear()
+  fakeScorer.label.mockReset()
+  fakeScorer.label.mockReturnValue(undefined)
+  fakeScorer.setLabel.mockReset()
   ;(globalThis as any).browser.runtime.sendMessage = vi.fn(() => Promise.resolve())
 })
 
@@ -347,5 +352,85 @@ describe('AI 判断（正常模式）', () => {
     document.body.innerHTML = header + own('me') + tweet('160', 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet('161', 'bob', '回复', '2026-10-20T08:01:00.000Z', actions)
     await runScan(true)
     expect(pill()).toBeNull()
+  })
+})
+
+describe('标注', () => {
+  const setup = async (path: string, mainId: string, replyId: string, display: unknown, text = '这套很实用') => {
+    window.history.pushState({}, '', path)
+    mockConfig({ debug: false })
+    fakeScorer.request.mockReturnValue(display)
+    document.body.innerHTML = header + own('me') + tweet(mainId, 'me', '主帖', '2026-10-20T08:00:00.000Z') + tweet(replyId, 'bob', text, '2026-10-20T08:01:00.000Z', actions)
+    await runScan(true)
+    return document.querySelector<HTMLElement>(`#t${replyId}`)!
+  }
+  const labelButton = (root: Element, label: string) => root.querySelector<HTMLButtonElement>(`.xf-ai-label[data-label="${label}"]`)!
+
+  it('分数标签后面有「机器人 / 真人」两个按钮；没有分数的回复也有', async () => {
+    await setup('/me/status/200', '200', '201', done(40))
+    expect(tag('201')!.querySelectorAll('.xf-ai-label')).toHaveLength(2)
+    fakeScorer.request.mockReturnValue({ status: 'manual' })
+    await setup('/me/status/210', '210', '211', { status: 'manual' })
+    expect(tag('211')!.textContent).toBe('')
+    expect(tag('211')!.querySelectorAll('.xf-ai-label')).toHaveLength(2)
+  })
+
+  it('点「机器人」：交给队列保存（带上回复内容、主帖和当时的分数），这条马上折叠', async () => {
+    const reply = await setup('/me/status/220', '220', '221', done(40))
+    fakeScorer.setLabel.mockImplementation((change: any) => fakeScorer.label.mockReturnValue(change.label ?? undefined))
+    labelButton(tag('221')!, 'bot').click()
+    expect(fakeScorer.setLabel).toHaveBeenCalledWith({
+      id: '221',
+      label: 'bot',
+      item: expect.objectContaining({ id: '221', author: 'bob', text: '这套很实用' }),
+      parent: { id: '220', author: 'me', text: '主帖' },
+      ai: { score: 40, signals: ['S2', 'S11'], reason: '复述原帖' },
+    })
+    await vi.waitFor(() => expect(reply.style.display).toBe('none'))
+    const fold = reply.previousElementSibling!
+    expect(fold.textContent).toContain('已标为机器人 · 复述原帖、认同+复述+补一句 · @bob')
+    expect(labelButton(fold, 'bot').getAttribute('data-active')).toBe('1')
+
+    // 在折叠条上再点一次撤销：40 分没到阈值，回复显示出来
+    labelButton(fold, 'bot').click()
+    expect(fakeScorer.setLabel).toHaveBeenLastCalledWith(expect.objectContaining({ id: '221', label: null }))
+    await vi.waitFor(() => expect(reply.style.display).not.toBe('none'))
+  })
+
+  it('标了「真人」的高分回复不折叠，按钮高亮', async () => {
+    fakeScorer.label.mockReturnValue('human')
+    const reply = await setup('/me/status/230', '230', '231', done(90))
+    expect(reply.style.display).not.toBe('none')
+    expect(labelButton(tag('231')!, 'human').getAttribute('data-active')).toBe('1')
+  })
+
+  it('没有分数也能标成「机器人」并折叠；折叠条没有分数', async () => {
+    fakeScorer.label.mockReturnValue('bot')
+    const reply = await setup('/alice/status/240', '240', '241', { status: 'manual' })
+    expect(reply.style.display).toBe('none')
+    expect(reply.previousElementSibling!.textContent).toBe('已标为机器人 · @bob展开')
+  })
+
+  it('标注变了，折叠条按新状态重画', async () => {
+    fakeScorer.label.mockReturnValue('bot')
+    const reply = await setup('/me/status/250', '250', '251', done(85))
+    expect(reply.previousElementSibling!.textContent).toContain('已标为机器人')
+    // 真实流程里标注一变，队列的版本号就加 1
+    fakeScorer.label.mockReturnValue(undefined)
+    fakeScorer.version.mockReturnValue(1)
+    await runScan(true)
+    fakeScorer.version.mockReturnValue(0)
+    expect(reply.style.display).toBe('none')
+    expect(reply.previousElementSibling!.textContent).toContain('已折叠 · ')
+    expect(reply.previousElementSibling!.textContent).not.toContain('已标为机器人')
+  })
+
+  it('点了「展开」的回复再标「机器人」，马上重新折叠', async () => {
+    const reply = await setup('/me/status/260', '260', '261', done(85))
+    reply.previousElementSibling!.querySelector<HTMLButtonElement>('.xf-ai-fold-btn')!.click()
+    await vi.waitFor(() => expect(reply.style.display).not.toBe('none'))
+    fakeScorer.setLabel.mockImplementation((change: any) => fakeScorer.label.mockReturnValue(change.label ?? undefined))
+    labelButton(tag('261')!, 'bot').click()
+    await vi.waitFor(() => expect(reply.style.display).toBe('none'))
   })
 })

@@ -30,8 +30,15 @@ export interface AiResponse extends Partial<AiRepostOptionsResult> {
   usage?: { promptTokens: number; completionTokens: number } | null
 }
 
-/** 只查 AI 打分缓存，不调用模型。走 runtime.sendMessage，回复 { ok, scores } */
+/** 只查 AI 打分缓存和标注，不调用模型。走 runtime.sendMessage，回复 { ok, scores, labels } */
 export const REPLY_SCORE_LOOKUP = 'XF_LOOKUP_REPLY_SCORES'
+/**
+ * 保存或撤销一条标注：{ id, label: 'bot' | 'human' | null, item, parent, ai }。
+ * label 为 null 表示撤销；ai 是标注时的 AI 结果（没有时为 null）
+ */
+export const REPLY_LABEL_SET = 'XF_REPLY_LABEL_SET'
+/** 列出全部标注（设置页显示条数、导出用），回复 { ok, labels } */
+export const REPLY_LABEL_LIST = 'XF_REPLY_LABEL_LIST'
 /** 页面上有一条回复被 AI 折叠了：后台把当天的折叠数加 1 */
 export const REPLY_SCORE_FOLDED = 'XF_REPLY_SCORE_FOLDED'
 /** 在新标签页打开完整设置页的「过滤」模块 */

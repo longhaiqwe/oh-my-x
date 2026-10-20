@@ -90,7 +90,10 @@ onMounted(refresh)
      <div class="flex items-center gap-1 flex-wrap min-w-0">
       <span class="font-mono">@{{ entry.authorHandle || 'unknown' }}</span>
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ spamCategoryLabel(entry.category, locale) }}</span>
-      <span v-if="entry.source === 'ai' && entry.ai" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiScore', { score: entry.ai.score }) }}</span>
+      <template v-if="entry.source === 'ai' && entry.ai">
+       <span v-if="entry.ai.score !== null" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiScore', { score: entry.ai.score }) }}</span>
+       <span v-if="entry.ai.label === 'bot'" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiLabeledBot') }}</span>
+      </template>
       <span v-else class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.score', { score: entry.score }) }}</span>
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ actionLabel(entry.action) }}</span>
      </div>

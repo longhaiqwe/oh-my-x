@@ -1,6 +1,7 @@
 // 回复区 AI 打分在 X 页面上的界面：分数标签、折叠条、标题栏按钮。
 // 只负责画；什么时候显示、点了做什么由 scanner.ts 决定。
 import { t, type MessageKey } from '../../shared/i18n'
+import type { ReplyLabel } from '../../shared/reply-score-db'
 import type { AiDisplay } from './ai-scorer'
 
 export const AI_TAG_ATTR = 'data-xf-ai-tag'
@@ -101,6 +102,34 @@ export function ensureAiStyles() {
       flex-shrink: 0;
     }
     .xf-ai-fold-btn:hover { background: rgba(113, 118, 123, 0.12); }
+    .xf-ai-fold-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .xf-ai-labels {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    /* 高 20 像素：和 X 操作栏一样高，带标签的回复不会变高 */
+    .xf-ai-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 9999px;
+      background: transparent;
+      color: rgb(113, 118, 123);
+      cursor: pointer;
+    }
+    .xf-ai-label:hover { background: rgba(113, 118, 123, 0.12); }
+    .xf-ai-label[data-label="bot"][data-active="1"] { color: rgb(224, 36, 94); background: rgba(244, 33, 46, 0.12); }
+    .xf-ai-label[data-label="human"][data-active="1"] { color: rgb(0, 150, 100); background: rgba(0, 186, 124, 0.14); }
     [${AI_PILL_ATTR}] {
       position: absolute;
       top: 50%;
@@ -141,21 +170,67 @@ function actionGroup(article: HTMLElement): HTMLElement | null {
   )
 }
 
+const ROBOT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9.5 16h5"/></svg>'
+const PERSON_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6M15 11l2 2 4-4"/></svg>'
+
+/** 标注按钮的回调放在元素上，元素重用时换成最新的（里面带着最新扫描到的回复内容） */
+type LabelHandler = (label: ReplyLabel | null) => void
+
+/** 「机器人 / 真人」两个标注按钮：已标的那个高亮，再点一次撤销 */
+function buildLabelButtons(owner: HTMLElement, current: ReplyLabel | undefined): HTMLElement {
+  const box = document.createElement('span')
+  box.className = 'xf-ai-labels'
+  for (const label of ['bot', 'human'] as const) {
+    const active = current === label
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'xf-ai-label'
+    btn.setAttribute('data-label', label)
+    btn.setAttribute('data-active', active ? '1' : '0')
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false')
+    const title = active
+      ? t(label === 'bot' ? 'spamPage.aiMarkedBot' : 'spamPage.aiMarkedHuman')
+      : t(label === 'bot' ? 'spamPage.aiMarkBot' : 'spamPage.aiMarkHuman')
+    btn.title = title
+    btn.setAttribute('aria-label', title)
+    btn.innerHTML = label === 'bot' ? ROBOT_ICON : PERSON_ICON
+    btn.addEventListener('click', (e) => {
+      stop(e)
+      ;((owner as any).__xfLabel as LabelHandler | undefined)?.(active ? null : label)
+    })
+    box.appendChild(btn)
+  }
+  return box
+}
+
+export interface ScoreTagOptions {
+  /** 用户的标注 */
+  label?: ReplyLabel
+  /** 点了标注按钮：传入新的标注，再点已标的那个传 null（撤销）。不传就没有标注按钮 */
+  onLabel?: LabelHandler
+  /** 这条本来该折叠、用户点了展开：标签后面加「收起」 */
+  onCollapse?: () => void
+}
+
 /**
- * 分数标签：放在操作栏末尾。只有 done（显示分数）和 pending（判断中）才显示，其他状态移除。
- * onCollapse：这条本来该折叠、用户点了展开，标签后面加「收起」。
+ * 分数标签：放在操作栏末尾。done 显示分数，pending 显示「判断中」；
+ * 有 onLabel 时后面跟「机器人 / 真人」两个标注按钮（没有分数时只有这两个按钮）。
+ * display 为 undefined 时移除。
  */
-export function ensureScoreTag(article: HTMLElement, display: AiDisplay | undefined, onCollapse?: () => void) {
+export function ensureScoreTag(article: HTMLElement, display: AiDisplay | undefined, options: ScoreTagOptions = {}) {
   const existing = article.querySelector<HTMLElement>(`[${AI_TAG_ATTR}]`)
-  if (!display || (display.status !== 'done' && display.status !== 'pending')) {
+  const showScore = display?.status === 'done' || display?.status === 'pending'
+  if (!display || (!showScore && !options.onLabel)) {
     existing?.remove()
     return
   }
-  const key = display.status === 'done'
-    ? `done:${display.score}:${display.signals.join(',')}:${onCollapse ? 'c' : ''}:${display.reason}`
-    : 'pending'
+  const scoreKey = display.status === 'done'
+    ? `done:${display.score}:${display.signals.join(',')}:${display.reason}`
+    : showScore ? 'pending' : 'none'
+  const key = `${scoreKey}|${options.onLabel ? `l:${options.label ?? ''}` : ''}|${options.onCollapse ? 'c' : ''}`
   if (existing?.getAttribute('data-key') === key) {
-    if (onCollapse) (existing as any).__xfCollapse = onCollapse
+    ;(existing as any).__xfCollapse = options.onCollapse
+    ;(existing as any).__xfLabel = options.onLabel
     return
   }
   const group = actionGroup(article)
@@ -167,20 +242,25 @@ export function ensureScoreTag(article: HTMLElement, display: AiDisplay | undefi
   tag.setAttribute(AI_TAG_ATTR, '1')
   tag.setAttribute('data-key', key)
   tag.addEventListener('click', stop)
+  ;(tag as any).__xfCollapse = options.onCollapse
+  ;(tag as any).__xfLabel = options.onLabel
 
-  const score = document.createElement('span')
-  if (display.status === 'done') {
-    score.className = `xf-ai-score xf-ai-tone-${aiTone(display.score)}`
-    score.textContent = t('spamPage.aiScore', { score: display.score })
-    score.title = aiTitle(display)
-  } else {
-    score.className = 'xf-ai-score xf-ai-tone-low'
-    score.textContent = t('spamPage.aiPending')
+  if (showScore) {
+    const score = document.createElement('span')
+    if (display.status === 'done') {
+      score.className = `xf-ai-score xf-ai-tone-${aiTone(display.score)}`
+      score.textContent = t('spamPage.aiScore', { score: display.score })
+      score.title = aiTitle(display)
+    } else {
+      score.className = 'xf-ai-score xf-ai-tone-low'
+      score.textContent = t('spamPage.aiPending')
+    }
+    tag.appendChild(score)
   }
-  tag.appendChild(score)
 
-  if (onCollapse) {
-    ;(tag as any).__xfCollapse = onCollapse
+  if (options.onLabel) tag.appendChild(buildLabelButtons(tag, options.label))
+
+  if (options.onCollapse) {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'xf-ai-link'
@@ -194,39 +274,61 @@ export function ensureScoreTag(article: HTMLElement, display: AiDisplay | undefi
   group.appendChild(tag)
 }
 
-/** 折叠条：显示分数、命中的信号和作者，点「展开」显示原回复 */
-export function buildFoldBar(display: Extract<AiDisplay, { status: 'done' }>, handle: string, onExpand: () => void): HTMLElement {
+export interface FoldBarOptions {
+  /** 模型结果；只因为标了「机器人」而折叠、还没有分数时不传 */
+  display?: Extract<AiDisplay, { status: 'done' }>
+  handle: string
+  label?: ReplyLabel
+  onExpand: () => void
+  onLabel?: LabelHandler
+}
+
+/** 折叠条的状态，变了就要重画 */
+export function foldBarKey(display: FoldBarOptions['display'], label: ReplyLabel | undefined): string {
+  return `${display ? `${display.score}:${display.signals.join(',')}` : '-'}|${label ?? ''}`
+}
+
+/** 折叠条：显示分数、命中的信号和作者；右边是标注按钮和「展开」 */
+export function buildFoldBar(options: FoldBarOptions): HTMLElement {
+  const { display, handle, label } = options
   ensureAiStyles()
   const wrap = document.createElement('div')
   wrap.className = AI_FOLD_CLASS
+  ;(wrap as any).__xfLabel = options.onLabel
 
   const left = document.createElement('div')
   left.className = 'xf-ai-fold-left'
-  const score = document.createElement('span')
-  score.className = `xf-ai-score xf-ai-tone-${aiTone(display.score)}`
-  score.textContent = t('spamPage.aiScore', { score: display.score })
-  score.title = aiTitle(display)
-  left.appendChild(score)
+  if (display) {
+    const score = document.createElement('span')
+    score.className = `xf-ai-score xf-ai-tone-${aiTone(display.score)}`
+    score.textContent = t('spamPage.aiScore', { score: display.score })
+    score.title = aiTitle(display)
+    left.appendChild(score)
+  }
 
   const detail = document.createElement('span')
   detail.className = 'xf-ai-fold-detail'
-  const parts = [t('spamPage.aiFolded')]
-  if (display.signals.length) parts.push(aiSignalNames(display.signals))
+  const parts = [label === 'bot' ? t('spamPage.aiFoldedByLabel') : t('spamPage.aiFolded')]
+  if (display?.signals.length) parts.push(aiSignalNames(display.signals))
   if (handle) parts.push(`@${handle}`)
   detail.textContent = parts.join(' · ')
-  detail.title = aiTitle(display)
+  if (display) detail.title = aiTitle(display)
   left.appendChild(detail)
   wrap.appendChild(left)
 
+  const right = document.createElement('div')
+  right.className = 'xf-ai-fold-right'
+  if (options.onLabel) right.appendChild(buildLabelButtons(wrap, label))
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.className = 'xf-ai-fold-btn'
   btn.textContent = t('spamPage.aiExpand')
   btn.addEventListener('click', (e) => {
     stop(e)
-    onExpand()
+    options.onExpand()
   })
-  wrap.appendChild(btn)
+  right.appendChild(btn)
+  wrap.appendChild(right)
   return wrap
 }
 

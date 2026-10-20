@@ -203,6 +203,7 @@ oh-my-x/
 - 提示词、请求内容、返回解析：`shared/ai-reply-score.ts`（改提示词要把 `REPLY_SCORE_PROMPT_VERSION` 加 1，旧缓存作废）。样例集：`shared/ai-reply-samples.json` + `ai-reply-samples.ts`。
 - 页面侧：`content-scripts/spam/ai-scorer.ts`（查缓存 → 攒批 → 送后台，暂停原因、手动判断），`ai-badge.ts`（分数标签、折叠条、帖子页标题栏上的 AI 按钮）。扫描器按详情页记住主帖和上级推文 ID，主帖滚出页面后也能分清回复。
 - 后台：`XF_SCORE_REPLIES`（打分，结果缓存在 IndexedDB `oh-my-x-reply-scores`，7 天、5000 条）、`XF_LOOKUP_REPLY_SCORES`（只查缓存）、`XF_TEST_REPLY_SCORE_SAMPLES`（设置页跑样例集，不写缓存不计用量）；当天用量在 `spamAiUsage`，每 5 秒合并写一次。
+- 标注：分数标签和折叠条上的「机器人 / 真人」按钮；存在同一个数据库的 `labels` 表（不过期），后台消息 `XF_REPLY_LABEL_SET` / `XF_REPLY_LABEL_LIST`，查缓存时一起返回。标「真人」不折叠，标「机器人」直接折叠。设置区「我的标注」显示条数并导出 JSONL（格式见 `labelsToJsonl`）。
 - `npm run test:live`：用真实接口跑样例集（key 从环境变量读，会产生费用，不进 `npm run check`）。
 
 ### 日志/统计（`shared/spam-logger.ts`）

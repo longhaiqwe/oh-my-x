@@ -2,6 +2,8 @@ import {
   AI_REQUEST_PORT,
   AI_REQUEST_TIMEOUT_MS,
   OPEN_SETTINGS,
+  REPLY_LABEL_LIST,
+  REPLY_LABEL_SET,
   REPLY_SCORE_FOLDED,
   REPLY_SCORE_LOOKUP,
   aiPermissionOrigin,
@@ -18,7 +20,7 @@ import {
   type ReplyScoreItem,
   type ReplyScoreParent,
 } from '../shared/ai-reply-score'
-import { createReplyScoreRepository, toReplyScore } from '../shared/reply-score-db'
+import { createReplyScoreRepository, toReplyScore, type StoredReplyLabel } from '../shared/reply-score-db'
 import { createReplyScoreUsage } from '../shared/reply-score-usage'
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
@@ -383,6 +385,43 @@ function sanitizeScoreItems(raw: unknown): ReplyScoreItem[] {
 function sanitizeTweetIds(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   return [...new Set(raw.map(String).filter((id) => TWEET_ID_RE.test(id)))].slice(0, 200)
+}
+
+/**
+ * 把页面发来的标注整理成要存的记录；不合法时返回 null。
+ * 标注时的模型名从打分缓存里取（页面不知道用的是哪个模型）。
+ */
+async function labelEntryOf(message: any): Promise<StoredReplyLabel | null> {
+  const label = message?.label
+  if (label !== 'bot' && label !== 'human') return null
+  const [item] = sanitizeScoreItems([message.item])
+  const parent = sanitizeScoreParent(message.parent)
+  if (!item || !parent || item.id !== String(message.id)) return null
+  let ai: StoredReplyLabel['ai'] = null
+  const score = Number(message.ai?.score)
+  if (message.ai && Number.isFinite(score)) {
+    const cached = (await replyScores.getMany([item.id])).get(item.id)
+    ai = {
+      score: Math.min(100, Math.max(0, Math.round(score))),
+      signals: Array.isArray(message.ai.signals) ? message.ai.signals.map(String).slice(0, 12) : [],
+      reason: typeof message.ai.reason === 'string' ? message.ai.reason.slice(0, 160) : '',
+      model: cached?.model ?? null,
+      promptVersion: REPLY_SCORE_PROMPT_VERSION,
+    }
+  }
+  return {
+    id: item.id,
+    label,
+    author: item.author,
+    text: item.text,
+    parentAuthor: parent.author,
+    parentText: parent.text,
+    delaySeconds: item.delaySeconds,
+    followers: item.followers ?? null,
+    verified: item.verified ?? null,
+    ai,
+    labeledAt: Date.now(),
+  }
 }
 
 function dailyLimitOf(value: unknown): number {
@@ -763,17 +802,48 @@ export default defineBackground(() => {
     if (message?.type === OPEN_SETTINGS) void browser.tabs.create({ url: browser.runtime.getURL('/options.html#filter') })
   })
 
-  // AI 打分只查缓存，不调用模型
+  // AI 打分只查缓存和标注，不调用模型
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== REPLY_SCORE_LOOKUP) return
     if (sender?.id !== browser.runtime.id) return
     void (async () => {
       try {
-        const found = await replyScores.getMany(sanitizeTweetIds(message.ids))
+        const ids = sanitizeTweetIds(message.ids)
+        const [found, labels] = await Promise.all([replyScores.getMany(ids), replyScores.getLabels(ids)])
         if (found.size) replyScoreUsage.add({ cached: found.size })
-        respond({ ok: true, scores: [...found.values()].map(toReplyScore) })
+        respond({
+          ok: true,
+          scores: [...found.values()].map(toReplyScore),
+          labels: [...labels].map(([id, label]) => ({ id, label })),
+        })
       } catch (error) {
         respond({ ok: false, error: toTransferable(error, 'error.readFailed') })
+      }
+    })()
+    return true
+  })
+
+  // 标注：保存、撤销、列出全部（设置页显示条数和导出）
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== REPLY_LABEL_SET && message?.type !== REPLY_LABEL_LIST) return
+    if (sender?.id !== browser.runtime.id) return
+    void (async () => {
+      try {
+        if (message.type === REPLY_LABEL_LIST) {
+          respond({ ok: true, labels: await replyScores.allLabels() })
+        } else if (message.label === null) {
+          const [id] = sanitizeTweetIds([message.id])
+          if (!id) throw new AppError('error.aiUnsupported')
+          await replyScores.deleteLabel(id)
+          respond({ ok: true })
+        } else {
+          const entry = await labelEntryOf(message)
+          if (!entry) throw new AppError('error.aiUnsupported')
+          await replyScores.putLabel(entry)
+          respond({ ok: true })
+        }
+      } catch (error) {
+        respond({ ok: false, error: toTransferable(error, 'error.dbWriteFailed') })
       }
     })()
     return true
