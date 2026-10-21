@@ -10,6 +10,7 @@ import { attachPrecomposeUrlCapture, savePrecomposeUrl } from './options/precomp
 import { listenForScheduledTweetsApi } from './options/scheduled-time'
 import { listenForBookmarkMetricsApi } from './features/bookmark-counter'
 import { initAutoLikeOnReply } from './features/auto-like-reply'
+import { initMentionByName } from './features/mention-by-name'
 import { listenForUserFollowerMetricsApi } from './features/user-followers'
 import { listenForCreatorRewardsApi } from './features/creator-rewards'
 
@@ -87,6 +88,7 @@ export async function initializeExtension() {
   listenForScheduledTweetsApi()
   listenForBookmarkMetricsApi()
   initAutoLikeOnReply()
+  void initMentionByName()
   listenForUserFollowerMetricsApi()
   listenForCreatorRewardsApi()
 

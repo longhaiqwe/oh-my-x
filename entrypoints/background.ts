@@ -48,6 +48,13 @@ import {
   extractTweetMediaFromGraphql,
   type ExtractedTweetMedia,
 } from '../shared/tweet-media'
+import {
+  MENTION_QUERY_MAX_LENGTH,
+  MENTION_SEARCH_MESSAGE,
+  buildMentionSearchUrl,
+  parseMentionUsers,
+  type MentionUser,
+} from '../shared/mention-search'
 
 const X_API_BASE = 'https://x.com/i/api'
 const X_PUBLIC_BEARER =
@@ -664,8 +671,34 @@ export default defineBackground(() => {
       void refreshCreatorRewardsData().then(sendResponse)
       return true
     }
+
+    if (msg?.type === MENTION_SEARCH_MESSAGE) {
+      void (async () => {
+        try {
+          const users = await searchMentionUsers(String(msg.query || ''))
+          sendResponse({ ok: true, users })
+        } catch (e: any) {
+          sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
+        }
+      })()
+      return true
+    }
   })
 })
+
+/** 用 X 发帖框自己的用户查询接口按名字找账号 */
+async function searchMentionUsers(query: string): Promise<MentionUser[]> {
+  const q = query.trim().slice(0, MENTION_QUERY_MAX_LENGTH)
+  if (!q) return []
+  if (!(await getCsrfToken())) throw new AppError('error.noXSession')
+  const res = await fetch(buildMentionSearchUrl(q), {
+    headers: await getBaseApiHeaders(),
+    credentials: 'include',
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!res.ok) throw new AppError('error.mentionSearchHttp', { status: res.status })
+  return parseMentionUsers(await res.json())
+}
 
 async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null> {
   const csrf = await getCsrfToken()

@@ -62,6 +62,7 @@ oh-my-x/
 │   ├── ai-request.ts            # AI 请求的 Port 生命周期与超时
 │   ├── viral-radar-parser.ts    # 流速数值解析 + 分类
 │   ├── composer-media.ts        # 发帖框多图排序：两边共用的事件名、属性名和纯计算
+│   ├── mention-search.ts        # 按名字艾特：找光标前的「@名字」、整理 X 用户查询接口的返回
 │   └── composer-media-bridge.ts # 发帖框多图排序的 MAIN world 部分：读 X 图片数据、改图片顺序
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -82,7 +83,8 @@ oh-my-x/
 │   │   ├── reply-assistant.ts   # 直达回复区胶囊（可拖动，位置存 jumpRepliesPosition）
 │   │   ├── auto-like-reply.ts   # 回复后自动点赞
 │   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的列表」入口
-│   │   └── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
+│   │   ├── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
+│   │   └── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
 │   │
 │   ├── options/
 │   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
@@ -163,6 +165,15 @@ oh-my-x/
 - 排版只改 CSS 和 data 属性：把 X 的「列」设成 `display: contents`，外层改成两列 grid，用 `order` 按发帖顺序排；隐藏 16:9 占位块。X 的 2 / 3 / 4 张图分别是 [0,1]、[0,[1,2]]、[[0,2],[1,3]] 两层结构，更深的层级（混合媒体轮播）不处理。
 - X 重排后会重新创建图片格子（附件区本身不变），所以每个附件区挂一个 MutationObserver，在同一轮微任务里重新标记，避免闪出原来的排版。
 - 读不到 X 数据、有视频或 GIF、少于 2 张时保持 X 原样。开关 `composerMediaGrid`。
+
+## 按名字艾特（`features/mention-by-name.ts` + `shared/mention-search.ts`）
+
+- X 发帖框只把 @ 后面的英文字母、数字、下划线当成艾特。光标前是「@名字」、名字里有非 ASCII 字符时，由扩展列出候选；纯英文仍由 X 自己的候选框处理。
+- 后台消息 `XF_SEARCH_MENTION_USERS` 调 X 的 `1.1/search/typeahead.json`（`src=compose`、`result_type=users`），`social_context.following` 为真的排前面。内容脚本按名字缓存最近 30 次结果，只存在页面内存里。
+- 监听 `selectionchange` / `input` / `focusout` / `compositionend`，150ms 后读光标所在段落（`[data-block]`）里光标前的文字；输入法组字期间不查。候选框挂在 body 下，`position: fixed` 放在光标下方，放不下时放上方；`mousedown` 取消默认动作，编辑器不失焦。
+- 按键在 window 捕获阶段处理，早于 X 的编辑器：上下键选、回车 / Tab 确认、Esc 只关候选框（不让 X 关掉发帖弹窗）。带 ⌘ / Ctrl / Alt / Shift 的按键和输入法组字中的按键不拦。
+- 替换：按段落里的文字位置选中「@名字」，立即派发一次 `selectionchange`（X 的编辑器靠 React 在 document 上监听它来读选区，浏览器自己要到下一轮才发），再同步派发 `paste`。不能等到下一轮，否则中间打的字会先替换掉选中的「@名字」。粘贴事件带 `__xfHandled`，`composer.ts` 的 Markdown 粘贴处理会跳过它。X 的编辑器没处理粘贴时退回 `execCommand('insertText')`。
+- 开关 `mentionByName`，默认开。
 
 ## 内容脚本编排
 

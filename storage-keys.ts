@@ -30,6 +30,7 @@ export const KeyHighlightNonFollowers = 'highlightNonFollowers'
 export const KeyArticleToc = 'articleToc'
 export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyComposerMediaGrid = 'composerMediaGrid' // 发帖框多图两列排版 + 拖动排序
+export const KeyMentionByName = 'mentionByName' // 发帖框 @ 后输入名字，查出账号后换成 @用户名
 export const KeyScheduledPanorama = 'scheduledPanorama'
 export const KeyScheduledSidebar = 'scheduledSidebar' // 右侧栏搜索框下的排期面板
 export const KeyScheduledSidebarCollapsed = 'scheduledSidebarCollapsed' // 右侧栏排期面板是否收起（'on' = 收起），属于数据，不是设置项
@@ -149,6 +150,7 @@ export const allSettingsKeys = [
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
+  KeyMentionByName,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -378,6 +380,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyScheduledSidebar]: 'on',
   [KeyOwnPostAutoSync]: 'on',
   [KeyComposerMediaGrid]: 'on',
+  [KeyMentionByName]: 'on',
   [KeyRadarWidth]: 'wide',
   [KeyTweetFilterEnabled]: 'on',
   [KeyTweetFilterAction]: 'collapse',

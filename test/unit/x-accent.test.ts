@@ -169,6 +169,8 @@ describe('注入页面的界面不再写死 X 蓝', () => {
     'content-scripts/features/bookmark-counter.ts': 2,
     // 悬浮条照搬 X 操作按钮：回复、收藏固定蓝，引用绿、点赞粉
     'content-scripts/features/quick-interaction.ts': 10,
+    // 按名字艾特候选框里的认证徽章，X 的认证蓝是固定的
+    'content-scripts/features/mention-by-name.ts': 1,
   }
 
   function listFiles(dir: string): string[] {
