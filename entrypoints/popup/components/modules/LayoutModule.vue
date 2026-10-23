@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
  KeyTweetButton, KeySidebarColumn, KeyArticleToc, KeyTimelineWidth, KeyNavigationWidth,
- KeySearchDefaultLatest, KeySearchFilterBar,
+ KeySearchDefaultLatest, KeySearchFilterBar, KeySearchAskGrok, KeySearchEnterGrok, KeySearchAiQuery,
 } from '../../../../storage-keys'
 import { useI18n } from '../../composables/useI18n'
 import WidthSlider from '../controls/WidthSlider.vue'
@@ -11,6 +11,7 @@ import FeatureList from '../ui/FeatureList.vue'
 import FeatureCard from '../ui/FeatureCard.vue'
 import FeatureSwitch from '../ui/FeatureSwitch.vue'
 import NavigationCard from '../sections/NavigationCard.vue'
+import SubRow from '../ui/SubRow.vue'
 
 const { t, featureText } = useI18n()
 </script>
@@ -63,6 +64,19 @@ const { t, featureText } = useI18n()
    <FeatureCard feature-id="searchFilters" variant="row">
     <template #control>
      <FeatureSwitch :storage-key="KeySearchFilterBar" :label="featureText('searchFilters', 'label')" />
+    </template>
+   </FeatureCard>
+   <FeatureCard feature-id="searchGrok" variant="row">
+    <template #control>
+     <FeatureSwitch :storage-key="KeySearchAskGrok" :label="featureText('searchGrok', 'label')" />
+    </template>
+    <SubRow feature-id="searchEnterGrok">
+     <FeatureSwitch :storage-key="KeySearchEnterGrok" :label="featureText('searchEnterGrok', 'label')" />
+    </SubRow>
+   </FeatureCard>
+   <FeatureCard feature-id="searchAiQuery" variant="row">
+    <template #control>
+     <FeatureSwitch :storage-key="KeySearchAiQuery" :label="featureText('searchAiQuery', 'label')" />
     </template>
    </FeatureCard>
   </FeatureList>

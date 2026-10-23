@@ -48,6 +48,9 @@ import {
   KeyArticleToc,
   KeySearchDefaultLatest,
   KeySearchFilterBar,
+  KeySearchAskGrok,
+  KeySearchEnterGrok,
+  KeySearchAiQuery,
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
@@ -140,6 +143,9 @@ export interface ExtensionSettings {
   [KeyArticleToc]: ToggleValue
   [KeySearchDefaultLatest]: ToggleValue
   [KeySearchFilterBar]: ToggleValue
+  [KeySearchAskGrok]: ToggleValue
+  [KeySearchEnterGrok]: ToggleValue
+  [KeySearchAiQuery]: ToggleValue
   [KeyScheduledPanorama]: ToggleValue
   [KeyScheduledSidebar]: ToggleValue
   [KeyOwnPostAutoSync]: ToggleValue
@@ -203,6 +209,9 @@ const TOGGLE_KEYS = new Set<string>([
   KeyArticleToc,
   KeySearchDefaultLatest,
   KeySearchFilterBar,
+  KeySearchAskGrok,
+  KeySearchEnterGrok,
+  KeySearchAiQuery,
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,

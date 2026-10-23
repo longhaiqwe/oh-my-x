@@ -68,7 +68,8 @@ let initialized = false
 let lastHref: string | null = null
 const tracker = createSearchLatestTracker()
 
-function navigate(href: string, replace: boolean) {
+/** 请求页面拦截器在 X 页面里换地址（只接受搜索页和 Grok 页） */
+export function navigateInPage(href: string, replace: boolean) {
   window.postMessage({ type: SEARCH_NAVIGATE_TYPE, href, replace, __xf: XF_BRIDGE_MARKER }, location.origin)
 }
 
@@ -113,7 +114,7 @@ function applyFilters(filters: SearchFilters, following: boolean) {
   const href = filteredSearchHref(location.href, query, following)
   if (!href) return
   if (!state.page.tab) tracker.keepTop(query)
-  navigate(href, false)
+  navigateInPage(href, false)
 }
 
 function onSelectChange(field: SelectField, value: string) {
@@ -232,7 +233,7 @@ export function updateSearchTools() {
     lastHref = href
     const latest = latestEnabled ? tracker.next(href) : null
     if (latest) {
-      navigate(latest, true)
+      navigateInPage(latest, true)
       return
     }
   }

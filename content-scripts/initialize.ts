@@ -15,6 +15,7 @@ import { listenForUserFollowerMetricsApi } from './features/user-followers'
 import { listenForCreatorRewardsApi } from './features/creator-rewards'
 import { listenForCreateDraftQueryId } from './features/selection-draft'
 import { initSearchTools } from './features/search-tools'
+import { initSearchMenu } from './features/search-menu'
 
 function addStylesheets() {
   addStyleSheet('main', browser.runtime.getURL('css/main.css' as any))
@@ -92,6 +93,7 @@ export async function initializeExtension() {
   initAutoLikeOnReply()
   void initMentionByName()
   void initSearchTools()
+  void initSearchMenu()
   listenForUserFollowerMetricsApi()
   listenForCreatorRewardsApi()
   listenForCreateDraftQueryId()

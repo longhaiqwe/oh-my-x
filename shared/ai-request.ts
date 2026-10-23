@@ -22,6 +22,8 @@ export type AiRequest =
   | { type: 'XF_SCORE_REPLIES'; parent: ReplyScoreParent; replies: ReplyScoreItem[]; mode: 'auto' | 'manual'; locale?: Locale }
   /** 设置页「用样例集测试」：给样例集里第 threadIndex 段对话打分；不写缓存，不计入用量 */
   | { type: 'XF_TEST_REPLY_SCORE_SAMPLES'; threadIndex: number; locale?: Locale }
+  /** 搜索框里的大白话转成 X 搜索词，用公共 AI 服务的默认模型 */
+  | { type: 'XF_BUILD_SEARCH_QUERY'; text: string }
 /** Non-terminal Port message: a completed reply can be rendered while the request continues. */
 export interface AiProgress {
   type: 'XF_AI_PROGRESS'
@@ -37,6 +39,8 @@ export interface AiResponse extends Partial<AiRepostOptionsResult> {
   source?: RepostSourceInput | null
   /** XF_SCORE_REPLIES：缓存命中的和新判断的结果 */
   scores?: ReplyScore[]
+  /** XF_BUILD_SEARCH_QUERY：转好的搜索词 */
+  query?: string
   /** XF_SCORE_REPLIES：今天的自动判断已达上限，这次没有发请求 */
   limitReached?: boolean
   /** XF_TEST_REPLY_SCORE_SAMPLES：接口返回的用量；服务没返回时为 null */

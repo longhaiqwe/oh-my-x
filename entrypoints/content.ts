@@ -13,6 +13,7 @@ import { runTweetFilter, invalidateTweetFilterCache } from '../content-scripts/f
 import { dynamicFeatures, invalidateDynamicSettingsCache } from '../content-scripts/features/dynamic'
 import { setMentionByNameEnabled } from '../content-scripts/features/mention-by-name'
 import { setSearchToolsSettings } from '../content-scripts/features/search-tools'
+import { setSearchMenuSettings } from '../content-scripts/features/search-menu'
 import { runQuickListFeature } from '../content-scripts/features/quick-list'
 import { scanProfileActivity } from '../content-scripts/options/profile-activity'
 import constructNewData from '../content-scripts/utilities/constructNewData'
@@ -44,6 +45,9 @@ import {
   KeyMentionByName,
   KeySearchDefaultLatest,
   KeySearchFilterBar,
+  KeySearchAskGrok,
+  KeySearchEnterGrok,
+  KeySearchAiQuery,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
   TWEET_FILTER_RELEVANT_KEYS,
@@ -150,6 +154,14 @@ export default defineContentScript({
           setSearchToolsSettings({
             latest: currentSettings[KeySearchDefaultLatest] !== 'off',
             filterBar: currentSettings[KeySearchFilterBar] !== 'off',
+          })
+        }
+
+        if (changedSettingKeys.some((key) => key === KeySearchAskGrok || key === KeySearchEnterGrok || key === KeySearchAiQuery)) {
+          setSearchMenuSettings({
+            grok: currentSettings[KeySearchAskGrok] !== 'off',
+            enterGrok: currentSettings[KeySearchEnterGrok] === 'on',
+            ai: currentSettings[KeySearchAiQuery] !== 'off',
           })
         }
       }

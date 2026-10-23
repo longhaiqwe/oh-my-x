@@ -15,6 +15,7 @@ import {
   type AiProgressHandler,
 } from '../shared/ai-request'
 import { REPLY_SCORE_SAMPLE_THREADS } from '../shared/ai-reply-samples'
+import { buildSearchQueryMessages, parseSearchQueryResponse } from '../shared/search-ai'
 import {
   REPLY_SCORE_BATCH_SIZE,
   REPLY_SCORE_PROMPT_VERSION,
@@ -301,6 +302,22 @@ async function callAiRepostApi(
   const messages = buildRepostMessages(source, customPrompt, style, locale)
   const { content } = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
   return parseAiRepostResponse(content, locale)
+}
+
+/** 搜索框里的大白话转成 X 搜索词；用公共 AI 服务的默认模型，不流式 */
+async function buildSearchQueryWithAi(text: string, signal: AbortSignal): Promise<string> {
+  const input = String(text ?? '').trim()
+  if (!input) throw new AppError('error.searchAiEmpty')
+  const stored = await browser.storage.local.get(AI_CONFIG_KEYS)
+  const { baseUrl, apiKey, model } = resolveAiService(stored, 'search')
+  if (!apiKey) throw new AppError('error.aiNoKey')
+  if (!model) throw new AppError('error.aiNoModel')
+  const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
+  const body: Record<string, unknown> = { model, messages: buildSearchQueryMessages(input, new Date()), temperature: 0 }
+  if (supportsJsonMode(endpoint)) body.response_format = { type: 'json_object' }
+  const { content } = await postChatCompletion(endpoint, apiKey, body, signal)
+  return parseSearchQueryResponse(content)
 }
 
 /** 调用 OpenAI 兼容的 /chat/completions，返回模型输出的文字，以及服务返回的用量（没返回时为 null） */
@@ -801,6 +818,8 @@ async function executeAiRequest(message: AiRequest, signal: AbortSignal, onProgr
       return await scoreReplies(message, signal, onProgress)
     case 'XF_TEST_REPLY_SCORE_SAMPLES':
       return await scoreReplySamples(message, signal)
+    case 'XF_BUILD_SEARCH_QUERY':
+      return { ok: true, query: await buildSearchQueryWithAi(message.text, signal) }
     default: throw new AppError('error.aiUnsupported')
   }
 }

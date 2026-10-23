@@ -12,6 +12,9 @@ import {
   KeyArticleToc,
   KeySearchDefaultLatest,
   KeySearchFilterBar,
+  KeySearchAskGrok,
+  KeySearchEnterGrok,
+  KeySearchAiQuery,
   KeyArticlesButton,
   KeyAutoLikeOnReply,
   KeyBookmarkCount,
@@ -192,6 +195,22 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'searchFilters',
     module: 'layout',
     storageKeys: [KeySearchFilterBar],
+  },
+  {
+    id: 'searchGrok',
+    module: 'layout',
+    storageKeys: [KeySearchAskGrok],
+  },
+  {
+    id: 'searchEnterGrok',
+    module: 'layout',
+    storageKeys: [KeySearchEnterGrok],
+    parent: 'searchGrok',
+  },
+  {
+    id: 'searchAiQuery',
+    module: 'layout',
+    storageKeys: [KeySearchAiQuery],
   },
 
   // 内容过滤

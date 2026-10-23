@@ -21,9 +21,11 @@ export function aiServiceMigrationPatch(raw: Record<string, unknown>): Record<st
   return patch
 }
 
-export function resolveAiService(raw: Record<string, unknown>, feature: 'repost' | 'score') {
+/** search（AI 转搜索语法）没有单独的模型设置，用公共默认模型 */
+export function resolveAiService(raw: Record<string, unknown>, feature: 'repost' | 'score' | 'search') {
   const values = { ...raw, ...aiServiceMigrationPatch(raw) }
-  const override = String(values[feature === 'repost' ? KeyAiRepostModel : KeySpamAiModel] ?? '').trim()
+  const overrideKey = feature === 'repost' ? KeyAiRepostModel : feature === 'score' ? KeySpamAiModel : null
+  const override = overrideKey ? String(values[overrideKey] ?? '').trim() : ''
   return {
     baseUrl: String(values[KeyAiServiceBaseUrl] ?? '').trim(),
     apiKey: String(values[KeyAiServiceApiKey] ?? '').trim(),

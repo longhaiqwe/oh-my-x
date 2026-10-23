@@ -30,6 +30,9 @@ export const KeyHighlightNonFollowers = 'highlightNonFollowers'
 export const KeyArticleToc = 'articleToc'
 export const KeySearchDefaultLatest = 'searchDefaultLatest' // 新搜索打开「最新」标签
 export const KeySearchFilterBar = 'searchFilterBar' // 搜索结果页标签下的筛选条
+export const KeySearchAskGrok = 'searchAskGrok' // 搜索框下拉里的「问 Grok」
+export const KeySearchEnterGrok = 'searchEnterGrok' // 在搜索框按回车时问 Grok
+export const KeySearchAiQuery = 'searchAiQuery' // 搜索框下拉里的「用 AI 转成搜索语法」
 export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyComposerMediaGrid = 'composerMediaGrid' // 发帖框多图两列排版 + 拖动排序
 export const KeyMentionByName = 'mentionByName' // 发帖框 @ 后输入名字，查出账号后换成 @用户名
@@ -170,6 +173,9 @@ export const allSettingsKeys = [
   KeyArticleToc,
   KeySearchDefaultLatest,
   KeySearchFilterBar,
+  KeySearchAskGrok,
+  KeySearchEnterGrok,
+  KeySearchAiQuery,
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
@@ -419,6 +425,9 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyArticleToc]: 'on',
   [KeySearchDefaultLatest]: 'on',
   [KeySearchFilterBar]: 'on',
+  [KeySearchAskGrok]: 'on',
+  [KeySearchEnterGrok]: 'off',
+  [KeySearchAiQuery]: 'on',
   [KeyScheduledPanorama]: 'on',
   [KeyScheduledSidebar]: 'on',
   [KeyOwnPostAutoSync]: 'on',

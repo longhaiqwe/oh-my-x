@@ -157,9 +157,31 @@ export function createSearchLatestTracker() {
   }
 }
 
+/** 用一条搜索词搜索的地址，和在搜索框里输入后回车一样带 src=typed_query */
+export function searchHref(query: string): string | null {
+  const q = query.trim()
+  return q ? `/search?q=${encodeURIComponent(q)}&src=typed_query` : null
+}
+
+/** Grok 页面的问题最多这么长 */
+export const GROK_TEXT_MAX = 2000
+
+/**
+ * 打开 Grok 并带上问题的地址。X 的 Grok 页面读 text 参数（2026-10-23 读 X 网页代码并实测）：
+ * 帖子链接和 @用户名会直接发送；其他文字弹出确认框「Send this message?」，点 Send 后才发给 Grok，点 Cancel 填进输入框。
+ */
+export function grokAskHref(text: string): string | null {
+  const question = text.trim().slice(0, GROK_TEXT_MAX)
+  return question ? `/i/grok?text=${encodeURIComponent(question)}` : null
+}
+
+function isGrokPage(url: URL): boolean {
+  return url.pathname === '/i/grok'
+}
+
 /**
  * 在 X 页面里（MAIN world）换地址并通知 X 的路由，和站内点链接一样不重新加载页面。
- * X 的路由历史记录格式是 { key, state }（2026-10-23 实测）。只接受同源的搜索页地址。
+ * X 的路由历史记录格式是 { key, state }（2026-10-23 实测）。只接受同源的搜索页和 Grok 页地址。
  */
 export function navigateSearchPage(href: unknown, replace: boolean): boolean {
   if (typeof href !== 'string' || href.length > 4096) return false
@@ -169,7 +191,7 @@ export function navigateSearchPage(href: unknown, replace: boolean): boolean {
   } catch {
     return false
   }
-  if (url.origin !== window.location.origin || !parseSearchLocation(url.href)) return false
+  if (url.origin !== window.location.origin || !(parseSearchLocation(url.href) || isGrokPage(url))) return false
   const state = replace
     ? window.history.state
     : { key: Math.random().toString(36).slice(2, 8), state: undefined }

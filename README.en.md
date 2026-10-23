@@ -43,7 +43,7 @@ The settings popup has five tabs. The names below match the popup:
 
 | Module | Features |
 |------|------|
-| [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar |
+| [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar, Ask Grok, AI search operators |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
 | [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
@@ -123,6 +123,18 @@ Adds a row of filters below the tabs on search results and hashtag pages, so you
 Each choice rewrites the search and runs it again; you can see and keep editing it in the search box. Operators of the same kind that you type yourself (such as `min_faves:500`) show in the matching dropdown. The filter bar is not shown on the People and Lists tabs.
 
 There is no language filter: X marks article posts as having no language, so `lang:zh` also drops Chinese articles. You can still add `lang:` in the search box yourself; the filter bar keeps it as is.
+
+#### Ask Grok
+
+After you type in the search box, the dropdown shows Ask Grok below Search for "…". Click it to open Grok with that text filled in. X asks for confirmation, and Grok gets the question only after you click Send.
+
+Sub-setting Enter asks Grok (off by default): pressing Enter in the search box opens Grok instead of searching. To search, click Search for "…" in the dropdown. If you pick a dropdown item with the arrow keys, Enter works as X normally does.
+
+#### AI search operators
+
+The dropdown also has Turn into search operators with AI. It uses the model you set up in Settings → AI service to turn plain words into X search operators, then searches with X. The example given to the model: on 2026-10-23, "上周关于 Claude、点赞过千的中文帖" (Chinese posts about Claude from last week with over 1,000 likes) becomes `Claude lang:zh min_faves:1000 since:2026-10-16`. Actual results depend on your model. Results are X's own post list, so you can switch to Latest, like, and reply.
+
+Set up the AI service first. If it is not set up or not authorized, the item shows the error and Open AI service settings. When you click the item, the text in the search box is sent to your AI service.
 
 ### 02 Content Filter
 
@@ -286,7 +298,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 
 | Tab (module) | Features |
 |------|------|
-| **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar |
+| **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar, Ask Grok, AI search operators |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
 | **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |

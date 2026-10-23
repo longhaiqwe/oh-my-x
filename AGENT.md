@@ -65,7 +65,8 @@ oh-my-x/
 │   ├── composer-media.ts        # 发帖框多图排序：两边共用的事件名、属性名和纯计算
 │   ├── mention-search.ts        # 按名字艾特：找光标前的「@名字」、整理 X 用户查询接口的返回
 │   ├── selection-draft.ts       # 右键存草稿：草稿正文、X 新建草稿接口的请求和返回
-│   ├── search-tools.ts          # 搜索默认「最新」+ 筛选条：搜索词拆分 / 拼装、搜索页地址、MAIN world 跳转
+│   ├── search-tools.ts          # 搜索默认「最新」+ 筛选条 + Grok 地址：搜索词拆分 / 拼装、搜索页地址、MAIN world 跳转
+│   ├── search-ai.ts             # AI 转搜索语法：提示词（含本机日期）、解析模型返回的搜索词
 │   └── composer-media-bridge.ts # 发帖框多图排序的 MAIN world 部分：读 X 图片数据、改图片顺序
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -89,7 +90,8 @@ oh-my-x/
 │   │   ├── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
 │   │   ├── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
 │   │   ├── selection-draft.ts   # 右键存草稿：把拦截器抓到的新建草稿接口编号写进存储
-│   │   └── search-tools.ts      # 搜索默认「最新」、搜索结果页标签下的筛选条
+│   │   ├── search-tools.ts      # 搜索默认「最新」、搜索结果页标签下的筛选条
+│   │   └── search-menu.ts       # 搜索框下拉的「问 Grok」「用 AI 转成搜索语法」、回车问 Grok
 │   │
 │   ├── options/
 │   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
@@ -196,6 +198,9 @@ oh-my-x/
 - 默认「最新」：动态循环每轮看一次地址（搜索页换搜索词时路径不变，不会补跑 `all`），停在「热门」就请求替换成 `f=live` 的地址。用户点「热门」标签（document 捕获阶段的 click）或在「热门」里用筛选条改条件时，记住这个搜索词，之后保持「热门」；只存在页面内存里。开关 `searchDefaultLatest`，默认开。
 - 筛选条：插在标签栏 `nav` 后面、同一层里，跟着 X 的顶部区域固定；「用户」「列表」标签不显示。三个下拉框（时间 / 点赞数 / 图片视频）+ 两个按钮（只看原帖、只看关注的人）+ 清除。条件按搜索语法写进 `q`：`within_time:` `min_faves:` `-filter:replies` `filter:images|videos|media`（2026-10-23 在 X 网页实测都生效）；搜索框里自己写的同类语法会显示成下拉框里的额外选项，其他语法原样保留。话题标签页上筛选时换成 `/search?q=#标签 …`。开关 `searchFilterBar`，默认开。
 - 不做语言筛选（2026-10-23 实测后用户决定去掉）：X 把长文帖（正文只有链接）的语言记为 `zxx`，`lang:zh` 会排除中文长文；`(lang:zh OR lang:zxx)` 只认最后一个 `lang:`，不加括号的 OR 会拆坏搜索词，`-lang:en` 返回 0 条。用户手写的 `lang:` 按普通搜索词保留。
+- 问 Grok（`features/search-menu.ts`）：在搜索框下拉（输入框 `aria-owns` 指向的 `role=listbox`）的第一项后面插一组附加选项，listbox 挂 MutationObserver，X 换内容后放回原位。点「问 Grok」跳到 `/i/grok?text=…`（同样经 `XF_SEARCH_NAVIGATE`，`navigateSearchPage` 也接受 `/i/grok`）。X 的 Grok 页读 `text` 参数：帖子链接和 `@用户名` 直接发送，其他文字弹确认框「Send this message?」，点 Send 才发送（2026-10-23 读 `bundle.GrokXWeb` 代码并实测）。开关 `searchAskGrok`，默认开。
+- 回车问 Grok：window 捕获阶段的 keydown，比 X 先收到；下拉里有 `aria-selected="true"` 的项目（方向键选中）、输入法组字、带修饰键时交给 X。开关 `searchEnterGrok`，默认关，从属于问 Grok。
+- AI 转搜索语法：点下拉里的一项发 `XF_BUILD_SEARCH_QUERY`（`shared/ai-request.ts` 的 Port），后台用公共 AI 服务的默认模型（`resolveAiService(…, 'search')`，没有单独的模型设置），提示词在 `shared/search-ai.ts`：给出本机日期和算好的昨天 / 7 天前 / 30 天前 / 月初 / 年初，要求只回 `{"query": …}`；支持 JSON 模式的服务带 `response_format`。拿到搜索词后跳到 `/search?q=…&src=typed_query`。转换中改了文字会取消请求；没填 Key、没授权等报错下面给「打开 AI 服务设置」（`OPEN_SETTINGS`）。开关 `searchAiQuery`，默认开。
 - 换地址：内容脚本发 `XF_SEARCH_NAVIGATE`（`{ href, replace }`），拦截器在 MAIN world 调 `navigateSearchPage`：`history.pushState / replaceState` 后派发 `popstate`，X 的路由按新地址渲染，不重新加载页面（2026-10-23 实测）。X 的历史记录格式是 `{ key, state }`，新增记录时照这个格式生成；只接受同源的搜索页地址。
 
 ## 内容脚本编排

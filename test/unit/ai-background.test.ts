@@ -166,3 +166,46 @@ it('uses the summary override without changing the shared service or default', a
   expect(fetchMock.mock.calls[0][1].headers.authorization).toBe('Bearer shared-key')
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('summary-model')
 })
+
+describe('AI 转搜索语法（XF_BUILD_SEARCH_QUERY）', () => {
+  const buildQuery = { type: 'XF_BUILD_SEARCH_QUERY', text: '上周关于 Claude、点赞过千的中文帖' }
+
+  it('用公共默认模型，不用总结模型；返回整理过的搜索词', async () => {
+    ;(globalThis as any).browser.storage.local.get.mockResolvedValue({
+      [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model',
+      aiRepostModel: 'summary-model',
+    })
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"query": "Claude  lang:zh min_faves:1000"}' } }] })))
+    const { server } = start(buildQuery)
+    await flushMicrotasks()
+    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, query: 'Claude lang:zh min_faves:1000' })
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.model).toBe('test-model')
+    expect(body.temperature).toBe(0)
+    expect(body.messages[0].content).toContain('X search query')
+    expect(body.messages[1].content).toBe('上周关于 Claude、点赞过千的中文帖')
+  })
+
+  it('没填 API Key 时报错，不发请求', async () => {
+    ;(globalThis as any).browser.storage.local.get.mockResolvedValue({ [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model' })
+    const { server } = start(buildQuery)
+    await flushMicrotasks()
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: { code: 'error.aiNoKey' } }))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('没授权 AI 服务地址时报错，不发请求', async () => {
+    permissions.contains.mockResolvedValue(false)
+    const { server } = start(buildQuery)
+    await flushMicrotasks()
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: { code: 'error.aiNotAuthorized' } }))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('模型没给出搜索词时报错', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"query": ""}' } }] })))
+    const { server } = start(buildQuery)
+    await flushMicrotasks()
+    expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: { code: 'error.searchAiEmpty' } }))
+  })
+})

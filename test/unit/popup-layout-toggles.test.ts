@@ -1,7 +1,7 @@
 import { createApp, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import LayoutModule from '../../entrypoints/popup/components/modules/LayoutModule.vue'
-import { KeyNavigationWidth, KeySearchDefaultLatest, KeySearchFilterBar, KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
+import { KeyNavigationWidth, KeySearchAiQuery, KeySearchAskGrok, KeySearchDefaultLatest, KeySearchEnterGrok, KeySearchFilterBar, KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
 import { event, flushMicrotasks } from '../helpers/runtime-port'
 
 type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>
@@ -112,4 +112,19 @@ it('搜索分组：默认「最新」和筛选条两个开关默认打开，关�
   await settle()
   expect(store[KeySearchDefaultLatest]).toBe('off')
   expect(store[KeySearchFilterBar]).toBe('off')
+})
+
+it('搜索分组：问 Grok、AI 转搜索语法默认打开，回车问 Grok 默认关闭并挂在问 Grok 下面', async () => {
+  await mount()
+  expect(switchFor('问 Grok').getAttribute('aria-checked')).toBe('true')
+  expect(switchFor('回车问 Grok').getAttribute('aria-checked')).toBe('false')
+  expect(switchFor('AI 转搜索语法').getAttribute('aria-checked')).toBe('true')
+  expect(root.textContent).toContain('点 Send 后 Grok 才收到问题')
+  switchFor('回车问 Grok').click()
+  switchFor('问 Grok').click()
+  switchFor('AI 转搜索语法').click()
+  await settle()
+  expect(store[KeySearchEnterGrok]).toBe('on')
+  expect(store[KeySearchAskGrok]).toBe('off')
+  expect(store[KeySearchAiQuery]).toBe('off')
 })

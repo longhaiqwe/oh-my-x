@@ -4,10 +4,12 @@ import {
   buildSearchQuery,
   createSearchLatestTracker,
   filteredSearchHref,
+  grokAskHref,
   hasSearchFilters,
   latestSearchHref,
   navigateSearchPage,
   parseSearchLocation,
+  searchHref,
   splitSearchQuery,
 } from '../../shared/search-tools'
 
@@ -119,6 +121,19 @@ describe('createSearchLatestTracker', () => {
   })
 })
 
+describe('searchHref / grokAskHref', () => {
+  it('搜索地址带 src=typed_query，空格写成 %20', () => {
+    expect(searchHref(' Claude lang:zh ')).toBe('/search?q=Claude%20lang%3Azh&src=typed_query')
+    expect(searchHref('  ')).toBeNull()
+  })
+
+  it('Grok 地址用 text 参数带上问题，过长时截断', () => {
+    expect(grokAskHref(' 上周 Claude 的新功能 ')).toBe(`/i/grok?text=${encodeURIComponent('上周 Claude 的新功能')}`)
+    expect(grokAskHref('a'.repeat(2100))).toBe(`/i/grok?text=${'a'.repeat(2000)}`)
+    expect(grokAskHref('')).toBeNull()
+  })
+})
+
 describe('navigateSearchPage', () => {
   afterEach(() => {
     window.history.replaceState(null, '', '/')
@@ -147,10 +162,15 @@ describe('navigateSearchPage', () => {
     expect(window.location.search).toBe('?q=a&f=live')
   })
 
-  it('只接受同源的搜索页地址', () => {
+  it('也接受 Grok 页地址', () => {
+    expect(navigateSearchPage('/i/grok?text=hi', false)).toBe(true)
+    expect(window.location.pathname + window.location.search).toBe('/i/grok?text=hi')
+  })
+
+  it('只接受同源的搜索页和 Grok 页地址', () => {
     const onPop = vi.fn()
     window.addEventListener('popstate', onPop)
-    for (const href of ['/home', '//evil.example/search?q=a', 'https://evil.example/search?q=a', 'javascript:alert(1)', 42, null]) {
+    for (const href of ['/home', '/i/grok/share', '//evil.example/search?q=a', 'https://evil.example/i/grok?text=a', 'https://evil.example/search?q=a', 'javascript:alert(1)', 42, null]) {
       expect(navigateSearchPage(href, false)).toBe(false)
     }
     window.removeEventListener('popstate', onPop)
