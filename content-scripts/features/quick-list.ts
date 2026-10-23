@@ -930,7 +930,16 @@ function syncNavEntryLayout(entry: HTMLElement, expanded: boolean, refLink: HTML
     pill.style.margin = ''
   }
 
-  const textInfo = findNavTextNode(entry)
+  let textInfo = findNavTextNode(entry)
+  if (!textInfo && expanded && pill && refLink) {
+    // 入口在导航只显示图标时克隆（如私信页、窄窗口），X 那时不渲染文字节点。
+    // 展开后照抄参考项的文字节点，带上 X 的字号、颜色类；自己新建的节点没有这些类，会显示成浏览器默认链接色
+    const refText = findNavTextNode(refLink)
+    if (refText) {
+      pill.appendChild(refText.container.cloneNode(true))
+      textInfo = findNavTextNode(entry)
+    }
+  }
   if (textInfo) {
     if (expanded) {
       textInfo.container.style.display = ''
@@ -940,15 +949,6 @@ function syncNavEntryLayout(entry: HTMLElement, expanded: boolean, refLink: HTML
     } else {
       textInfo.container.style.display = 'none'
     }
-  } else if (expanded && pill) {
-    const textContainer = document.createElement('div')
-    textContainer.setAttribute('dir', 'ltr')
-    textContainer.style.marginLeft = '16px'
-    const span = document.createElement('span')
-    span.textContent = t('qlPage.myLists')
-    span.style.fontWeight = '400'
-    textContainer.appendChild(span)
-    pill.appendChild(textContainer)
   }
 }
 

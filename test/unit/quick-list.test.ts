@@ -303,5 +303,51 @@ describe('Quick List Helpers', () => {
       expect(navEntry?.textContent).toContain('我的列表')
       expect(textContainer?.style.display).toBe('')
     })
+
+    it('copies the native text node with its classes when the entry was created collapsed', async () => {
+      const { ensureQuickListNavEntry } = await import('../../content-scripts/features/quick-list')
+      // 先在私信页打开：导航只显示图标，入口克隆时没有文字节点
+      window.history.pushState({}, '', '/i/chat')
+      document.body.innerHTML = `
+        <header role="banner" style="width: 68px;">
+          <nav role="navigation">
+            <a data-testid="AppTabBar_Home_Link" href="/home">
+              <div>
+                <div><svg viewBox="0 0 24 24"></svg></div>
+              </div>
+            </a>
+          </nav>
+        </header>
+      `
+      ensureQuickListNavEntry(true, 'top')
+      const navEntry = document.querySelector('.xf-quick-list-nav-entry') as HTMLElement
+      expect(navEntry.getAttribute('data-xf-mode')).toBe('collapsed')
+      expect(navEntry.querySelector('div[dir]')).toBeNull()
+
+      // 再回到主页：X 在原生项里补上带字号、颜色类的文字节点
+      window.history.pushState({}, '', '/home')
+      const header = document.querySelector('header[role="banner"]') as HTMLElement
+      header.style.width = '275px'
+      const homeLink = document.querySelector('[data-testid="AppTabBar_Home_Link"]') as HTMLElement
+      const nativeText = document.createElement('div')
+      nativeText.setAttribute('dir', 'ltr')
+      nativeText.className = 'css-146c3p1 r-adyw6z r-b88u0q'
+      nativeText.innerHTML = '<span class="css-1jxf684">主页</span><span class="css-1jxf684"> </span>'
+      homeLink.firstElementChild!.appendChild(nativeText)
+
+      ensureQuickListNavEntry(true, 'top')
+      expect(navEntry.getAttribute('data-xf-mode')).toBe('expanded')
+      const entryText = navEntry.querySelector('div[dir]') as HTMLElement
+      expect(entryText.className).toBe('css-146c3p1 r-adyw6z r-b88u0q')
+      const entrySpan = entryText.querySelector('span') as HTMLElement
+      expect(entrySpan.className).toBe('css-1jxf684')
+      expect(entrySpan.textContent).toBe('我的列表')
+      expect(entrySpan.style.fontWeight).toBe('400')
+      expect(navEntry.querySelectorAll('div[dir]')).toHaveLength(1)
+
+      // 再同步一次不会重复添加
+      ensureQuickListNavEntry(true, 'top')
+      expect(navEntry.querySelectorAll('div[dir]')).toHaveLength(1)
+    })
   })
 })
