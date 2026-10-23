@@ -31,6 +31,8 @@ export const KeyArticleToc = 'articleToc'
 export const KeyOwnPostAutoSync = 'ownPostAutoSync'
 export const KeyComposerMediaGrid = 'composerMediaGrid' // 发帖框多图两列排版 + 拖动排序
 export const KeyMentionByName = 'mentionByName' // 发帖框 @ 后输入名字，查出账号后换成 @用户名
+export const KeySelectionDraft = 'selectionDraft' // 网页上选中文字后，右键菜单「存为 X 草稿」
+export const KeyCreateDraftQueryId = 'createDraftQueryId' // X 新建草稿的接口编号，X 页面里抓到的
 export const KeyScheduledPanorama = 'scheduledPanorama'
 export const KeyScheduledSidebar = 'scheduledSidebar' // 右侧栏搜索框下的排期面板
 export const KeyScheduledSidebarCollapsed = 'scheduledSidebarCollapsed' // 右侧栏排期面板是否收起（'on' = 收起），属于数据，不是设置项
@@ -169,6 +171,7 @@ export const allSettingsKeys = [
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
   KeyMentionByName,
+  KeySelectionDraft,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -415,6 +418,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyOwnPostAutoSync]: 'on',
   [KeyComposerMediaGrid]: 'on',
   [KeyMentionByName]: 'on',
+  [KeySelectionDraft]: 'on',
   [KeyRadarWidth]: 'wide',
   [KeyTweetFilterEnabled]: 'on',
   [KeyTweetFilterAction]: 'collapse',

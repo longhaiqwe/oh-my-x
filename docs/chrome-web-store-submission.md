@@ -84,7 +84,21 @@ Saves images, GIFs, and videos from a post when the user clicks Download in the 
 scripting
 
 ```text
-When the user clicks "Scan last 7 days" in the popup on an X profile page and the page's content script does not respond (for example right after an extension update), the extension injects its own bundled scan function into that X tab. Used only on the active X tab and only after that click.
+When the user clicks "Scan last 7 days" in the popup on an X profile page and the page's content script does not respond (for example right after an extension update), the extension injects its own bundled scan function into that X tab. Used only on the active X tab and only after that click. It is also used with activeTab to read the selected text once after the user clicks "Save to X drafts" in the right-click menu.
+```
+
+2.4.0 新增下面两项（右键存草稿），提交 2.4.0 时要在后台补上理由：
+
+contextMenus
+
+```text
+Adds one item, "Save to X drafts", to the right-click menu when text is selected. Clicking it saves the selected text and the page link as a draft in the user's X account. The user can turn the item off in the popup.
+```
+
+activeTab
+
+```text
+After the user clicks "Save to X drafts" in the right-click menu, the extension reads the selected text in that tab once so line breaks are kept. No other access to the tab is used.
 ```
 
 主机权限（Host permission）

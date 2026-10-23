@@ -36,7 +36,8 @@ export default defineConfig({
     description: '__MSG_extDescription__',
     default_locale: 'en',
     // scripting：插件更新后已打开的页面收不到弹窗消息，博主活动度扫描要把抓取请求直接注入页面
-    permissions: ['storage', 'cookies', 'alarms', 'downloads', 'scripting'],
+    // contextMenus + activeTab：右键「存为 X 草稿」；点菜单项后只在当前页面读一次选中的文字
+    permissions: ['storage', 'cookies', 'alarms', 'downloads', 'scripting', 'contextMenus', 'activeTab'],
     host_permissions: [
       'https://twitter.com/*',
       'https://mobile.twitter.com/*',

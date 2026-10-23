@@ -31,6 +31,9 @@ export const CREATOR_REWARDS_TYPE = 'XF_CREATOR_REWARDS'
 /** 账号分析接口编号 postMessage 的 type（X 换编号后后台用页面里抓到的） */
 export const ACCOUNT_OVERVIEW_QUERY_TYPE = 'XF_ACCOUNT_OVERVIEW_QUERY'
 
+/** X 新建草稿接口编号 postMessage 的 type（右键存草稿用页面里抓到的编号） */
+export const CREATE_DRAFT_QUERY_TYPE = 'XF_CREATE_DRAFT_QUERY'
+
 /** 后台静默抓取博主近期活动度请求 postMessage 的 type */
 export const PROFILE_ACTIVITY_FETCH_REQ_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_REQ'
 

@@ -19,6 +19,7 @@ Last updated: October 23, 2026
 - The extension reads X cookies such as `ct0` (CSRF token) and `twid` (account identification) for authenticated X requests and account isolation. X session credentials are not sent to AI services.
 - The extension can load X's public client script from `abs.twimg.com` to resolve current API identifiers. Post thumbnails load from X's image CDN; the database stores their URLs, not image files.
 - Mention by name: when you type a name containing non-English characters after @ in a post, quote, or reply editor, that name (up to 30 characters) is sent with your X session to X's user search, the same endpoint X's editor uses for @ suggestions. The results (names, usernames, profile image URLs, and whether you follow the account) are kept in the page's memory and discarded when the page is closed or reloaded.
+- Save selection to drafts: when you choose "Save to X drafts" from the right-click menu, the extension reads the selected text on that page once and sends it, followed by the page's link (http and https pages only), to X with your X session to create a draft in your account. If that fails, it opens `x.com/intent/post` with the same text in the address so you can save the draft yourself. Nothing is read or sent before you click the menu item.
 - User actions can add a member to an X List, download media, or use interaction helpers. If enabled, the reply helper can like a post after a successful reply. These actions communicate with X or its media CDN.
 
 ## 3. Optional AI service
@@ -38,13 +39,15 @@ Last updated: October 23, 2026
 | `cookies` | Read X session/account cookies for X requests and account isolation. The code does not read AI-provider cookies. |
 | `alarms` | Schedule post-library checks in eligible open X tabs and creator rewards refresh checks. |
 | `downloads` | Save media when you select a download action. |
-| `scripting` | When you click Scan last 7 days in the popup on an X profile page and the page's content script does not respond (for example, after the extension was updated), run the extension's own scan function in that X tab, so the page does not need a reload. It is used only on the active X tab and only after that click. |
+| `scripting` | When you click Scan last 7 days in the popup on an X profile page and the page's content script does not respond (for example, after the extension was updated), run the extension's own scan function in that X tab, so the page does not need a reload. It is used only on the active X tab and only after that click. It also reads the selected text after you choose Save to X drafts (see `activeTab`). |
+| `contextMenus` | Show the Save to X drafts item in the right-click menu when text is selected. |
+| `activeTab` | After you choose Save to X drafts, read the selected text in that tab once, keeping line breaks. It gives no access to other tabs, and no access to that tab before the click. |
 | Required host access | `x.com`, `pro.x.com`, `twitter.com`, `mobile.twitter.com` for X features; `abs.twimg.com` for X's public client script. |
 | Optional host access | The HTTPS host of your chosen AI service, or http://localhost / http://127.0.0.1 for a local service, requested at runtime for the configured host. No blanket access to all websites is requested at installation. |
 
 Chrome site grants apply to a host and scheme rather than an individual API path or port. Previous grants can remain when you change an AI address; review or revoke site access in Chrome's extension settings. An upgrade does not promise to remove previously granted access.
 
-Content scripts run only on `x.com`, `pro.x.com`, `twitter.com`, and `mobile.twitter.com`. Granting an AI host does not inject content scripts there.
+Content scripts run only on `x.com`, `pro.x.com`, `twitter.com`, and `mobile.twitter.com`. Granting an AI host does not inject content scripts there. Save to X drafts runs a function that returns the current selection once on the page where you chose it; it does not add a content script to that site.
 
 ## 5. Changes and contact
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { KeyComposerMediaGrid, KeyMentionByName, KeyScheduledPanorama, KeyScheduledSidebar } from '../../../../storage-keys'
+import { KeyComposerMediaGrid, KeyMentionByName, KeyScheduledPanorama, KeyScheduledSidebar, KeySelectionDraft } from '../../../../storage-keys'
 import { useI18n } from '../../composables/useI18n'
 import ModuleHeader from '../ui/ModuleHeader.vue'
 import FeatureCard from '../ui/FeatureCard.vue'
@@ -23,6 +23,11 @@ const { featureText } = useI18n()
   <FeatureCard feature-id="mentionByName">
    <template #control>
     <FeatureSwitch :storage-key="KeyMentionByName" :label="featureText('mentionByName', 'label')" />
+   </template>
+  </FeatureCard>
+  <FeatureCard feature-id="selectionDraft">
+   <template #control>
+    <FeatureSwitch :storage-key="KeySelectionDraft" :label="featureText('selectionDraft', 'label')" />
    </template>
   </FeatureCard>
   <AiRepostCard />

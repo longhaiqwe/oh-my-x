@@ -51,6 +51,7 @@ import {
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
   KeyMentionByName,
+  KeySelectionDraft,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -140,6 +141,7 @@ export interface ExtensionSettings {
   [KeyOwnPostAutoSync]: ToggleValue
   [KeyComposerMediaGrid]: ToggleValue
   [KeyMentionByName]: ToggleValue
+  [KeySelectionDraft]: ToggleValue
   [KeyRadarWidth]: RadarWidthValue
   [KeyTweetFilterEnabled]: ToggleValue
   [KeyTweetFilterAction]: TweetFilterAction
@@ -200,6 +202,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
   KeyMentionByName,
+  KeySelectionDraft,
   KeyTweetFilterEnabled,
   KeyJumpToReplies,
   KeySortRepliesByTime,

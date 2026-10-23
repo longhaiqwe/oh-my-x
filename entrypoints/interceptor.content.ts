@@ -21,6 +21,7 @@ import {
   USER_METRICS_TYPE,
   CREATOR_REWARDS_TYPE,
   ACCOUNT_OVERVIEW_QUERY_TYPE,
+  CREATE_DRAFT_QUERY_TYPE,
   PROFILE_ACTIVITY_FETCH_REQ_TYPE,
   PROFILE_ACTIVITY_FETCH_ACK_TYPE,
   PROFILE_ACTIVITY_FETCH_RES_TYPE,
@@ -40,6 +41,7 @@ import {
   parseCreatorRewardsPayload,
 } from '../shared/creator-rewards'
 import { ACCOUNT_OVERVIEW_OPERATION } from '../shared/creator-rewards-daily'
+import { CREATE_DRAFT_OPERATION } from '../shared/selection-draft'
 // 只用不依赖文案表的错误代号模块，避免把整张文案表打进页面里的拦截器
 import { CodedError, errorPayload, toTransferable, type ErrorPayload } from '../shared/coded-error'
 import {
@@ -432,6 +434,7 @@ export default defineContentScript({
     }
 
     let lastAccountOverviewQueryId = ''
+    let lastCreateDraftQueryId = ''
 
     // X 当前使用 XHR 加载个人时间线；fetch 与 XHR 必须共用请求捕获逻辑。
     function captureGraphQLRequest(url: string, headers?: HeadersInit) {
@@ -444,6 +447,10 @@ export default defineContentScript({
         if (operationName === ACCOUNT_OVERVIEW_OPERATION && queryId !== lastAccountOverviewQueryId) {
           lastAccountOverviewQueryId = queryId
           window.postMessage({ type: ACCOUNT_OVERVIEW_QUERY_TYPE, queryId, __xf: XF_BRIDGE_MARKER }, '*')
+        }
+        if (operationName === CREATE_DRAFT_OPERATION && queryId !== lastCreateDraftQueryId) {
+          lastCreateDraftQueryId = queryId
+          window.postMessage({ type: CREATE_DRAFT_QUERY_TYPE, queryId, __xf: XF_BRIDGE_MARKER }, location.origin)
         }
         const features = JSON.parse(parsed.searchParams.get('features') || '{}')
         if (Object.keys(features).length) cachedFeatures = { ...cachedFeatures, ...features }

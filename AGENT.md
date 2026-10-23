@@ -13,7 +13,7 @@ X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览�
 | 框架 | [WXT](https://wxt.dev/) + Vite（版本见 `package.json`） |
 | UI | Vue 3 + reka-ui（无头组件）+ Tailwind CSS |
 | 构建 | `wxt build` → `build/chrome-mv3/`（`wxt.config.ts` 的 `outDir`，不用默认的 `.output`，方便用户找到） |
-| 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads`） |
+| 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads` / `scripting` / `contextMenus` / `activeTab`） |
 | 类型 | TypeScript（严格模式；版本见 `package.json`） |
 | 测试 | Vitest + jsdom（见 `vitest.config.ts`） |
 
@@ -64,6 +64,7 @@ oh-my-x/
 │   ├── viral-radar-parser.ts    # 流速数值解析 + 分类
 │   ├── composer-media.ts        # 发帖框多图排序：两边共用的事件名、属性名和纯计算
 │   ├── mention-search.ts        # 按名字艾特：找光标前的「@名字」、整理 X 用户查询接口的返回
+│   ├── selection-draft.ts       # 右键存草稿：草稿正文、X 新建草稿接口的请求和返回
 │   └── composer-media-bridge.ts # 发帖框多图排序的 MAIN world 部分：读 X 图片数据、改图片顺序
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -85,7 +86,8 @@ oh-my-x/
 │   │   ├── auto-like-reply.ts   # 回复后自动点赞
 │   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的列表」入口
 │   │   ├── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
-│   │   └── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
+│   │   ├── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
+│   │   └── selection-draft.ts   # 右键存草稿：把拦截器抓到的新建草稿接口编号写进存储
 │   │
 │   ├── options/
 │   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
@@ -175,6 +177,16 @@ oh-my-x/
 - 按键在 window 捕获阶段处理，早于 X 的编辑器：上下键选、回车 / Tab 确认、Esc 只关候选框（不让 X 关掉发帖弹窗）。带 ⌘ / Ctrl / Alt / Shift 的按键和输入法组字中的按键不拦。
 - 替换：按段落里的文字位置选中「@名字」，立即派发一次 `selectionchange`（X 的编辑器靠 React 在 document 上监听它来读选区，浏览器自己要到下一轮才发），再同步派发 `paste`。不能等到下一轮，否则中间打的字会先替换掉选中的「@名字」。粘贴事件带 `__xfHandled`，`composer.ts` 的 Markdown 粘贴处理会跳过它。X 的编辑器没处理粘贴时退回 `execCommand('insertText')`。
 - 开关 `mentionByName`，默认开。
+
+## 右键存草稿（`shared/selection-draft.ts` + `background.ts` + `features/selection-draft.ts`）
+
+- 菜单项 `xf-selection-draft`，`contexts: ['selection']`。后台在 `onInstalled` / `onStartup`、`selectionDraft` 或 `extensionStatus` 变化、界面语言变化时先删再建；任一开关为 `off` 时不建。
+- 点菜单项后用 `activeTab` + `scripting.executeScript` 在点击的 frame 里读 `getSelection()`，保留换行；读不到（输入框里的选区、浏览器内部页面）时用 `info.selectionText`。
+- 正文 = 选中的文字 + 空行 + 来源链接（只附 http/https，选区里已有这个链接时不附）。
+- 后台直接 POST `x.com/i/api/graphql/<编号>/CreateDraftTweet`，凭据和其他后台请求相同（`ct0` + 公共 Bearer，`credentials: include`），不需要打开 X 标签页。变量 `{ post_tweet_request: { auto_populate_reply_metadata, status, exclude_reply_user_ids, media_ids } }`，返回 `data.tweet.rest_id`（2026-10-23 在 X 网页实测）。
+- 接口编号：先用 `createDraftQueryId`（X 页面自己存草稿时拦截器广播 `XF_CREATE_DRAFT_QUERY`，内容脚本写入），再用内置的 `FALLBACK_CREATE_DRAFT_QUERY_ID`。400/404 换下一个编号；其他失败不重试，避免存两份。
+- 成功：点击所在标签页的扩展图标显示 ✓（success-600），3 秒后清掉。失败：在旁边打开 `x.com/intent/post?text=…`，用户关掉发帖框时点保存；X 这次存草稿的请求会让拦截器记下新编号。
+- 开关 `selectionDraft`，默认开。
 
 ## 内容脚本编排
 
@@ -300,7 +312,7 @@ npm run build     # → build/chrome-mv3/
 npm run zip       # 构建 + 打包
 ```
 
-Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
+Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`、`scripting`、`contextMenus`、`activeTab`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
 
 AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；第一段数据 25 秒内要到，之后 15 秒没有新数据或总共 90 秒才算超时（`shared/ai-deadline.ts`），Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
 

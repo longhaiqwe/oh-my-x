@@ -39,6 +39,8 @@ import {
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
   KeyMentionByName,
+  KeySelectionDraft,
+  KeyCreateDraftQueryId,
   KeyProfileActivityStats,
   KeyProfileButton,
   KeyQuickInteraction,
@@ -276,6 +278,11 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'mentionByName',
     module: 'create',
     storageKeys: [KeyMentionByName],
+  },
+  {
+    id: 'selectionDraft',
+    module: 'create',
+    storageKeys: [KeySelectionDraft, KeyCreateDraftQueryId],
   },
   {
     id: 'aiRepost',

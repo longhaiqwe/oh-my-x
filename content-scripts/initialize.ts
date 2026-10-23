@@ -13,6 +13,7 @@ import { initAutoLikeOnReply } from './features/auto-like-reply'
 import { initMentionByName } from './features/mention-by-name'
 import { listenForUserFollowerMetricsApi } from './features/user-followers'
 import { listenForCreatorRewardsApi } from './features/creator-rewards'
+import { listenForCreateDraftQueryId } from './features/selection-draft'
 
 function addStylesheets() {
   addStyleSheet('main', browser.runtime.getURL('css/main.css' as any))
@@ -91,6 +92,7 @@ export async function initializeExtension() {
   void initMentionByName()
   listenForUserFollowerMetricsApi()
   listenForCreatorRewardsApi()
+  listenForCreateDraftQueryId()
 
   const settings = await getSettings()
 

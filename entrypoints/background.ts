@@ -32,8 +32,8 @@ import { parseBotAccounts, updateBotAccounts } from '../shared/reply-bot-account
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
 import { migrateSpamStorage } from '../shared/spam-migration'
-import { getLocale, initI18n, type Locale } from '../shared/i18n'
-import { AppError, toTransferable, type TransferableError } from '../shared/errors'
+import { getLocale, initI18n, onLocaleChange, t, type Locale } from '../shared/i18n'
+import { AppError, errorText, toTransferable, type TransferableError } from '../shared/errors'
 import type { QuickListItem } from '../shared/quick-list'
 import {
   KeyAiServiceBaseUrl,
@@ -47,6 +47,9 @@ import {
   KeyCreatorRewardsHistory,
   KeyImpressionsDaily,
   KeyAccountOverviewQueryId,
+  KeyCreateDraftQueryId,
+  KeyExtensionStatus,
+  KeySelectionDraft,
   defaultPreferences,
 } from '../storage-keys'
 import {
@@ -86,6 +89,14 @@ import {
   parseMentionUsers,
   type MentionUser,
 } from '../shared/mention-search'
+import {
+  FALLBACK_CREATE_DRAFT_QUERY_ID,
+  SELECTION_DRAFT_MENU_ID,
+  buildDraftText,
+  composeIntentUrl,
+  createDraftTweet,
+} from '../shared/selection-draft'
+import type { Browser } from 'wxt/browser'
 
 const X_API_BASE = 'https://x.com/i/api'
 const X_PUBLIC_BEARER =
@@ -794,6 +805,86 @@ async function executeAiRequest(message: AiRequest, signal: AbortSignal, onProgr
   }
 }
 
+// ---------- 右键「存为 X 草稿」 ----------
+
+// 右键菜单接口在 Chrome 123 之前不返回 Promise，统一用回调，并读掉 lastError（菜单项不存在时 remove 会报错）
+function removeContextMenu(id: string): Promise<void> {
+  return new Promise(resolve => browser.contextMenus.remove(id, () => { void browser.runtime.lastError; resolve() }))
+}
+
+function createContextMenu(properties: Browser.contextMenus.CreateProperties): Promise<void> {
+  return new Promise(resolve => { browser.contextMenus.create(properties, () => { void browser.runtime.lastError; resolve() }) })
+}
+
+let selectionDraftMenuSync: Promise<void> = Promise.resolve()
+
+/** 按功能开关和扩展总开关加上或去掉右键菜单项；菜单名跟着界面语言 */
+function syncSelectionDraftMenu() {
+  if (!browser.contextMenus) return
+  selectionDraftMenuSync = selectionDraftMenuSync.then(async () => {
+    await initI18n()
+    const stored = await browser.storage.local.get([KeySelectionDraft, KeyExtensionStatus])
+    await removeContextMenu(SELECTION_DRAFT_MENU_ID)
+    if (stored[KeySelectionDraft] === 'off' || stored[KeyExtensionStatus] === 'off') return
+    await createContextMenu({ id: SELECTION_DRAFT_MENU_ID, title: t('selectionDraft.menu'), contexts: ['selection'] })
+  }).catch(() => {})
+}
+
+/**
+ * 菜单事件带的 selectionText 可能不保留换行，先在页面里读一次选区。
+ * 输入框里的选区、浏览器内部页面读不到，用事件带的文字。
+ */
+async function readSelectedText(info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab): Promise<string> {
+  const fallback = info.selectionText || ''
+  if (tab?.id == null || tab.id < 0) return fallback
+  try {
+    const [injection] = await browser.scripting.executeScript({
+      target: { tabId: tab.id, frameIds: [info.frameId ?? 0] },
+      func: () => window.getSelection()?.toString() ?? '',
+    })
+    const text = typeof injection?.result === 'string' ? injection.result : ''
+    return text.trim() ? text : fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** 没登录 X（没有 ct0）时返回 null */
+async function getDraftApiHeaders(): Promise<Record<string, string> | null> {
+  if (!(await getCsrfToken())) return null
+  return (await getBaseApiHeaders()) as Record<string, string>
+}
+
+/** 存好后在点右键的标签页的扩展图标上显示 ✓，3 秒后去掉；颜色是设计规范里的 success-600 */
+async function flashSavedBadge(tabId: number | undefined) {
+  if (tabId == null || tabId < 0) return
+  try {
+    await browser.action.setBadgeBackgroundColor({ tabId, color: '#348a58' })
+    await browser.action.setBadgeText({ tabId, text: '✓' })
+    setTimeout(() => { void browser.action.setBadgeText({ tabId, text: '' }).catch(() => {}) }, 3000)
+  } catch {}
+}
+
+/** 存进 X 草稿箱；存不进去时在旁边打开 X 发帖页，正文已填好，由用户手动保存 */
+async function saveSelectionAsDraft(info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) {
+  const text = buildDraftText(await readSelectedText(info, tab), info.pageUrl)
+  if (!text) return
+  try {
+    const stored = await browser.storage.local.get(KeyCreateDraftQueryId)
+    const capturedId = typeof stored[KeyCreateDraftQueryId] === 'string' ? stored[KeyCreateDraftQueryId] : ''
+    await createDraftTweet(text, {
+      fetch: (input, init) => fetch(input, init),
+      getHeaders: getDraftApiHeaders,
+      queryIds: [capturedId, FALLBACK_CREATE_DRAFT_QUERY_ID],
+    })
+    await flashSavedBadge(tab?.id)
+  } catch (error) {
+    console.warn('[oh-my-x] 存草稿失败，改为打开发帖页：', errorText(error, 'error.draftHttp'))
+    const position = tab && tab.windowId >= 0 ? { windowId: tab.windowId, index: tab.index + 1 } : {}
+    await browser.tabs.create({ url: composeIntentUrl(text), ...position }).catch(() => {})
+  }
+}
+
 export default defineBackground(() => {
   void initI18n()
   void migrateAiService().catch(() => {})
@@ -932,13 +1023,25 @@ export default defineBackground(() => {
     })()
     return true
   })
+  // 右键「存为 X 草稿」：菜单项在安装、浏览器启动、开关或界面语言变化时重建
+  browser.contextMenus?.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== SELECTION_DRAFT_MENU_ID) return
+    void saveSelectionAsDraft(info, tab)
+  })
+  browser.storage.onChanged?.addListener((changes, area) => {
+    if (area === 'local' && (KeySelectionDraft in changes || KeyExtensionStatus in changes)) syncSelectionDraftMenu()
+  })
+  onLocaleChange(() => syncSelectionDraftMenu())
+
   browser.runtime.onInstalled.addListener(() => {
+    syncSelectionDraftMenu()
     void migrateSpamStorage()
     void setupCreatorRewardsAlarm()
     void checkAndAutoRefreshCreatorRewards()
   })
 
   browser.runtime.onStartup?.addListener(() => {
+    syncSelectionDraftMenu()
     void setupCreatorRewardsAlarm()
     void checkAndAutoRefreshCreatorRewards()
   })

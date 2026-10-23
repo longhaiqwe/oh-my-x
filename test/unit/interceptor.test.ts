@@ -216,6 +216,19 @@ describe('interceptor hook execution (window.fetch / XHR)', () => {
     })
   })
 
+  it('X 页面自己存草稿时广播当时的接口编号，同一个编号只广播一次', async () => {
+    const mockNativeFetch = vi.fn().mockImplementation(async () => new Response('{}', { status: 200 }))
+    window.fetch = mockNativeFetch
+
+    interceptorScript.main({} as any)
+
+    await window.fetch('https://x.com/i/api/graphql/newDraftQueryId1/CreateDraftTweet', { method: 'POST' })
+    await window.fetch('https://x.com/i/api/graphql/newDraftQueryId1/CreateDraftTweet', { method: 'POST' })
+
+    const calls = postMessageSpy.mock.calls.filter(([data]: unknown[]) => (data as { type?: string })?.type === 'XF_CREATE_DRAFT_QUERY')
+    expect(calls).toEqual([[{ type: 'XF_CREATE_DRAFT_QUERY', queryId: 'newDraftQueryId1', __xf: '__x_focus_bridge_v1__' }, location.origin]])
+  })
+
   it('排期接口自身失败（reject）时，静默安全透传，不引发未捕获异常', async () => {
     const networkError = new Error('Network timeout')
     const mockNativeFetch = vi.fn().mockRejectedValue(networkError)

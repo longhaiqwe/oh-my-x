@@ -46,7 +46,7 @@ The settings popup has five tabs. The names below match the popup:
 | [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
-| [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, AI quote drafts, schedule overview |
+| [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
 | [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 ---
@@ -207,6 +207,15 @@ X's editor only treats English letters, digits, and underscores after @ as a men
 - Only display names on X are matched. Simplified and Traditional Chinese are searched separately: a name written in Traditional characters is not found by a Simplified search, and an English name is not found by searching a Chinese translation of it.
 - With an input method such as pinyin, the search runs after you pick the characters. Esc closes the list and keeps the post editor open. Turn it off under Create → Mention by name.
 
+#### Save selection to drafts
+
+Select text on any web page, right-click, and choose "Save to X drafts". The selected text is saved to your X drafts, followed by a blank line and the page link. When it is saved, a ✓ shows on the extension icon for 3 seconds. Find it later under Drafts at the top right of X's post editor.
+
+- It uses the X account signed in to this browser and the request X's website uses to save drafts. No X tab needs to be open.
+- If saving fails (not signed in to X, or the request changed), an X post page opens next to the current tab with the text filled in. Close the editor and choose Save to keep it in your drafts.
+- Only http and https page links are added, and not when the selected text already contains the link.
+- The selected text on the current page is read once, when you click the menu item. Turn it off under Create → Save selection to drafts; the menu item is removed.
+
 #### AI quote drafts
 
 In post, quote, and reply editors, click the AI draft button. It appears to the right of Everyone, or above the input in reply dialogs and inline reply boxes without an audience selector. The extension reads the original post and uses your model to write two drafts. Inline replies use the post on the current detail page as their source. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
@@ -260,7 +269,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 | **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
-| **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, AI quote drafts, schedule overview |
+| **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
 | **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 The Filter tab has two levels: the first shows each feature's switch and status; click Settings, Manage muted words, Manage lists, or All records at the bottom right of a card to open the second level, and use the back button at the top left to return.
@@ -276,7 +285,7 @@ The Filter tab has two levels: the first shows each feature's switch and status;
 - **Stored locally**: settings, word lists, the block log, and your AI API key are stored in `browser.storage.local`; the post library is stored in the extension's local IndexedDB. The extension does not encrypt the API key; masking in the settings only hides it on screen.
 - **Requests to X**: post sync, Lists, user metrics, creator rewards, and interaction helpers use your existing signed-in session to talk to X. The developer does not receive this data and collects no telemetry.
 - **Optional AI requests**: content is sent only when you generate or test, and only to a service address you authorized; that provider's data and billing terms apply. AI requests carry no browser cookies.
-- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`; default host access is limited to X domains and `abs.twimg.com`. Your AI host is granted on demand through optional permissions and can be managed in Chrome's extension settings.
+- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`, `contextMenus`, `activeTab` (the last two are for Save selection to drafts: after you click the menu item, the selected text on the current page is read once); default host access is limited to X domains and `abs.twimg.com`. Your AI host is granted on demand through optional permissions and can be managed in Chrome's extension settings.
 - **Where scripts run**: page scripts are injected only on `twitter.com`, `mobile.twitter.com`, `x.com`, and `pro.x.com`.
 
 See the [privacy policy](PRIVACY.md).
