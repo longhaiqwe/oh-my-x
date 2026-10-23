@@ -1,7 +1,7 @@
 import { createApp, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import LayoutModule from '../../entrypoints/popup/components/modules/LayoutModule.vue'
-import { KeyNavigationWidth, KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
+import { KeyNavigationWidth, KeySearchDefaultLatest, KeySearchFilterBar, KeySidebarColumn, KeyTweetButton } from '../../storage-keys'
 import { event, flushMicrotasks } from '../helpers/runtime-port'
 
 type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>
@@ -100,4 +100,16 @@ it('导航栏宽度滑块紧跟时间线宽度，显示已保存的宽度', asyn
   expect(text.indexOf('导航栏宽度')).toBeLessThan(text.indexOf('隐藏右侧边栏'))
   expect(root.querySelector('[aria-label="导航栏宽度滑块"]')).not.toBeNull()
   expect(text).toContain('225px')
+})
+
+it('搜索分组：默认「最新」和筛选条两个开关默认打开，关掉时存 off', async () => {
+  await mount()
+  expect(root.textContent).toContain('搜索默认显示「最新」')
+  expect(switchFor('搜索默认显示「最新」').getAttribute('aria-checked')).toBe('true')
+  expect(switchFor('搜索筛选条').getAttribute('aria-checked')).toBe('true')
+  switchFor('搜索默认显示「最新」').click()
+  switchFor('搜索筛选条').click()
+  await settle()
+  expect(store[KeySearchDefaultLatest]).toBe('off')
+  expect(store[KeySearchFilterBar]).toBe('off')
 })

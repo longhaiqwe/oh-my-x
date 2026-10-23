@@ -10,6 +10,8 @@ import {
   KeyAiRepostEnabled,
   KeyAiRepostModel,
   KeyArticleToc,
+  KeySearchDefaultLatest,
+  KeySearchFilterBar,
   KeyArticlesButton,
   KeyAutoLikeOnReply,
   KeyBookmarkCount,
@@ -180,6 +182,16 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'articleToc',
     module: 'layout',
     storageKeys: [KeyArticleToc],
+  },
+  {
+    id: 'searchLatest',
+    module: 'layout',
+    storageKeys: [KeySearchDefaultLatest],
+  },
+  {
+    id: 'searchFilters',
+    module: 'layout',
+    storageKeys: [KeySearchFilterBar],
   },
 
   // 内容过滤

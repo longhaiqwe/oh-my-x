@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
  KeyTweetButton, KeySidebarColumn, KeyArticleToc, KeyTimelineWidth, KeyNavigationWidth,
+ KeySearchDefaultLatest, KeySearchFilterBar,
 } from '../../../../storage-keys'
 import { useI18n } from '../../composables/useI18n'
 import WidthSlider from '../controls/WidthSlider.vue'
@@ -48,6 +49,20 @@ const { t, featureText } = useI18n()
    <FeatureCard feature-id="articleToc" variant="row">
     <template #control>
      <FeatureSwitch :storage-key="KeyArticleToc" :label="featureText('articleToc', 'label')" />
+    </template>
+   </FeatureCard>
+  </FeatureList>
+
+  <GroupLabel>{{ t('layout.groupSearch') }}</GroupLabel>
+  <FeatureList>
+   <FeatureCard feature-id="searchLatest" variant="row">
+    <template #control>
+     <FeatureSwitch :storage-key="KeySearchDefaultLatest" :label="featureText('searchLatest', 'label')" />
+    </template>
+   </FeatureCard>
+   <FeatureCard feature-id="searchFilters" variant="row">
+    <template #control>
+     <FeatureSwitch :storage-key="KeySearchFilterBar" :label="featureText('searchFilters', 'label')" />
     </template>
    </FeatureCard>
   </FeatureList>

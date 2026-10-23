@@ -29,6 +29,7 @@ import {
   OWN_POSTS_FETCH_RES_TYPE,
   SCHEDULED_FETCH_REQ_TYPE,
   SCHEDULED_FETCH_RES_TYPE,
+  SEARCH_NAVIGATE_TYPE,
 } from '../shared/bridge'
 import { createOwnPostsFetcher } from '../shared/own-posts-fetcher'
 import {
@@ -71,6 +72,7 @@ import {
   type UserMetrics,
 } from '../shared/user-metrics-interceptor'
 import { installComposerMediaBridge } from '../shared/composer-media-bridge'
+import { navigateSearchPage } from '../shared/search-tools'
 import { annotateReplyTargets } from '../shared/reply-target'
 
 export default defineContentScript({
@@ -722,6 +724,9 @@ export default defineContentScript({
               window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: true, items, __xf: XF_BRIDGE_MARKER }, location.origin)
             })
             .catch((error) => window.postMessage({ type: SCHEDULED_FETCH_RES_TYPE, requestId, ok: false, error: toTransferable(error, 'error.readFailed'), __xf: XF_BRIDGE_MARKER }, location.origin))
+        } else if (data.type === SEARCH_NAVIGATE_TYPE && interceptEnabled) {
+          // 在 X 自己的环境里改地址、派发 popstate，和实测时一样；内容脚本跨环境派发时历史记录数据能否传过去没有验证
+          navigateSearchPage(data.href, data.replace === true)
         } else if (data.type === PROFILE_ACTIVITY_FETCH_REQ_TYPE) {
           window.postMessage(
             { type: PROFILE_ACTIVITY_FETCH_ACK_TYPE, requestId: data.requestId, __xf: XF_BRIDGE_MARKER },

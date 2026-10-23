@@ -245,3 +245,26 @@ describe('interceptor hook execution (window.fetch / XHR)', () => {
     expect(postMessageSpy).not.toHaveBeenCalled()
   })
 })
+
+describe('interceptor 搜索页跳转（XF_SEARCH_NAVIGATE）', () => {
+  const send = (data: Record<string, unknown>) =>
+    window.dispatchEvent(new MessageEvent('message', { data: { ...data, __xf: '__x_focus_bridge_v1__' }, source: window }))
+
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('收到消息后在页面里换成搜索页地址；不是搜索页或扩展关闭时不处理', () => {
+    interceptorScript.main({} as any)
+    send({ type: 'XF_SEARCH_NAVIGATE', href: '/search?q=a&f=live', replace: false })
+    expect(location.pathname + location.search).toBe('/search?q=a&f=live')
+
+    send({ type: 'XF_SEARCH_NAVIGATE', href: '/home', replace: false })
+    expect(location.pathname).toBe('/search')
+
+    send({ type: 'XF_EXTENSION_STATUS', enabled: false })
+    send({ type: 'XF_SEARCH_NAVIGATE', href: '/search?q=b&f=live', replace: true })
+    expect(location.search).toBe('?q=a&f=live')
+    send({ type: 'XF_EXTENSION_STATUS', enabled: true })
+  })
+})

@@ -46,6 +46,8 @@ import {
   KeyViralShowLevels,
   KeyViralShowBadge,
   KeyArticleToc,
+  KeySearchDefaultLatest,
+  KeySearchFilterBar,
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
@@ -136,6 +138,8 @@ export interface ExtensionSettings {
   [KeyViralShowLevels]: string
   [KeyViralShowBadge]: ToggleValue
   [KeyArticleToc]: ToggleValue
+  [KeySearchDefaultLatest]: ToggleValue
+  [KeySearchFilterBar]: ToggleValue
   [KeyScheduledPanorama]: ToggleValue
   [KeyScheduledSidebar]: ToggleValue
   [KeyOwnPostAutoSync]: ToggleValue
@@ -197,6 +201,8 @@ const TOGGLE_KEYS = new Set<string>([
   KeyViralEnableHighlight,
   KeyViralShowBadge,
   KeyArticleToc,
+  KeySearchDefaultLatest,
+  KeySearchFilterBar,
   KeyScheduledPanorama,
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,

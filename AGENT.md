@@ -65,6 +65,7 @@ oh-my-x/
 │   ├── composer-media.ts        # 发帖框多图排序：两边共用的事件名、属性名和纯计算
 │   ├── mention-search.ts        # 按名字艾特：找光标前的「@名字」、整理 X 用户查询接口的返回
 │   ├── selection-draft.ts       # 右键存草稿：草稿正文、X 新建草稿接口的请求和返回
+│   ├── search-tools.ts          # 搜索默认「最新」+ 筛选条：搜索词拆分 / 拼装、搜索页地址、MAIN world 跳转
 │   └── composer-media-bridge.ts # 发帖框多图排序的 MAIN world 部分：读 X 图片数据、改图片顺序
 │
 ├── content-scripts/             # 注入到 x.com 页面的脚本（isolated world）
@@ -87,7 +88,8 @@ oh-my-x/
 │   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的列表」入口
 │   │   ├── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
 │   │   ├── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
-│   │   └── selection-draft.ts   # 右键存草稿：把拦截器抓到的新建草稿接口编号写进存储
+│   │   ├── selection-draft.ts   # 右键存草稿：把拦截器抓到的新建草稿接口编号写进存储
+│   │   └── search-tools.ts      # 搜索默认「最新」、搜索结果页标签下的筛选条
 │   │
 │   ├── options/
 │   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
@@ -187,6 +189,13 @@ oh-my-x/
 - 接口编号：先用 `createDraftQueryId`（X 页面自己存草稿时拦截器广播 `XF_CREATE_DRAFT_QUERY`，内容脚本写入），再用内置的 `FALLBACK_CREATE_DRAFT_QUERY_ID`。400/404 换下一个编号；其他失败不重试，避免存两份。
 - 成功：点击所在标签页的扩展图标显示 ✓（success-600），3 秒后清掉。失败：在旁边打开 `x.com/intent/post?text=…`，用户关掉发帖框时点保存；X 这次存草稿的请求会让拦截器记下新编号。
 - 开关 `selectionDraft`，默认开。
+
+## 搜索默认「最新」与筛选条（`shared/search-tools.ts` + `features/search-tools.ts`）
+
+- 搜索结果页 `/search?q=` 和话题标签页 `/hashtag/标签` 都算搜索页（`parseSearchLocation`）。标签用地址参数 `f`：没有 = 热门，`live` = 最新；只看关注的人是 `pf=on`。
+- 默认「最新」：动态循环每轮看一次地址（搜索页换搜索词时路径不变，不会补跑 `all`），停在「热门」就请求替换成 `f=live` 的地址。用户点「热门」标签（document 捕获阶段的 click）或在「热门」里用筛选条改条件时，记住这个搜索词，之后保持「热门」；只存在页面内存里。开关 `searchDefaultLatest`，默认开。
+- 筛选条：插在标签栏 `nav` 后面、同一层里，跟着 X 的顶部区域固定；「用户」「列表」标签不显示。四个下拉框（时间 / 点赞数 / 图片视频 / 语言）+ 两个按钮（只看原帖、只看关注的人）+ 清除。条件按搜索语法写进 `q`：`within_time:` `min_faves:` `-filter:replies` `filter:images|videos|media` `lang:`（2026-10-23 在 X 网页实测都生效）；搜索框里自己写的同类语法会显示成下拉框里的额外选项，其他语法原样保留。话题标签页上筛选时换成 `/search?q=#标签 …`。开关 `searchFilterBar`，默认开。
+- 换地址：内容脚本发 `XF_SEARCH_NAVIGATE`（`{ href, replace }`），拦截器在 MAIN world 调 `navigateSearchPage`：`history.pushState / replaceState` 后派发 `popstate`，X 的路由按新地址渲染，不重新加载页面（2026-10-23 实测）。X 的历史记录格式是 `{ key, state }`，新增记录时照这个格式生成；只接受同源的搜索页地址。
 
 ## 内容脚本编排
 

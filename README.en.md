@@ -43,7 +43,7 @@ The settings popup has five tabs. The names below match the popup:
 
 | Module | Features |
 |------|------|
-| [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline |
+| [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
 | [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
@@ -103,6 +103,25 @@ Hide any of these 10 buttons: Explore, Notifications, Chat, Grok, Premium, Histo
 #### Article outline
 
 On long posts, article pages, and the article editor, builds an outline from level 1 and 2 headings in a side panel. Click a heading to jump to it. It recognizes Markdown headings (`#`, `##`), Chinese numbering such as 「一、」 and 「第一章」, number prefixes such as "1." and "(1)", and paragraphs that are entirely bold.
+
+#### Open search on Latest
+
+X opens search on the Top tab, sorted by engagement, which mixes in posts from months ago. With this switch on, a new search (new search terms, or arriving from another page) opens on the Latest tab, sorted by post time. Hashtag pages work the same way. If you switch a search back to Top, that search stays on Top.
+
+#### Search filter bar
+
+Adds a row of filters below the tabs on search results and hashtag pages, so you don't need to remember search operators:
+
+| Filter | Options | Operator written into the search |
+|------|------|------|
+| Time | Past 24 hours / 7 days / 30 days | `within_time:24h` / `7d` / `30d` |
+| Likes | 10+ / 100+ / 1000+ likes | `min_faves:10` and so on |
+| Media | Images / Videos / Images or videos | `filter:images` / `filter:videos` / `filter:media` |
+| Language | Chinese / English / Japanese | `lang:zh` / `lang:en` / `lang:ja` |
+| Original posts only | On / off | `-filter:replies` |
+| People you follow | On / off | URL parameter `pf=on` |
+
+Each choice rewrites the search and runs it again; you can see and keep editing it in the search box. Operators of the same kind that you type yourself (such as `min_faves:500`) show in the matching dropdown. The filter bar is not shown on the People and Lists tabs.
 
 ### 02 Content Filter
 
@@ -266,7 +285,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 
 | Tab (module) | Features |
 |------|------|
-| **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline |
+| **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
 | **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
