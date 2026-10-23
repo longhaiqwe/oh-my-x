@@ -1,5 +1,6 @@
 import {
   KeySpamAiAutoScope,
+  KeySpamAiBotAccounts,
   KeySpamAiEnabled,
   KeySpamAiThreshold,
   KeySpamBlacklist,
@@ -13,6 +14,7 @@ import {
 import { normalizeForSpam, parseEnabledRules, parseHandleList, parseKeywordList } from '../../shared/spam-rules'
 import { migrateSpamStorage } from '../../shared/spam-migration'
 import { normalizeSpamAiAutoScope } from '../../shared/settings'
+import { parseBotAccounts } from '../../shared/reply-bot-accounts'
 import type { SpamRuleId } from '../../shared/spam-types'
 import { getStorage } from '../utilities/storage'
 import type { SpamConfig } from './types'
@@ -45,6 +47,7 @@ async function loadConfig(): Promise<SpamConfig | null> {
     KeySpamAiEnabled,
     KeySpamAiAutoScope,
     KeySpamAiThreshold,
+    KeySpamAiBotAccounts,
   ])
 
   if (values[KeySpamFilterEnabled] !== 'on') return null
@@ -66,6 +69,7 @@ async function loadConfig(): Promise<SpamConfig | null> {
       ? {
           autoScope: normalizeSpamAiAutoScope(values[KeySpamAiAutoScope]),
           threshold: aiThresholdOf(values[KeySpamAiThreshold]),
+          botAccounts: new Set(parseBotAccounts(values[KeySpamAiBotAccounts])),
         }
       : null,
   }

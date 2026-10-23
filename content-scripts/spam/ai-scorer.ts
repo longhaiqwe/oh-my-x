@@ -12,7 +12,7 @@ import {
   type ReplyScoreParent,
   type ReplyScoreSignal,
 } from '../../shared/ai-reply-score'
-import { REPLY_LABEL_SET, REPLY_SCORE_LOOKUP, sendAiRequest, type AiRequest, type AiResponse } from '../../shared/ai-request'
+import { REPLY_LABEL_SET, REPLY_SCORE_LOOKUP, sendAiRequest, type AiRequest, type AiResponse, type AiProgressHandler } from '../../shared/ai-request'
 import type { ReplyLabel } from '../../shared/reply-score-db'
 import { isErrorPayload, toTransferable, type TransferableError } from '../../shared/errors'
 import { getLocale } from '../../shared/i18n'
@@ -40,6 +40,8 @@ export interface LabelChange {
   parent: ReplyScoreParent
   /** 标注时的 AI 结果；还没打分时为 null */
   ai: { score: number; signals: string[]; reason: string } | null
+  /** 作者加入（true）或移出（false）机器人账号列表；不改时不填 */
+  botAccount?: boolean
 }
 
 export interface LookupResult {
@@ -49,7 +51,7 @@ export interface LookupResult {
 
 export interface AiScorerDeps {
   lookup(ids: string[]): Promise<LookupResult | ReplyScore[]>
-  score(message: ScoreMessage, signal: AbortSignal): Promise<AiResponse>
+  score(message: ScoreMessage, signal: AbortSignal, onProgress?: AiProgressHandler): Promise<AiResponse>
   saveLabel(change: LabelChange): Promise<unknown>
   today(): string
   path(): string
@@ -226,6 +228,16 @@ export function createAiScorer(deps: AiScorerDeps = defaultDeps) {
       const res = await deps.score(
         { type: 'XF_SCORE_REPLIES', parent: first.parent, replies: batch.map((e) => e.item), mode: manual ? 'manual' : 'auto', locale: getLocale() },
         own.signal,
+        (progress) => {
+          if (own.signal.aborted || controller !== own) return
+          let updated = false
+          for (const score of progress.scores) {
+            if (!batch.some((entry) => entry.item.id === score.id) || results.has(score.id)) continue
+            results.set(score.id, score)
+            updated = true
+          }
+          if (updated) changed()
+        },
       )
       if (own.signal.aborted) return
       if (res.ok) {

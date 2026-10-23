@@ -1,5 +1,5 @@
 {
-  "description": "回复区 AI 打分的样例集：构造的对话，每条回复标好预期（ai / human）。followers（粉丝数）和 verified（是否蓝 V）可选。zh-weekly、en-notes 两段是「认同 + 复述原帖细节 + 补一句」的写法。打包进插件，设置页「用样例集测试」和 npm run test:live 都用它；test/unit/ai-reply-score.test.ts 检查格式。",
+  "description": "回复区 AI 打分的样例集：构造的对话，每条回复标好预期（ai / human）。followers（粉丝数）和 verified（是否蓝 V）可选。zh-weekly、en-notes 两段是「认同 + 复述原帖细节 + 补一句」的写法。zh-move 有回复别人评论的回复，replyTo 是被回复的评论。打包进插件，设置页「用样例集测试」和 npm run test:live 都用它；test/unit/ai-reply-score.test.ts 检查格式。",
   "threads": [
     {
       "id": "zh-signup",
@@ -356,6 +356,77 @@
           "verified": false,
           "expect": "human",
           "text": "lol I did the exact same thing and then rebuilt Notion in bash over 6 months. good luck"
+        }
+      ]
+    },
+    {
+      "id": "zh-move",
+      "locale": "zh-CN",
+      "parent": {
+        "id": "zh-move-0",
+        "author": "he_jia",
+        "text": "从老家县城到深圳第 8 年，今年在南山租了个两居，孩子也上了公办小学。记一下。"
+      },
+      "replies": [
+        {
+          "id": "zh-move-1",
+          "author": "xiao_mo",
+          "delaySeconds": 1500,
+          "expect": "human",
+          "text": "南山这两年地铁通了好多，我通勤从一个半小时变成四十分钟"
+        },
+        {
+          "id": "zh-move-2",
+          "author": "lin_k",
+          "delaySeconds": 4200,
+          "replyTo": {
+            "author": "xiao_mo",
+            "text": "南山这两年地铁通了好多，我通勤从一个半小时变成四十分钟"
+          },
+          "expect": "human",
+          "text": "13 号线吗？我在深圳湾上班，坐到底也就半小时"
+        },
+        {
+          "id": "zh-move-3",
+          "author": "metro_insight",
+          "delaySeconds": 4260,
+          "followers": 37,
+          "verified": true,
+          "replyTo": {
+            "author": "xiao_mo",
+            "text": "南山这两年地铁通了好多，我通勤从一个半小时变成四十分钟"
+          },
+          "expect": "ai",
+          "text": "非常认同！交通便利确实能极大提升生活品质，通勤时间缩短意味着更多陪伴家人的时间。你觉得这是选择居住地最重要的因素吗？🚇✨"
+        },
+        {
+          "id": "zh-move-4",
+          "author": "life_wisdom_22",
+          "delaySeconds": 55,
+          "expect": "ai",
+          "text": "太感动了！🙏 8 年的坚持终于换来了安稳的生活和孩子的好教育，这就是父爱的力量。每一步都算数，加油！💪"
+        },
+        {
+          "id": "zh-move-5",
+          "author": "tang_yu",
+          "delaySeconds": 7000,
+          "replyTo": {
+            "author": "he_jia",
+            "text": "我们是积分入学，提前一年就开始攒社保和居住证年限"
+          },
+          "expect": "human",
+          "text": "居住证是从办下来那天算还是从登记那天算？我们明年报，有点慌"
+        },
+        {
+          "id": "zh-move-6",
+          "author": "parent_guide_cn",
+          "delaySeconds": 7090,
+          "replyTo": {
+            "author": "he_jia",
+            "text": "我们是积分入学，提前一年就开始攒社保和居住证年限"
+          },
+          "expect": "ai",
+          "text": "很实用的经验分享！提前一年规划积分确实是关键，社保和居住证年限都很重要。要是能再讲讲具体的积分计算方法就更好了！"
         }
       ]
     }

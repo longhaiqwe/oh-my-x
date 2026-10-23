@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event, flushMicrotasks, portPair } from '../helpers/runtime-port'
-import { KeyAiRepostApiKey, KeyAiRepostBaseUrl, KeyAiRepostModel, KeyAiRepostStylePrompt, KeyAiRepostStyleSamples } from '../../storage-keys'
+import { KeyAiServiceApiKey, KeyAiServiceBaseUrl, KeyAiServiceModel, KeyAiRepostStylePrompt, KeyAiRepostStyleSamples } from '../../storage-keys'
 
 let runtime: any
 let permissions: any
@@ -15,7 +15,7 @@ beforeEach(async () => {
   vi.stubGlobal('browser', {
     runtime, permissions,
     storage: { local: { get: vi.fn().mockResolvedValue({
-      [KeyAiRepostApiKey]: 'test-key', [KeyAiRepostBaseUrl]: 'https://ai.example/v1', [KeyAiRepostModel]: 'test-model',
+      [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model',
     }) } },
     cookies: { get: vi.fn().mockResolvedValue(null) },
     alarms: { create: vi.fn(), get: vi.fn().mockResolvedValue({}), onAlarm: event() },
@@ -61,7 +61,7 @@ describe('AI background requests', () => {
 
   it('生成时带上用户的转发风格和样本', async () => {
     ;(globalThis as any).browser.storage.local.get.mockResolvedValue({
-      [KeyAiRepostApiKey]: 'test-key', [KeyAiRepostBaseUrl]: 'https://ai.example/v1', [KeyAiRepostModel]: 'test-model',
+      [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model',
       [KeyAiRepostStylePrompt]: '只用短句', [KeyAiRepostStyleSamples]: '我的一条转发',
     })
     start()
@@ -153,4 +153,16 @@ describe('AI background requests', () => {
     await flushMicrotasks()
     expect(respond).toHaveBeenCalledWith({ ok: false, error: '下载失败' })
   })
+})
+
+it('uses the summary override without changing the shared service or default', async () => {
+  ;(globalThis as any).browser.storage.local.get.mockResolvedValue({
+    [KeyAiServiceApiKey]: 'shared-key', [KeyAiServiceBaseUrl]: 'https://shared.example/v1',
+    [KeyAiServiceModel]: 'default-model', aiRepostModel: 'summary-model', spamAiModel: 'fast-model',
+  })
+  start()
+  await flushMicrotasks()
+  expect(fetchMock.mock.calls[0][0]).toBe('https://shared.example/v1/chat/completions')
+  expect(fetchMock.mock.calls[0][1].headers.authorization).toBe('Bearer shared-key')
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('summary-model')
 })

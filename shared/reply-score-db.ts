@@ -2,7 +2,7 @@
 // - scores：模型打分的缓存，7 天过期，最多 5000 条
 // - labels：用户的「机器人 / 真人」标注，不过期
 // 不放 storage.local：每写一次 storage.local，所有 X 标签页都会收到变更通知，而打分结果写得频繁。
-import { REPLY_SCORE_PROMPT_VERSION, type ReplyScore } from './ai-reply-score'
+import { REPLY_SCORE_PROMPT_VERSION, type ReplyScore, type ReplyScoreTarget } from './ai-reply-score'
 
 export const REPLY_SCORE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const REPLY_SCORE_MAX_ENTRIES = 5000
@@ -25,6 +25,8 @@ export interface StoredReplyLabel {
   text: string
   parentAuthor: string
   parentText: string
+  /** 回复的是另一条评论时，那条评论；早于提示词第 3 版的标注没有这个字段 */
+  replyTo?: ReplyScoreTarget | null
   delaySeconds: number | null
   followers: number | null
   verified: boolean | null

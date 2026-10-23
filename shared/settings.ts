@@ -64,8 +64,9 @@ import {
   KeyBookmarkCount,
   KeyMediaDownload,
   KeyAiRepostEnabled,
-  KeyAiRepostBaseUrl,
-  KeyAiRepostApiKey,
+  KeyAiServiceBaseUrl,
+  KeyAiServiceApiKey,
+  KeyAiServiceModel,
   KeyAiRepostModel,
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
@@ -151,8 +152,9 @@ export interface ExtensionSettings {
   [KeyMediaDownload]: ToggleValue
   [KeyUserFollowerCount]: UserFollowerCountMode
   [KeyAiRepostEnabled]: ToggleValue
-  [KeyAiRepostBaseUrl]: string
-  [KeyAiRepostApiKey]: string
+  [KeyAiServiceBaseUrl]: string
+  [KeyAiServiceApiKey]: string
+  [KeyAiServiceModel]: string
   [KeyAiRepostModel]: string
   [KeyAiRepostCustomPrompt]: string
   [KeyAiRepostStylePrompt]: string

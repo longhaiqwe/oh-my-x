@@ -4,11 +4,12 @@ import { applyLanguageSetting } from '../../shared/i18n'
 import { REPLY_SCORE_SAMPLE_THREADS } from '../../shared/ai-reply-samples'
 import { getTodayKey } from '../../shared/spam-logger'
 import {
-  KeyAiRepostApiKey,
-  KeyAiRepostBaseUrl,
+  KeyAiServiceApiKey,
+  KeyAiServiceBaseUrl,
   KeySpamAiEnabled,
   KeySpamAiThreshold,
   KeySpamAiUsage,
+  KeySpamAiBotAccounts,
 } from '../../storage-keys'
 import { event, flushMicrotasks } from '../helpers/runtime-port'
 
@@ -45,8 +46,8 @@ beforeEach(() => {
   storedLabels = []
   store = {
     [KeySpamAiEnabled]: 'on',
-    [KeyAiRepostApiKey]: 'test-key',
-    [KeyAiRepostBaseUrl]: 'https://ai.example/v1',
+    [KeyAiServiceApiKey]: 'test-key',
+    [KeyAiServiceBaseUrl]: 'https://ai.example/v1',
     [KeySpamAiThreshold]: 75,
     [KeySpamAiUsage]: { date: getTodayKey(), auto: 12, manual: 3, cached: 40, failed: 1, folded: 5 },
   }
@@ -139,8 +140,8 @@ describe('AI 判断设置区', () => {
     expect(root.textContent).toContain('Thread 1 failed:')
   })
 
-  it('没填 API Key：提示去 AI 总结转发里填，测试按钮不可用', async () => {
-    delete store[KeyAiRepostApiKey]
+  it('没填 API Key：提示去公共 AI 服务里填，测试按钮不可用', async () => {
+    delete store[KeyAiServiceApiKey]
     await mount()
     expect(root.textContent).toContain('No API key yet')
     expect(button('Run test')!.disabled).toBe(true)
@@ -164,7 +165,14 @@ describe('我的标注', () => {
   it('没有标注时显示「No labels yet」，导出按钮不可用', async () => {
     await mount()
     expect(root.textContent).toContain('No labels yet')
+    expect(root.textContent).not.toContain('accounts marked as bot')
     expect(button('Export labels')!.disabled).toBe(true)
+  })
+
+  it('显示标过机器人的账号数', async () => {
+    store[KeySpamAiBotAccounts] = ['bob', 'carl']
+    await mount()
+    expect(root.textContent).toContain('2 accounts marked as bot')
   })
 
   it('显示条数；导出成 JSONL 文件，文件名带日期', async () => {

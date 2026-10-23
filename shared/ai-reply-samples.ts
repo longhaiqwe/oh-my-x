@@ -103,6 +103,7 @@ export function labelsToJsonl(labels: StoredReplyLabel[]): string {
       followers: entry.followers,
       verified: entry.verified,
       parent: { author: entry.parentAuthor, text: entry.parentText },
+      ...(entry.replyTo ? { replyTo: entry.replyTo } : {}),
       ai: entry.ai,
       labeledAt: new Date(entry.labeledAt).toISOString(),
     }))

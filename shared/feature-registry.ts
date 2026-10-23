@@ -1,8 +1,9 @@
 // 功能清单：弹窗按模块分组、功能名称与说明的唯一来源。
 // 默认值仍以 storage-keys.ts 的 defaultPreferences 为准，这里只记录归属与文案。
 import {
-  KeyAiRepostApiKey,
-  KeyAiRepostBaseUrl,
+  KeyAiServiceApiKey,
+  KeyAiServiceBaseUrl,
+  KeyAiServiceModel,
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
@@ -91,7 +92,7 @@ import {
 } from '../storage-keys'
 import { hasMessage, t, type Locale, type MessageKey } from './i18n'
 
-export type FeatureModuleId = 'layout' | 'filter' | 'insight' | 'create' | 'engage'
+export type FeatureModuleId = 'layout' | 'filter' | 'insight' | 'create' | 'engage' | 'settings'
 
 // 模块和功能的文字在 shared/i18n 的文案表里，按 id 取：
 // module.<id>.tab（弹窗顶部标签上的短名）/ .title（模块页标题）/ .description（标题下的一句说明）
@@ -118,9 +119,11 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   { id: 'insight' },
   { id: 'create' },
   { id: 'engage' },
+  { id: 'settings' },
 ]
 
 export const FEATURES: readonly FeatureDefinition[] = [
+  { id: 'aiService', module: 'settings', storageKeys: [KeyAiServiceBaseUrl, KeyAiServiceApiKey, KeyAiServiceModel] },
   // 界面与阅读
   {
     id: 'timelineWidth',
@@ -273,8 +276,6 @@ export const FEATURES: readonly FeatureDefinition[] = [
     module: 'create',
     storageKeys: [
       KeyAiRepostEnabled,
-      KeyAiRepostBaseUrl,
-      KeyAiRepostApiKey,
       KeyAiRepostModel,
       KeyAiRepostCustomPrompt,
       KeyAiRepostStylePrompt,

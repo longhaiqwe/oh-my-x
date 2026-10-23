@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { updateAiRepostComposerButton } from '../../content-scripts/features/ai-repost'
-import { KeyAiRepostApiKey } from '../../storage-keys'
+import { KeyAiServiceApiKey } from '../../storage-keys'
 import { portPair, flushMicrotasks } from '../helpers/runtime-port'
 
 let ports: ReturnType<typeof portPair>[]
 beforeEach(async () => {
   ports = []
   vi.stubGlobal('browser', {
-    storage: { local: { get: async () => ({ [KeyAiRepostApiKey]: 'test-key' }) } },
+    storage: { local: { get: async () => ({ [KeyAiServiceApiKey]: 'test-key' }) } },
     runtime: {
       id: 'test-extension',
       connect: vi.fn(() => { const pair = portPair(); ports.push(pair); return pair.client }),

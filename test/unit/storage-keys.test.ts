@@ -56,8 +56,12 @@ describe('storage defaults', () => {
         key !== 'spamRulesEnabled' &&
         key !== 'statRatioTargetHandle' &&
         key !== 'tweetFilterKeywords' &&
-        key !== 'aiRepostBaseUrl' &&
-        key !== 'aiRepostApiKey' &&
+        key !== 'aiServiceBaseUrl' &&
+        key !== 'aiServiceApiKey' &&
+        key !== 'aiServiceModel' &&
+        key !== 'aiServiceBaseUrl' &&
+        key !== 'aiServiceApiKey' &&
+        key !== 'aiServiceModel' &&
         key !== 'aiRepostModel' &&
         key !== 'aiRepostCustomPrompt' &&
         key !== 'aiRepostStylePrompt' &&

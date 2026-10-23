@@ -20,4 +20,5 @@ export const XF_SELF_SELECTOR = [
   '[data-xf-kw-panel]',
   '[data-xf-ai-tag]',
   '[data-xf-ai-pill]',
+  '[data-xf-ai-error]',
 ].join(',')

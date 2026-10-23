@@ -21,11 +21,18 @@ describe('AI 打分提示词', () => {
     for (const locale of ['zh-CN', 'en'] as const) {
       const prompt = buildReplyScoreSystemPrompt(locale)
       for (const signal of REPLY_SCORE_SIGNALS) expect(prompt).toContain(`- ${signal} `)
-      expect(prompt.trim().endsWith('{"results":[{"id":' + (locale === 'en' ? '"reply id"' : '"回复 id"') + ',"score":0,"signals":[],"reason":"…"}]}')).toBe(true)
+      expect(prompt.trim().endsWith('{"results":[{"i":1,"s":0,"g":[],"r":""}]}')).toBe(true)
     }
     expect(buildReplyScoreSystemPrompt('zh-CN')).toContain('一句中文')
     expect(buildReplyScoreSystemPrompt('en')).toContain('one English sentence')
     expect(buildReplyScoreSystemPrompt('en')).not.toMatch(/一句中文/)
+  })
+
+  it('第 4 版：结果字段用一个字母，31 分以上才写理由', () => {
+    const zh = buildReplyScoreSystemPrompt('zh-CN')
+    expect(zh).toContain('s 在 31 以上时，用一句中文说明依据')
+    expect(zh).toContain('不超过 20 字；s 在 30 以下时给 ""')
+    expect(buildReplyScoreSystemPrompt('en')).toContain('if s is 30 or lower, ""')
   })
 
   it('第 2 版：复述原帖细节、顺着原帖提问不再算真人特征；蓝 V 低粉只作辅助', () => {
@@ -40,20 +47,32 @@ describe('AI 打分提示词', () => {
     expect(en).toContain('must not push the score above 30')
   })
 
-  it('请求内容是 JSON：主帖只带作者和正文，回复带 id、作者、正文、间隔秒数', () => {
+  it('请求内容是 JSON：主帖只带作者和正文，回复带序号（代替推文 ID）、作者、正文、间隔秒数', () => {
     const user = JSON.parse(buildReplyScoreUserMessage(parent, [
-      { id: '101', author: 'bob', text: '  说得好  ', delaySeconds: 30, followers: 64, verified: true },
-      { id: '102', author: 'carl', text: '没有时间', delaySeconds: null },
+      { id: '2113068424398250212', author: 'bob', text: '  说得好  ', delaySeconds: 30, followers: 64, verified: true },
+      { id: '2113068424398250213', author: 'carl', text: '没有时间', delaySeconds: null },
     ]))
     expect(user).toEqual({
       parent: { author: 'alice', text: '主帖正文' },
       replies: [
-        { id: '101', author: 'bob', text: '说得好', delaySeconds: 30, followers: 64, verified: true },
-        { id: '102', author: 'carl', text: '没有时间', delaySeconds: null, followers: null, verified: null },
+        { id: 1, author: 'bob', text: '说得好', delaySeconds: 30, followers: 64, verified: true },
+        { id: 2, author: 'carl', text: '没有时间', delaySeconds: null, followers: null, verified: null },
       ],
     })
     const messages = buildReplyScoreMessages(parent, [], 'en')
     expect(messages.map((m) => m.role)).toEqual(['system', 'user'])
+  })
+
+  it('第 3 版：回复别人评论的回复带 replyTo，提示词说明按那条评论判断切题', () => {
+    expect(buildReplyScoreSystemPrompt('zh-CN')).toContain('以 replyTo 的评论为准')
+    expect(buildReplyScoreSystemPrompt('en')).toContain('use the replyTo comment')
+    const user = JSON.parse(buildReplyScoreUserMessage(parent, [
+      { id: '101', author: 'bob', text: '13 号线吗？', delaySeconds: 30, replyTo: { author: 'xiao_mo', text: ` ${'长'.repeat(REPLY_SCORE_TEXT_LIMIT + 5)} ` } },
+      { id: '102', author: 'carl', text: '直接回主帖', delaySeconds: 30, replyTo: null },
+    ]))
+    expect(user.replies[0].replyTo.author).toBe('xiao_mo')
+    expect(Array.from(user.replies[0].replyTo.text)).toHaveLength(REPLY_SCORE_TEXT_LIMIT + 1)
+    expect('replyTo' in user.replies[1]).toBe(false)
   })
 
   it('正文按字截断，不拆开 emoji', () => {
@@ -87,6 +106,34 @@ describe('解析模型返回', () => {
       { id: '102', score: 0, signals: [], reason: '' },
       { id: '103', score: 50, signals: [], reason: '' },
     ])
+  })
+
+  it('第 4 版短格式：序号 i 按请求顺序换回推文 ID，超出范围的丢掉；id 字段先当推文 ID 认，认不出再当序号', () => {
+    const ids = ['2113068424398250212', '2113068424398250213', '2113068424398250214']
+    const text = JSON.stringify({ results: [
+      { i: 2, s: 82, g: ['S1'], r: '万能夸奖' },
+      { i: 1, s: 10, g: [], r: '' },
+      { i: 4, s: 90 },
+      { i: 0, s: 90 },
+      { id: 3, score: 40, signals: ['S7'], reason: '套话' },
+    ] })
+    expect(parseReplyScoreResponse(text, ids)).toEqual([
+      { id: ids[1], score: 82, signals: ['S1'], reason: '万能夸奖' },
+      { id: ids[0], score: 10, signals: [], reason: '' },
+      { id: ids[2], score: 40, signals: ['S7'], reason: '套话' },
+    ])
+  })
+
+  it('流式解析也按序号换回推文 ID，每条完整的结果到了就交出', async () => {
+    const { createReplyScoreStreamParser } = await import('../../shared/ai-reply-score')
+    const got: string[] = []
+    const push = createReplyScoreStreamParser(['900', '901'], (score) => got.push(`${score.id}:${score.score}`))
+    push('{"results":[{"i":2,"s":7')
+    expect(got).toEqual([])
+    push('5,"g":[],"r":""},{"i":1,')
+    expect(got).toEqual(['901:75'])
+    push('"s":3,"g":[],"r":""}]}')
+    expect(got).toEqual(['901:75', '900:3'])
   })
 
   it('解析不出 results 数组时抛出错误代号', () => {
@@ -170,6 +217,7 @@ describe('样例集', () => {
         expect(Number.isFinite(reply.delaySeconds)).toBe(true)
         if ('followers' in reply) expect(Number.isInteger(reply.followers) && reply.followers >= 0).toBe(true)
         if ('verified' in reply) expect(typeof reply.verified).toBe('boolean')
+        if ('replyTo' in reply) expect(reply.replyTo.author && reply.replyTo.text.trim()).toBeTruthy()
         counts[reply.expect as 'ai' | 'human']++
       }
     }
@@ -178,6 +226,9 @@ describe('样例集', () => {
     expect(counts.human).toBeGreaterThanOrEqual(10)
     // 有「认同 + 复述原帖细节 + 补一句」写法的对话（中英文各一段）
     expect(data.threads.map((t: any) => t.id)).toEqual(expect.arrayContaining(['zh-weekly', 'en-notes']))
+    // 有回复别人评论的回复，真人和 AI 写法都有
+    const nested = data.threads.flatMap((t: any) => t.replies).filter((r: any) => r.replyTo)
+    expect(new Set(nested.map((r: any) => r.expect))).toEqual(new Set(['ai', 'human']))
   })
 })
 
@@ -200,16 +251,17 @@ describe('样例集测试的汇总', () => {
 })
 
 describe('导出标注', () => {
-  it('每行一条 JSON，expect 和样例集一致（bot 记成 ai），带主帖和当时的 AI 结果', async () => {
+  it('每行一条 JSON，expect 和样例集一致（bot 记成 ai），带主帖、被回复的评论和当时的 AI 结果', async () => {
     const { labelsToJsonl } = await import('../../shared/ai-reply-samples')
     const text = labelsToJsonl([
-      { id: '1', label: 'bot', author: 'bob', text: '这套很实用', parentAuthor: 'alice', parentText: '主帖', delaySeconds: 30, followers: 64, verified: true, ai: { score: 85, signals: ['S2'], reason: 'x', model: 'm', promptVersion: 2 }, labeledAt: Date.UTC(2026, 9, 20) },
+      { id: '1', label: 'bot', author: 'bob', text: '这套很实用', parentAuthor: 'alice', parentText: '主帖', replyTo: { author: 'dan', text: '评论' }, delaySeconds: 30, followers: 64, verified: true, ai: { score: 85, signals: ['S2'], reason: 'x', model: 'm', promptVersion: 2 }, labeledAt: Date.UTC(2026, 9, 20) },
       { id: '2', label: 'human', author: 'carl', text: '我们也这么干过', parentAuthor: 'alice', parentText: '主帖', delaySeconds: null, followers: null, verified: null, ai: null, labeledAt: Date.UTC(2026, 9, 20, 1) },
     ])
     const lines = text.trimEnd().split('\n').map((l) => JSON.parse(l))
     expect(text.endsWith('\n')).toBe(true)
-    expect(lines[0]).toMatchObject({ id: '1', expect: 'ai', label: 'bot', parent: { author: 'alice', text: '主帖' }, ai: { score: 85, model: 'm' }, labeledAt: '2026-10-20T00:00:00.000Z' })
+    expect(lines[0]).toMatchObject({ id: '1', expect: 'ai', label: 'bot', parent: { author: 'alice', text: '主帖' }, replyTo: { author: 'dan', text: '评论' }, ai: { score: 85, model: 'm' }, labeledAt: '2026-10-20T00:00:00.000Z' })
     expect(lines[1]).toMatchObject({ id: '2', expect: 'human', ai: null })
+    expect('replyTo' in lines[1]).toBe(false)
     expect(labelsToJsonl([])).toBe('')
   })
 })

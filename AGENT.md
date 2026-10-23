@@ -54,7 +54,7 @@ oh-my-x/
 │   ├── detect-language.ts       # 独立语言识别 + 排除引用推文逻辑
 │   ├── navItems.ts              # 导航项注册表（id/storageKey/label/selector）
 │   ├── staticNavIcons.ts        # 弹窗「导航栏按钮」里列出的 10 个按钮
-│   ├── feature-registry.ts      # 功能清单：5 个模块、每个功能的归属/名称/说明/存储项
+│   ├── feature-registry.ts      # 功能清单：6 个模块、每个功能的归属/名称/说明/存储项
 │   ├── i18n/                    # 界面语言：zh-CN.ts / en.ts 文案表 + t() 取文案、语言设置读取
 │   ├── tweet-filter-rules.ts    # 正文关键词过滤规则
 │   ├── tweet-media.ts           # 从推文 DOM 和接口数据提取图片/视频地址（下载用）
@@ -123,7 +123,7 @@ oh-my-x/
 │   ├── content.ts               # isolated content script 入口（storage.onChanged、总开关）
 │   ├── interceptor.content.ts   # MAIN world 脚本：hook fetch/XHR 拦截排期 API
 │   ├── background.ts            # Service Worker：默认词库同步、帖子库、Lists/媒体请求、创作者奖励、AI 请求
-│   ├── popup/                   # 设置面板（Vue 3 SPA，5 个模块标签，只挂载当前模块）
+│   ├── popup/                   # 设置面板（Vue 3 SPA，6 个模块标签，只挂载当前模块）
 │   └── options/                 # 完整设置页（新标签页整页打开，复用 popup 的模块页）
 │       ├── App.vue / main.ts / style.css / index.html
 │       ├── composables/         # useStorageKey
@@ -154,7 +154,7 @@ oh-my-x/
 - 负责本地帖子库 RPC、同步唤醒、Lists/媒体请求、创作者奖励定时刷新，以及可取消的 AI 请求与权限检查。
 
 ### 4. Popup（`entrypoints/popup/`）
-- Vue 3 SPA，5 个模块标签（界面 / 过滤 / 数据 / 创作 / 互动），只挂载当前模块页。
+- Vue 3 SPA，6 个模块标签（界面 / 过滤 / 数据 / 创作 / 互动），只挂载当前模块页。
 
 ## 发帖框多图排版与排序（`options/composer-media.ts` + `shared/composer-media-bridge.ts`）
 
@@ -199,11 +199,14 @@ oh-my-x/
 - `evaluateSpam({ text, authorName, authorHandle, keywords, enabledRules })`：空 `keywords` 数组表示用户明确清空，不回退默认词库。
 
 ### AI 打分（试验，方案见 `docs/plans/ai-reply-scoring.md`）
-- 「AI 判断」打开后，规则没隐藏的回复送给「AI 总结转发」配置的模型打 AI 嫌疑分（0–100）；分数达到阈值的回复折叠成一行（`HIDDEN_BY_ATTR` 记成 `ai`，规则隐藏记成 `rule`），没到的在操作栏末尾显示分数标签。调试模式只在调试条上多一行 AI 结果，不折叠。
+- 「AI 判断」打开后，规则没隐藏的回复送给「设置 → AI 服务」配置的模型打 AI 嫌疑分（0–100）；分数达到阈值的回复折叠成一行（`HIDDEN_BY_ATTR` 记成 `ai`，规则隐藏记成 `rule`），没到的在操作栏末尾显示分数标签。调试模式只在调试条上多一行 AI 结果，不折叠。
 - 提示词、请求内容、返回解析：`shared/ai-reply-score.ts`（改提示词要把 `REPLY_SCORE_PROMPT_VERSION` 加 1，旧缓存作废）。样例集：`shared/ai-reply-samples.json` + `ai-reply-samples.ts`。
-- 页面侧：`content-scripts/spam/ai-scorer.ts`（查缓存 → 攒批 → 送后台，暂停原因、手动判断），`ai-badge.ts`（分数标签、折叠条、帖子页标题栏上的 AI 按钮）。扫描器按详情页记住主帖和上级推文 ID，主帖滚出页面后也能分清回复。
+- 页面侧：`content-scripts/spam/ai-scorer.ts`（查缓存 → 攒批 → 送后台，暂停原因、手动判断），`ai-badge.ts`（分数标签、折叠条、帖子页标题栏上的 AI 按钮）。扫描器按详情页记住主帖和上级推文 ID，主帖滚出页面后也能分清回复。主帖作者和自己的回复不送判断。
+- 被回复的评论：拦截脚本用 `shared/reply-target.ts` 从 React props 读 `conversation_id_str`、`in_reply_to_status_id_str`，写到推文元素的 `data-xf-reply-of / conversation / reply-to / reply-to-user` 上并派发 `xf-reply-target-updated`；扫描器读属性，回别人评论的回复带上那条评论（`replyTo`）送给模型；对话 ID 和主帖不同的推文（帖子页底部「发现更多」）按主帖处理，不评分。
+- 逐条显示：实际打分请求设置 `stream: true`，`shared/ai-stream.ts` 解码 SSE，`createReplyScoreStreamParser` 只发布完整且校验通过的评分对象。Port 用 `XF_AI_PROGRESS` 传中间结果，最终 `AiResponse` 才结束连接；页面每条结果触发重扫，顶部显示已完成 / 已完成与待处理总数和加载动画。每条结果立即写缓存，中断保留完成项，重试排除完成项。超时按多久没有新数据算（`shared/ai-deadline.ts`：第一段数据 25 秒、之后 15 秒没新数据、最长 90 秒），页面等待时每 10 秒发 `XF_AI_KEEPALIVE` 保活。提示词第 4 版起回复用序号代替推文 ID、结果字段为 `i s g r`，31 分以上才写理由。不支持流式、但返回普通 JSON 的服务走整批结果兼容路径。样例集测试与总结仍保持原有非流式流程。
 - 后台：`XF_SCORE_REPLIES`（打分，结果缓存在 IndexedDB `oh-my-x-reply-scores`，7 天、5000 条）、`XF_LOOKUP_REPLY_SCORES`（只查缓存）、`XF_TEST_REPLY_SCORE_SAMPLES`（设置页跑样例集，不写缓存不计用量）；当天用量在 `spamAiUsage`，每 5 秒合并写一次。
 - 标注：分数标签和折叠条上的「机器人 / 真人」按钮；存在同一个数据库的 `labels` 表（不过期），后台消息 `XF_REPLY_LABEL_SET` / `XF_REPLY_LABEL_LIST`，查缓存时一起返回。标「真人」不折叠，标「机器人」直接折叠。设置区「我的标注」显示条数并导出 JSONL（格式见 `labelsToJsonl`）。
+- 标过机器人的账号：`storage.local` 的 `spamAiBotAccounts`（`shared/reply-bot-accounts.ts`），标注消息带 `botAccount` 时由后台加入 / 移出；这些账号的回复直接折叠、不自动送模型。规则见方案文档 4.7。
 - `npm run test:live`：用真实接口跑样例集（key 从环境变量读，会产生费用，不进 `npm run check`）。
 
 ### 日志/统计（`shared/spam-logger.ts`）
@@ -220,7 +223,7 @@ oh-my-x/
 
 ## Popup 布局
 
-- 标签来自 `shared/feature-registry.ts` 的 `FEATURE_MODULES`，顺序为 界面、过滤、数据、创作、互动，默认 `layout`。
+- 标签来自 `shared/feature-registry.ts` 的 `FEATURE_MODULES`，顺序为 界面、过滤、数据、创作、互动、设置，默认 `layout`。
 - 每个模块页在 `components/modules/*Module.vue`，页头 `ModuleHeader` 显示模块标题和说明；功能卡片在 `components/sections`，通用控件在 `components/ui`、`components/controls`。
 - 功能卡片统一用 `ui/FeatureCard.vue`：名称 + 右侧控件 / 说明、补充说明、「在哪用」（都取自功能清单）/ 分隔线下状态行 + 展开详细设置。详细设置用 `v-show` 收起，内容保持挂载。
 - 多个简单功能共用一张卡片时，用 `FeatureList` 包住若干 `FeatureCard variant="row"`；从属设置用 `SubRow` 缩进；分组标题用 `GroupLabel`。
@@ -288,6 +291,12 @@ npm run zip       # 构建 + 打包
 
 Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
 
-AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；请求 25 秒超时，Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
+AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；第一段数据 25 秒内要到，之后 15 秒没有新数据或总共 90 秒才算超时（`shared/ai-deadline.ts`），Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
 
 转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用默认风格。转发文案按插件界面语言生成：X 页面的 AI 面板在请求里带上 `locale`，后台按它选中文或英文的提示词、默认风格（`DEFAULT_REPOST_STYLE` / `DEFAULT_REPOST_STYLE_EN`）和禁用词替换表；请求没带语言时按后台读到的插件语言。中英两套提示词结构保持一致，改一套时同步改另一套。提示词里不要写入具体某个人的人设或账号。
+
+### 公共 AI 服务
+
+- 「设置 → AI 服务」统一管理接口地址、API Key、默认模型和授权测试；总结和评论判断各自的模型字段留空时跟随公共默认模型。
+- `shared/ai-service.ts` 负责解析和幂等迁移，旧总结连接及模型迁成公共配置，保留打分模型。迁移只由后台写入；弹窗与完整设置页等待迁移完成后挂载，失败可重试。
+- X 总结弹窗不再编辑连接配置，入口跳转到完整设置页的 `#settings`。

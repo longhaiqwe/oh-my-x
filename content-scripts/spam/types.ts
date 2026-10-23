@@ -5,6 +5,8 @@ import type { SpamAiAutoScope } from '../../shared/settings'
 export interface SpamAiConfig {
   autoScope: SpamAiAutoScope
   threshold: number
+  /** 标过「机器人」的账号（小写用户名）：这些账号的回复直接折叠 */
+  botAccounts: Set<string>
 }
 
 export interface SpamConfig {

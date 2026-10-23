@@ -69,6 +69,7 @@ import {
   type UserMetrics,
 } from '../shared/user-metrics-interceptor'
 import { installComposerMediaBridge } from '../shared/composer-media-bridge'
+import { annotateReplyTargets } from '../shared/reply-target'
 
 export default defineContentScript({
   matches: [
@@ -1535,6 +1536,7 @@ export default defineContentScript({
     function runAllDomAnnotations() {
       annotateBookmarksInDom()
       annotateUserFollowersInDom()
+      annotateReplyTargets()
     }
 
     // 页面加载及 DOM 变更时持续自动标注

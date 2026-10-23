@@ -6,8 +6,10 @@ import type { Locale } from './i18n'
 /**
  * 改了提示词就加 1，旧缓存作废。
  * 2：去掉「追问原帖细节就减分」；加 S11 认同 + 复述 + 补一句、S12 蓝 V 低粉；同批雷同提为中信号；送粉丝数和蓝 V
+ * 3：回复别人评论的回复带上被回复的评论（replyTo），切题和复述按那条评论判断
+ * 4：减少输出：回复用序号代替推文 ID，结果字段用一个字母（i s g r），31 分以上才写理由、不超过 20 字
  */
-export const REPLY_SCORE_PROMPT_VERSION = 2
+export const REPLY_SCORE_PROMPT_VERSION = 4
 /** 一次请求最多判断的回复条数 */
 export const REPLY_SCORE_BATCH_SIZE = 20
 /** 送给模型的正文最多这么多字 */
@@ -22,6 +24,12 @@ export interface ReplyScoreParent {
   text: string
 }
 
+/** 被回复的评论；text 为空表示没拿到正文 */
+export interface ReplyScoreTarget {
+  author: string
+  text: string
+}
+
 export interface ReplyScoreItem {
   id: string
   author: string
@@ -32,6 +40,8 @@ export interface ReplyScoreItem {
   followers?: number | null
   /** 作者是否蓝 V；不知道时为 null 或不填 */
   verified?: boolean | null
+  /** 回复的是另一条评论时，那条评论；直接回主帖时不填 */
+  replyTo?: ReplyScoreTarget | null
 }
 
 export interface ReplyScore {
@@ -51,6 +61,7 @@ const CRITERIA: Record<Locale, string> = {
 3. 只有原帖里没有的信息才算真人特征，可以减分：自己的经历、自己的数字或做法、具体的反对意见、错别字和随口的口语。复述原帖的细节、顺着原帖问一个问题，都不算真人特征，不减分。
 4. 观点偏激、语气差、外语写得不地道、营销推广，都不能当作 AI 的证据。
 5. 打分前先把整批回复读一遍，比较它们之间的用词和句式。
+6. 带 replyTo 的回复是在回那条评论，不是直接回原帖。判断有没有接住具体内容、是不是复述时，以 replyTo 的评论为准，原帖只作背景；和原帖关系弱不算证据。replyTo 的 text 为空时，表示没拿到那条评论的正文，不要因为和原帖关系弱而加分。
 
 ## 信号
 - S1 万能回复（强）：没有接住原帖的任何具体内容，放到别的帖子下面也成立
@@ -76,6 +87,7 @@ const CRITERIA: Record<Locale, string> = {
 3. Only information that is not in the post counts as a human trait and lowers the score: the author's own experience, own numbers or methods, specific disagreement, typos and offhand wording. Restating details of the post, or asking a question that follows from the post, is not a human trait and does not lower the score.
 4. Strong opinions, rude tone, non-native language, or promotion are not evidence of AI.
 5. Before scoring, read the whole batch and compare wording and sentence patterns across replies.
+6. A reply with replyTo answers that comment, not the post directly. When judging whether it engages with specifics or restates, use the replyTo comment; the post is only background, and a weak link to the post is not evidence. If replyTo.text is empty, the comment's text is unknown; do not add points because the reply has little to do with the post.
 
 ## Signals
 - S1 Generic reply (strong): engages with nothing specific in the post; would fit under any post
@@ -97,21 +109,23 @@ A strong signal adds about 30–40, a medium signal 15–20, a weak signal 5–1
 
 const OUTPUT_FORMAT: Record<Locale, string> = {
   'zh-CN': `## 输出格式
-- 输入是 JSON：parent 是原帖，replies 是要判断的回复。每条回复有 id、author、text、delaySeconds（比原帖晚的秒数）、followers（作者粉丝数）、verified（作者是否蓝 V）；值为 null 表示不知道。
-- 每条回复都要给出结果，id 原样返回。
-- score：0–100 的整数。0–30 像真人，31–69 可疑，70–100 高度可疑。
-- signals：命中的信号编号，例如 ["S2","S11"]；没有就给 []。
-- reason：一句中文，说明依据，引用回复里的原词，不超过 40 字。
+- 输入是 JSON：parent 是原帖，replies 是要判断的回复。每条回复有 id（序号）、author、text、delaySeconds（比原帖晚的秒数）、followers（作者粉丝数）、verified（作者是否蓝 V）；值为 null 表示不知道。回复别人评论的回复还有 replyTo：被回复的那条评论（author、text）。
+- 每条回复都要给出结果，字段名都是一个字母：
+  - i：回复的序号，和输入里的 id 相同。
+  - s：0–100 的整数嫌疑分。0–30 像真人，31–69 可疑，70–100 高度可疑。
+  - g：命中的信号编号，例如 ["S2","S11"]；没有就给 []。
+  - r：s 在 31 以上时，用一句中文说明依据，引用回复里的原词，不超过 20 字；s 在 30 以下时给 ""。
 - 只输出 JSON，不要解释，不要代码块标记：
-{"results":[{"id":"回复 id","score":0,"signals":[],"reason":"…"}]}`,
+{"results":[{"i":1,"s":0,"g":[],"r":""}]}`,
   en: `## Output format
-- The input is JSON: parent is the post, replies are the replies to check. Each reply has id, author, text, delaySeconds (seconds after the post), followers (the author's follower count), verified (whether the author has a blue check); null means unknown.
-- Return a result for every reply, with the id unchanged.
-- score: an integer from 0 to 100. 0–30 looks human, 31–69 suspicious, 70–100 highly suspicious.
-- signals: the matched signal codes, e.g. ["S2","S11"]; use [] if none.
-- reason: one English sentence explaining the evidence, quoting words from the reply, at most 25 words.
+- The input is JSON: parent is the post, replies are the replies to check. Each reply has id (a sequence number), author, text, delaySeconds (seconds after the post), followers (the author's follower count), verified (whether the author has a blue check); null means unknown. A reply to another comment also has replyTo: the comment it answers (author, text).
+- Return a result for every reply. Field names are single letters:
+  - i: the reply's sequence number, the same as its id in the input.
+  - s: an integer suspicion score from 0 to 100. 0–30 looks human, 31–69 suspicious, 70–100 highly suspicious.
+  - g: the matched signal codes, e.g. ["S2","S11"]; use [] if none.
+  - r: if s is 31 or higher, one English sentence explaining the evidence, quoting words from the reply, at most 15 words; if s is 30 or lower, "".
 - Output JSON only, no explanation, no code fences:
-{"results":[{"id":"reply id","score":0,"signals":[],"reason":"…"}]}`,
+{"results":[{"i":1,"s":0,"g":[],"r":""}]}`,
 }
 
 export function buildReplyScoreSystemPrompt(locale: Locale = 'zh-CN'): string {
@@ -123,16 +137,18 @@ function clip(text: string): string {
   return chars.length > REPLY_SCORE_TEXT_LIMIT ? `${chars.slice(0, REPLY_SCORE_TEXT_LIMIT).join('')}…` : chars.join('')
 }
 
+/** 送给模型的回复用序号（从 1 开始）代替推文 ID，模型返回的序号由 parseReplyScoreResponse 换回推文 ID */
 export function buildReplyScoreUserMessage(parent: ReplyScoreParent, replies: ReplyScoreItem[]): string {
   return JSON.stringify({
     parent: { author: parent.author, text: clip(parent.text) },
-    replies: replies.map((reply) => ({
-      id: reply.id,
+    replies: replies.map((reply, index) => ({
+      id: index + 1,
       author: reply.author,
       text: clip(reply.text),
       delaySeconds: reply.delaySeconds,
       followers: reply.followers ?? null,
       verified: reply.verified ?? null,
+      ...(reply.replyTo ? { replyTo: { author: reply.replyTo.author, text: clip(reply.replyTo.text) } } : {}),
     })),
   })
 }
@@ -151,8 +167,24 @@ export function buildReplyScoreMessages(
 const SIGNAL_SET = new Set<string>(REPLY_SCORE_SIGNALS)
 
 /**
+ * 一条结果对应的推文 ID。ids 是请求里回复的顺序：i 是序号（从 1 开始）；
+ * 模型改用 id 字段时，先当推文 ID 认，认不出再当序号。
+ */
+function resultId(item: any, ids: string[], allowed: Set<string>): string | undefined {
+  const byIndex = (raw: unknown) => {
+    const index = Number(raw)
+    return Number.isInteger(index) && index >= 1 && index <= ids.length ? ids[index - 1] : undefined
+  }
+  if (item.i != null) return byIndex(item.i)
+  if (item.id == null) return undefined
+  const id = String(item.id).trim()
+  return allowed.has(id) ? id : byIndex(id)
+}
+
+/**
  * 解析模型返回的文字。容忍 JSON 前后的多余文字和代码块标记；
- * 只保留本批里的 ID，分数四舍五入并限制在 0–100，未知的信号编号丢掉。
+ * batchIds 按请求里回复的顺序给，用来把序号换回推文 ID；字段认 i s g r，也认 id score signals reason。
+ * 只保留本批里的回复，分数四舍五入并限制在 0–100，未知的信号编号丢掉。
  * 整段解析不出来时抛错。
  */
 export function parseReplyScoreResponse(text: string, batchIds: Iterable<string>): ReplyScore[] {
@@ -167,27 +199,85 @@ export function parseReplyScoreResponse(text: string, batchIds: Iterable<string>
   }
   if (!Array.isArray(data?.results)) throw new AppError('error.aiScoreParse')
 
-  const allowed = new Set(batchIds)
+  const ids = [...batchIds]
+  const allowed = new Set(ids)
   const seen = new Set<string>()
   const results: ReplyScore[] = []
   for (const item of data.results) {
-    if (!item || item.id == null) continue
-    const id = String(item.id)
-    if (!allowed.has(id) || seen.has(id)) continue
-    const raw = Number(item.score)
+    if (!item || typeof item !== 'object') continue
+    const id = resultId(item, ids, allowed)
+    if (!id || seen.has(id)) continue
+    const raw = Number(item.s ?? item.score)
     if (!Number.isFinite(raw)) continue
     seen.add(id)
-    const signals = Array.isArray(item.signals)
-      ? [...new Set(item.signals.map((s: unknown) => String(s).trim().toUpperCase()))].filter((s): s is ReplyScoreSignal => SIGNAL_SET.has(s as string))
+    const rawSignals = item.g ?? item.signals
+    const signals = Array.isArray(rawSignals)
+      ? [...new Set(rawSignals.map((s: unknown) => String(s).trim().toUpperCase()))].filter((s): s is ReplyScoreSignal => SIGNAL_SET.has(s as string))
       : []
+    const reason = item.r ?? item.reason
     results.push({
       id,
       score: Math.min(100, Math.max(0, Math.round(raw))),
       signals,
-      reason: typeof item.reason === 'string' ? item.reason.trim().slice(0, 160) : '',
+      reason: typeof reason === 'string' ? reason.trim().slice(0, 160) : '',
     })
   }
   return results
+}
+
+/** Emit only complete objects from the streamed results array, never half-written scores. */
+export function createReplyScoreStreamParser(batchIds: Iterable<string>, onScore: (score: ReplyScore) => void): (delta: string) => void {
+  // 按请求里的顺序保留，序号才能换回推文 ID
+  const ids = [...batchIds]
+  const seen = new Set<string>()
+  let buffer = ''
+  let cursor = 0
+  let inResults = false
+  let finished = false
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+  return (delta) => {
+    if (finished) return
+    buffer += delta
+    if (!inResults) {
+      const header = /"results"\s*:\s*\[/.exec(buffer)
+      if (!header) return
+      cursor = header.index + header[0].length
+      inResults = true
+    }
+    for (; cursor < buffer.length; cursor++) {
+      const char = buffer[cursor]
+      if (inString) {
+        if (escaped) escaped = false
+        else if (char === '\\') escaped = true
+        else if (char === '"') inString = false
+        continue
+      }
+      if (char === '"') { inString = true; continue }
+      if (char === '{') {
+        if (depth === 0) start = cursor
+        depth++
+      } else if (char === '}' && depth > 0) {
+        depth--
+        if (depth === 0 && start >= 0) {
+          const object = buffer.slice(start, cursor + 1)
+          let parsed: ReplyScore[] = []
+          try { parsed = parseReplyScoreResponse(`{"results":[${object}]}`, ids) } catch { /* final parse reports malformed JSON */ }
+          for (const score of parsed) {
+            if (seen.has(score.id)) continue
+            seen.add(score.id)
+            onScore(score)
+          }
+          start = -1
+        }
+      } else if (char === ']' && depth === 0) {
+        finished = true
+        break
+      }
+    }
+  }
 }
 
 /** 回复比主帖晚多少秒；任一时间缺失或回复早于主帖时返回 null */

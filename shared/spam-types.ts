@@ -124,6 +124,8 @@ export interface SpamLogEntry {
     reason: string
     /** 折叠时用户的标注 */
     label?: 'bot' | 'human'
+    /** 这条没单独标注，因为账号标过机器人而折叠 */
+    account?: boolean
   }
 }
 

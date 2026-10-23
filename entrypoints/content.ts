@@ -38,6 +38,7 @@ import {
   KeyMediaDownload,
   KeyAiRepostEnabled,
   KeyComposerMediaGrid,
+  KeySpamAiBotAccounts,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
   TWEET_FILTER_RELEVANT_KEYS,
@@ -138,9 +139,10 @@ export default defineContentScript({
       }
 
       // 任意 spam 相关 key 变化时，刷新扫描
-      const spamChanged = Object.keys(changes).some((k) => SPAM_RELEVANT_KEYS.has(k))
-      if (spamChanged) {
-        invalidateSpamConfig()
+      const spamKeys = Object.keys(changes).filter((k) => SPAM_RELEVANT_KEYS.has(k))
+      if (spamKeys.length) {
+        // 只是标注时后台改了机器人账号列表：重扫，但不解除 AI 判断的暂停
+        invalidateSpamConfig({ keepAiPause: spamKeys.every((k) => k === KeySpamAiBotAccounts) })
         if (changes[KeySpamFilterEnabled]?.newValue === 'off') {
           stopSpamObserver()
           void runScan()

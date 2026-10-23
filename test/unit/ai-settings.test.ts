@@ -1,7 +1,7 @@
 import { createApp, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import AiRepostCard from '../../entrypoints/popup/components/sections/AiRepostCard.vue'
-import { KeyAiRepostApiKey, KeyAiRepostBaseUrl } from '../../storage-keys'
+import AiServiceCard from '../../entrypoints/popup/components/sections/AiServiceCard.vue'
+import { KeyAiServiceApiKey, KeyAiServiceBaseUrl } from '../../storage-keys'
 import { flushMicrotasks, portPair } from '../helpers/runtime-port'
 
 let app: App
@@ -17,12 +17,12 @@ beforeEach(async () => {
     runtime: { id: 'test-extension', connect, sendMessage: vi.fn().mockResolvedValue({ ok: true }) },
     permissions: { request },
     storage: { local: {
-      get: async () => ({ [KeyAiRepostApiKey]: 'test-key', [KeyAiRepostBaseUrl]: 'https://ai.example/v1' }),
+      get: async () => ({ [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1' }),
       set: vi.fn().mockResolvedValue(undefined),
     } },
   })
   root = document.createElement('div'); document.body.append(root)
-  app = createApp(AiRepostCard); app.mount(root)
+  app = createApp(AiServiceCard); app.mount(root)
   await flushMicrotasks(); await nextTick()
 })
 afterEach(() => { app.unmount(); root.remove(); vi.unstubAllGlobals() })

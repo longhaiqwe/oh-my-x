@@ -92,7 +92,7 @@ onMounted(refresh)
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ spamCategoryLabel(entry.category, locale) }}</span>
       <template v-if="entry.source === 'ai' && entry.ai">
        <span v-if="entry.ai.score !== null" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiScore', { score: entry.ai.score }) }}</span>
-       <span v-if="entry.ai.label === 'bot'" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiLabeledBot') }}</span>
+       <span v-if="entry.ai.label === 'bot'" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t(entry.ai.account ? 'spamLog.aiLabeledBotAccount' : 'spamLog.aiLabeledBot') }}</span>
       </template>
       <span v-else class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.score', { score: entry.score }) }}</span>
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ actionLabel(entry.action) }}</span>

@@ -2,10 +2,11 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from 'reka-ui'
 import {
-  KeyAiRepostApiKey,
-  KeyAiRepostBaseUrl,
-  KeyAiRepostModel,
+  KeyAiServiceApiKey,
+  KeyAiServiceBaseUrl,
+  KeyAiServiceModel,
   KeySpamAiAutoScope,
+  KeySpamAiBotAccounts,
   KeySpamAiDailyLimit,
   KeySpamAiEnabled,
   KeySpamAiModel,
@@ -19,12 +20,14 @@ import { REPLY_SCORE_SAMPLE_THREADS, labelsToJsonl, summarizeSampleRun, type Sam
 import type { StoredReplyLabel } from '../../../../shared/reply-score-db'
 import type { ReplyScore } from '../../../../shared/ai-reply-score'
 import { parseReplyScoreUsage } from '../../../../shared/reply-score-usage'
+import { parseBotAccounts } from '../../../../shared/reply-bot-accounts'
 import { getTodayKey } from '../../../../shared/spam-logger'
 import { errorText } from '../../../../shared/errors'
 import { useI18n } from '../../composables/useI18n'
 import { useStorageKey } from '../../composables/useStorageKey'
 import { useStorageSnapshot } from '../../composables/useStorageSnapshot'
 import FeatureCard from '../ui/FeatureCard.vue'
+import AiServiceLink from '../ui/AiServiceLink.vue'
 import SwitchToggle from '../ui/SwitchToggle.vue'
 import SubRow from '../ui/SubRow.vue'
 import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
@@ -33,11 +36,11 @@ import ToggleGroupControl from '../ui/ToggleGroupControl.vue'
 const { t, featureText, locale } = useI18n()
 const { value: enabled, setValue: setEnabled } = useStorageKey(KeySpamAiEnabled)
 
-// 连接用「AI 总结转发」的设置；这里只读，用来提示没填 key、没授权
-const snapshot = useStorageSnapshot([KeyAiRepostApiKey, KeyAiRepostBaseUrl, KeyAiRepostModel, KeySpamAiUsage])
-const hasKey = computed(() => String(snapshot[KeyAiRepostApiKey] ?? '').trim() !== '')
-const baseUrl = computed(() => String(snapshot[KeyAiRepostBaseUrl] || defaultPreferences[KeyAiRepostBaseUrl]))
-const repostModel = computed(() => String(snapshot[KeyAiRepostModel] || defaultPreferences[KeyAiRepostModel]))
+// 共用 AI 服务；模型留空时跟随公共默认模型
+const snapshot = useStorageSnapshot([KeyAiServiceApiKey, KeyAiServiceBaseUrl, KeyAiServiceModel, KeySpamAiUsage, KeySpamAiBotAccounts])
+const hasKey = computed(() => String(snapshot[KeyAiServiceApiKey] ?? '').trim() !== '')
+const baseUrl = computed(() => String(snapshot[KeyAiServiceBaseUrl] || defaultPreferences[KeyAiServiceBaseUrl]))
+const defaultModel = computed(() => String(snapshot[KeyAiServiceModel] || defaultPreferences[KeyAiServiceModel]))
 const granted = ref(true)
 
 async function checkGranted() {
@@ -76,7 +79,7 @@ async function setThreshold(value: number) {
 function saveModel() {
   if (modelTimer) clearTimeout(modelTimer)
   modelTimer = null
-  void setStorage({ [KeySpamAiModel]: model.value.trim() })
+  return setStorage({ [KeySpamAiModel]: model.value.trim() })
 }
 
 function scheduleSaveModel() {
@@ -124,6 +127,8 @@ async function runSamples() {
   let completion = 0
   let anyUsage = false
   try {
+    if (!await saveModel()) throw new Error(t('ai.saveFailed'))
+    if (activeRun !== run) return
     for (let i = 0; i < threads.length; i++) {
       const res = await sendAiRequest({ type: 'XF_TEST_REPLY_SCORE_SAMPLES', threadIndex: i, locale: locale.value }, run.signal)
       if (activeRun !== run) return
@@ -166,6 +171,7 @@ const labelCounts = computed(() => ({
   bot: labels.value.filter((l) => l.label === 'bot').length,
   human: labels.value.filter((l) => l.label === 'human').length,
 }))
+const botAccountCount = computed(() => parseBotAccounts(snapshot[KeySpamAiBotAccounts]).length)
 
 async function loadLabels() {
   try {
@@ -217,6 +223,7 @@ onBeforeUnmount(() => {
   <div v-if="enabled" class="flex flex-col gap-4">
    <!-- 说明整个功能会发送哪些内容，放在开关下面第一行 -->
    <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiPrivacy') }}</p>
+   <AiServiceLink :model="model.trim() || defaultModel" />
    <p v-if="!hasKey" class="text-xs leading-normal text-warning">{{ t('spamFilter.aiNoKey') }}</p>
    <div v-else-if="!granted" class="flex flex-wrap items-center justify-between gap-2">
     <p class="text-xs leading-normal text-warning">{{ t('spamFilter.aiNotGranted') }}</p>
@@ -256,7 +263,7 @@ onBeforeUnmount(() => {
      v-model="model"
      type="text"
      :aria-label="t('spamFilter.aiModelTitle')"
-     :placeholder="t('spamFilter.aiModelPlaceholder', { model: repostModel })"
+     :placeholder="t('spamFilter.aiModelPlaceholder', { model: defaultModel })"
      class="w-40 h-8 px-3 rounded-control border border-border-strong bg-sunken-bg text-xs font-mono text-text placeholder:text-muted-text outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring"
      @input="scheduleSaveModel"
      @blur="saveModel"
@@ -332,9 +339,10 @@ onBeforeUnmount(() => {
     <p class="text-sm font-semibold text-text">{{ t('spamFilter.aiLabelsTitle') }}</p>
     <p class="text-xs leading-normal text-muted-text">{{ t('spamFilter.aiLabelsDescription') }}</p>
     <div class="flex flex-wrap items-center justify-between gap-2">
-     <p class="text-xs text-secondary-text">
-      {{ labelCounts.total ? t('spamFilter.aiLabelsCount', labelCounts) : t('spamFilter.aiLabelsEmpty') }}
-     </p>
+     <div class="flex flex-col gap-1 text-xs text-secondary-text">
+      <p>{{ labelCounts.total ? t('spamFilter.aiLabelsCount', labelCounts) : t('spamFilter.aiLabelsEmpty') }}</p>
+      <p v-if="botAccountCount">{{ t('spamFilter.aiBotAccounts', { count: botAccountCount }) }}</p>
+     </div>
      <button
       type="button"
       :disabled="!labelCounts.total"

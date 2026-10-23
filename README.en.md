@@ -136,6 +136,18 @@ Set an allowlist and a blocklist by `@handle`. Replies from allowlisted authors 
 
 Keeps the latest 50 hidden replies on your device, with the matched rules and score, and counts each day's blocks by category. The Filter tab shows today's total and the latest few records; click All records for details.
 
+#### AI reply check progress
+
+Reply checks support streaming: each complete score updates its reply as soon as it arrives, without waiting for the whole batch. The header shows a loading indicator and “AI checking · 3/20”: completed replies on this page / completed plus pending replies. The total can change as more replies enter the queue.
+
+Completed scores are cached individually and remain available after a timeout or disconnection. Retrying checks only unfinished replies. Batches still contain up to 20 replies so the model can compare them. The first data must arrive within 25 seconds; subsequent inactivity is limited to 15 seconds, with a 90-second overall deadline. Incremental display requires OpenAI-compatible streaming support. Services that ignore the streaming parameter and return ordinary JSON still display results as a batch.
+
+#### When an AI reply check fails
+
+The post header distinguishes timeouts, excessive input length, rate limits, authentication failures, network failures, and expired extension connections. Click the error to see an explanation, recovery guidance, and the original diagnostic, with an action to retry, open AI settings, or refresh the page.
+
+`Extension context invalidated` means an old page has lost its connection to the extension, commonly after an update or reload. Refresh the current X page to reconnect. It is not an AI context length error. AI requests track first-data, inactivity, and overall deadlines separately; excessive input length is reported only when the service explicitly identifies a context limit.
+
 #### Keyword filter
 
 Posts in your timeline that contain muted words can be collapsed into a one-line notice (click to expand, and collapse again), or hidden. New installs with an English interface start with "hot take", "unpopular opinion", "controversial take", and "spicy take".
@@ -189,11 +201,11 @@ When you attach 2 to 4 images, they are shown in two columns of equal tiles, lef
 
 #### AI quote drafts
 
-In the post and quote editors, click the AI draft button to the right of Everyone. The extension reads the full text of the quoted post and uses your model to write two drafts. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
+In post, quote, and reply editors, click the AI draft button. It appears to the right of Everyone, or above the input in reply dialogs and inline reply boxes without an audience selector. The extension reads the original post and uses your model to write two drafts. Inline replies use the post on the current detail page as their source. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
 
-- Works with OpenAI-compatible APIs. Under Create → AI quote drafts, enter the base URL, API key, and model name, then click Authorize and test connection. The extension asks for access to that service address only; if you decline, no request is sent.
+- Works with OpenAI-compatible APIs. Under Settings → AI service, enter the base URL, API key, and default model, then click Authorize and test connection. The extension asks for access to that service address only; if you decline, no request is sent. Quote drafts and reply checks share this service, with independent model overrides; leave an override empty to follow the default. Existing connection settings migrate automatically.
 - Set your own writing style: describe it under Style description, and paste 2 to 5 quote posts you wrote under Sample posts, separated by a line containing only `---`. If both are empty, a plain default style is used.
-- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Each request times out after 25 seconds. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
+- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Requests allow 25 seconds for the first data, 15 seconds of subsequent inactivity, and 90 seconds overall. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
 
 #### Schedule overview
 

@@ -279,3 +279,49 @@ describe('标注', () => {
     expect(onChange).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('逐条结果', () => {
+  it('publishes one completed reply while the batch is pending; preserves it on failure and retries only unfinished replies', async () => {
+    let emit!: (progress: any) => void
+    let finish!: (response: AiResponse) => void
+    deps.score.mockImplementationOnce((_m: any, _s: AbortSignal, progress: typeof emit) => {
+      emit = progress
+      return new Promise<AiResponse>(resolve => { finish = resolve })
+    })
+    const scorer = createAiScorer(deps)
+    const changed = vi.fn()
+    scorer.onChange(changed)
+    scorer.manual([{ item: item('1'), parent }, { item: item('2'), parent }])
+    await settle(0)
+    expect(emit).toBeTypeOf('function')
+    changed.mockClear()
+    emit({ type: 'XF_AI_PROGRESS', scores: [score('1'), score('999')] })
+    expect(scorer.peek('1')).toBe('done')
+    expect(scorer.peek('2')).toBe('pending')
+    expect(scorer.peek('999')).toBe('none')
+    expect(scorer.status().busy).toBe(true)
+    expect(changed).toHaveBeenCalledOnce()
+    emit({ type: 'XF_AI_PROGRESS', scores: [score('1')] })
+    expect(changed).toHaveBeenCalledOnce()
+    finish({ ok: false, error: { code: 'error.aiTimeout', params: { seconds: 25 } } })
+    await settle(0)
+    expect(scorer.peek('1')).toBe('done')
+    expect(scorer.status().paused?.reason).toBe('error')
+    scorer.manual([{ item: item('1'), parent }, { item: item('2'), parent }])
+    expect(deps.score.mock.calls[1][0].replies.map((r: any) => r.id)).toEqual(['2'])
+  })
+
+  it('ignores streaming updates after stop or navigation', async () => {
+    let emit!: (progress: any) => void
+    deps.score.mockImplementationOnce((_m: any, _s: AbortSignal, progress: typeof emit) => {
+      emit = progress
+      return new Promise(() => {})
+    })
+    const scorer = createAiScorer(deps)
+    scorer.manual([{ item: item('1'), parent }])
+    expect(emit).toBeTypeOf('function')
+    scorer.stop()
+    emit({ type: 'XF_AI_PROGRESS', scores: [score('1')] })
+    expect(scorer.peek('1')).toBe('none')
+  })
+})

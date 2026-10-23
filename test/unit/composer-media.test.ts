@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   MEDIA_ID_ATTR,
   MEDIA_IDS_ATTR,
@@ -148,6 +148,11 @@ describe('发帖框多图排版', () => {
   })
 
   afterEach(() => {
+    if (vi.isFakeTimers()) {
+      // 在 jsdom 销毁之前清理拖拽结束后的点击拦截器。
+      vi.runOnlyPendingTimers()
+      vi.useRealTimers()
+    }
     document.body.innerHTML = ''
     setComposerMediaGridEnabled(true)
   })
@@ -231,6 +236,7 @@ describe('发帖框多图排版', () => {
   })
 
   it('拖动第 1 张到第 4 格，松手后 X 的顺序变成 2 3 4 1，之后的点击不触发', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { root, groups, store } = buildAttachments([image(1), image(2), image(3), image(4)])
     updateComposerMediaGrids()
     placeInGrid(groups)
