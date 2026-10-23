@@ -100,6 +100,8 @@ Two switches; on means hidden. The right sidebar includes search, Who to follow,
 
 Hide any of these 10 buttons: Explore, Notifications, Chat, Grok, Premium, History, Articles, Profile, More, and X Money. Items that X moves into the More menu are hidden there too. Navigation labels can be shown never, on hover, or always.
 
+Two more buttons, Radar and Inspiration (the top posts list in Creator Studio), are not in X's navigation. The extension adds them; both are off by default. When on, they appear above Profile, and clicking them does not reload the page. In a short window the navigation grows by these two items, and you scroll the left column to reach the account button at the bottom.
+
 #### Article outline
 
 On long posts, article pages, and the article editor, builds an outline from level 1 and 2 headings in a side panel. Click a heading to jump to it. It recognizes Markdown headings (`#`, `##`), Chinese numbering such as 「一、」 and 「第一章」, number prefixes such as "1." and "(1)", and paragraphs that are entirely bold.

@@ -191,6 +191,8 @@ export const zhCN = {
   'navItem.profile': '个人资料',
   'navItem.moreMenu': '更多',
   'navItem.chatMoney': 'X Money',
+  'navItem.radar': 'Radar',
+  'navItem.inspiration': '灵感',
   'navItem.shownTitle': '{label}：显示中，点击隐藏',
   'navItem.hiddenTitle': '{label}：已隐藏，点击显示',
   'navItem.toggleLabel': '显示{label}',

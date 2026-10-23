@@ -142,9 +142,9 @@ describe('extractNavItems', () => {
 })
 
 describe('STATIC_NAV_ITEMS', () => {
-  it('contains exactly 10 navigation items', () => {
-    // 创作者工作室已被 X 收进「更多」菜单，不再提供开关
-    expect(STATIC_NAV_ITEMS.length).toBe(10)
+  it('contains exactly 12 navigation items', () => {
+    // 创作者工作室已被 X 收进「更多」菜单，不再提供开关；Radar、灵感是插件添加的入口
+    expect(STATIC_NAV_ITEMS.length).toBe(12)
   })
 
   it('contains valid and unique storage keys defined in allSettingsKeys', () => {

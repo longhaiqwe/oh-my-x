@@ -38,6 +38,8 @@ import {
   KeyMediaDownload,
   KeyMessagesButton,
   KeyMoreMenuButton,
+  KeyRadarButton,
+  KeyInspirationButton,
   KeyNavigationButtonsLabels,
   KeyNavigationWidth,
   KeyNotificationsButton,
@@ -173,6 +175,8 @@ export const FEATURES: readonly FeatureDefinition[] = [
       KeyProfileButton,
       KeyChatMoneyButton,
       KeyMoreMenuButton,
+      KeyRadarButton,
+      KeyInspirationButton,
     ],
   },
   {

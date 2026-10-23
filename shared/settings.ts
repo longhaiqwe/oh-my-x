@@ -16,6 +16,8 @@ import {
   KeyNavigationWidth,
   KeyNotificationsButton,
   KeyProfileButton,
+  KeyRadarButton,
+  KeyInspirationButton,
   KeySidebarColumn,
   KeySpamBlacklist,
   KeySpamDebugMode,
@@ -116,6 +118,8 @@ export interface ExtensionSettings {
   [KeyProfileButton]: ToggleValue
   [KeyChatMoneyButton]: ToggleValue
   [KeyMoreMenuButton]: ToggleValue
+  [KeyRadarButton]: ToggleValue
+  [KeyInspirationButton]: ToggleValue
   [KeySpamFilterEnabled]: ToggleValue
   [KeySpamThreshold]: number
   [KeySpamDebugMode]: ToggleValue
@@ -196,6 +200,8 @@ const TOGGLE_KEYS = new Set<string>([
   KeyProfileButton,
   KeyChatMoneyButton,
   KeyMoreMenuButton,
+  KeyRadarButton,
+  KeyInspirationButton,
   KeySpamFilterEnabled,
   KeySpamDebugMode,
   KeySpamAiEnabled,

@@ -46,5 +46,8 @@ export const PROFILE_ACTIVITY_FETCH_RES_TYPE = 'XF_PROFILE_ACTIVITY_FETCH_RES'
 /** 搜索页和 Grok 页换地址（默认「最新」、筛选条、问 Grok、AI 转搜索语法）：内容脚本请求拦截器在 X 页面里跳转 */
 export const SEARCH_NAVIGATE_TYPE = 'XF_SEARCH_NAVIGATE'
 
+/** 左侧导航栏的 Radar、灵感入口：内容脚本请求拦截器在 X 页面里跳转 */
+export const CREATOR_NAV_NAVIGATE_TYPE = 'XF_CREATOR_NAV_NAVIGATE'
+
 export const OWN_POSTS_FETCH_REQ_TYPE = 'XF_OWN_POSTS_FETCH_REQ'
 export const OWN_POSTS_FETCH_RES_TYPE = 'XF_OWN_POSTS_FETCH_RES'

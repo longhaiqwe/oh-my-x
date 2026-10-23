@@ -66,6 +66,7 @@ oh-my-x/
 │   ├── mention-search.ts        # 按名字艾特：找光标前的「@名字」、整理 X 用户查询接口的返回
 │   ├── selection-draft.ts       # 右键存草稿：草稿正文、X 新建草稿接口的请求和返回
 │   ├── search-tools.ts          # 搜索默认「最新」+ 筛选条 + Grok 地址：搜索词拆分 / 拼装、搜索页地址、MAIN world 跳转
+│   ├── creator-nav.ts           # Radar、灵感页地址 + MAIN world 跳转（只接受这两个地址）
 │   ├── search-ai.ts             # AI 转搜索语法：提示词（含本机日期）、解析模型返回的搜索词
 │   └── composer-media-bridge.ts # 发帖框多图排序的 MAIN world 部分：读 X 图片数据、改图片顺序
 │
@@ -97,6 +98,7 @@ oh-my-x/
 │   │   ├── timeline.ts          # 时间线宽度（时间线和右侧栏优先，左栏只占导航宽度，放不下时自动收窄到最窄 600px）+ 媒体下载（复制 X 原生菜单项，只换图标和文字）
 │   │   ├── navigation.ts        # 侧边栏按钮显隐 + 导航标签模式 + 导航栏宽度（只在窗口 ≥1265px、显示文字时生效）
 │   │   ├── more-menu.ts         # 被收进「更多」菜单的导航入口，在菜单打开时同步隐藏
+│   │   ├── creator-nav.ts       # 导航栏的 Radar、灵感入口：克隆「主页」放在「个人资料」上方，点击请求拦截器跳转
 │   │   ├── interface.ts         # 发帖按钮、右侧边栏、长文目录、排期全景开关
 │   │   ├── composer.ts          # 编辑器插入链接按钮 + Markdown 格式化
 │   │   ├── composer-media.ts    # 发帖框多图两列排版 + 拖动排序（isolated world）
@@ -124,6 +126,7 @@ oh-my-x/
 │       ├── constructNewData.ts  # storage changes → newValue map
 │       ├── addStyles.ts / addStyleSheet.ts / removeElement.ts
 │       ├── colors.ts / navIcons.ts / sidebar.ts
+│       ├── navEntry.ts          # 克隆到导航栏的入口共用：展开 / 收起排版、去掉未读气泡（「我的列表」、Radar、灵感）
 │       ├── debounce.ts / throttle.ts
 │       └── isMutationSkippable.ts
 │

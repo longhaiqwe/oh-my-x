@@ -22,6 +22,9 @@ export const KeyProfileButton = 'profileButton'
 export const KeyCreatorStudioButton = 'creatorStudioButton'
 export const KeyChatMoneyButton = 'chatMoneyButton'
 export const KeyMoreMenuButton = 'moreMenuButton'
+// X 没放进左侧导航栏的两个页面，入口由插件添加：Radar（/i/radar）和创作者工作室里的「灵感」
+export const KeyRadarButton = 'radarButton'
+export const KeyInspirationButton = 'inspirationButton'
 export const KeyNavigationButtonsLabels = 'navigationButtonsLabels'
 export const KeyNavigationWidth = 'navigationWidth' // 左侧导航栏宽度（px），显示导航文字时生效
 export const KeyTweetButton = 'tweetButton'
@@ -146,6 +149,8 @@ export const allSettingsKeys = [
   KeyProfileButton,
   KeyChatMoneyButton,
   KeyMoreMenuButton,
+  KeyRadarButton,
+  KeyInspirationButton,
   KeySpamFilterEnabled,
   KeySpamThreshold,
   KeySpamDebugMode,
@@ -398,6 +403,8 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyProfileButton]: 'on',
   [KeyChatMoneyButton]: 'on',
   [KeyMoreMenuButton]: 'on',
+  [KeyRadarButton]: 'off',
+  [KeyInspirationButton]: 'off',
   [KeySpamFilterEnabled]: 'on',
   [KeySpamThreshold]: 55,
   [KeySpamDebugMode]: 'off',

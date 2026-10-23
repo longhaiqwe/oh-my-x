@@ -183,6 +183,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   'navItem.profile': 'Profile',
   'navItem.moreMenu': 'More',
   'navItem.chatMoney': 'X Money',
+  'navItem.radar': 'Radar',
+  'navItem.inspiration': 'Inspiration',
   'navItem.shownTitle': '{label}: shown, click to hide',
   'navItem.hiddenTitle': '{label}: hidden, click to show',
   'navItem.toggleLabel': 'Show {label}',

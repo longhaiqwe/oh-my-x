@@ -8,6 +8,7 @@ import {
   KeyTimelineWidth,
   KeyTopicsButton, KeyTweetButton,
   KeyVerifiedOrgsButton, KeyXPremiumButton,
+  KeyRadarButton, KeyInspirationButton,
   KeyHighlightNonFollowers,
   KeyArticleToc,
   KeyScheduledPanorama,
@@ -29,7 +30,7 @@ import {
   changeMessagesButton, changeNavigationButtonsLabels, changeNavigationWidth,
   changeChatMoneyButton, changeMoreMenuButton, changeNotificationsButton, changeProfileButton,
   changeTopicsButton, changeVerifiedOrgsButton,
-  changeXPremiumButton,
+  changeXPremiumButton, changeRadarButton, changeInspirationButton,
 } from '../options/navigation'
 import {
   changeTimelineWidth,
@@ -73,6 +74,8 @@ export const staticFeatures: Record<string, (data: FeatureData) => void> = {
     changeXPremiumButton(data[KeyXPremiumButton])
     changeGrokButton(data[KeyGrokButton])
     changeVerifiedOrgsButton(data[KeyVerifiedOrgsButton])
+    changeRadarButton(data[KeyRadarButton])
+    changeInspirationButton(data[KeyInspirationButton])
   },
 }
 
@@ -110,6 +113,8 @@ const SIDEBAR_KEYS = new Set<SettingKey>([
   KeyXPremiumButton,
   KeyGrokButton,
   KeyVerifiedOrgsButton,
+  KeyRadarButton,
+  KeyInspirationButton,
 ])
 
 export function applyChangedStaticFeatures(

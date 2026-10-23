@@ -5,6 +5,7 @@ import selectors from '../selectors'
 import addStyles, { removeStyles } from '../utilities/addStyles'
 import { getNavIconSvg } from '../utilities/navIcons'
 import { addSidebarButton } from '../utilities/sidebar'
+import { setCreatorNavEntryEnabled } from './creator-nav'
 import { setNavItemHiddenInMoreMenu } from './more-menu'
 
 // 只有弹窗里能切换的入口才同步到「更多」菜单。
@@ -41,6 +42,9 @@ export const changeXPremiumButton = (state: string | number | boolean) => change
 export const changeGrokButton = (state: string | number | boolean) => changeSidebarSetting('grok', state)
 export const changeTopicsButton = (state: string | number | boolean) => changeSidebarSetting('topics', state, addTopicsButton)
 export const changeCommunitiesButton = (state: string | number | boolean) => changeSidebarSetting('communities', state, addCommunitiesButton)
+// X 导航栏里没有这两个入口，打开时由插件添加，关闭时移除
+export const changeRadarButton = (state: string | number | boolean) => setCreatorNavEntryEnabled('radar', state === 'on')
+export const changeInspirationButton = (state: string | number | boolean) => setCreatorNavEntryEnabled('inspiration', state === 'on')
 // 只管插件自己加的 Lists 按钮。X 原生的 Lists（左侧导航栏、「更多」菜单）不受插件设置影响，
 // 「我的列表」入口由 quick-list 功能单独控制
 export const changeListsButton = (state: string | number | boolean) => {

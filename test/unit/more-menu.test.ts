@@ -110,5 +110,5 @@ describe('「更多」菜单里的导航入口', () => {
 it('弹窗的导航栏按钮里不再提供创作者工作室', () => {
   // X 已把它收进「更多」菜单，显隐开关没有意义
   expect(STATIC_NAV_ITEMS.map((item) => item.label)).not.toContain('创作者工作室')
-  expect(STATIC_NAV_ITEMS).toHaveLength(10)
+  expect(STATIC_NAV_ITEMS).toHaveLength(12)
 })

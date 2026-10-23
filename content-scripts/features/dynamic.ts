@@ -22,6 +22,7 @@ import {
   syncAccountAnalyticsPageMarker,
 } from '../options/timeline'
 import { syncRadarPageMarker } from '../options/radar'
+import { ensureCreatorNavEntries } from '../options/creator-nav'
 import { addComposerInsertLinkButton } from '../options/composer'
 import { setComposerMediaGridEnabled, updateComposerMediaGrids } from '../options/composer-media'
 import { addScheduledRelativeTimes, maintainScheduledPostsCache, removeScheduledPanorama } from '../options/scheduled-time'
@@ -162,6 +163,7 @@ export const dynamicFeatures = {
           syncAccountAnalyticsPageMarker()
           syncRadarPageMarker()
           void runQuickListFeature()
+          ensureCreatorNavEntries()
         }
 
         // 若当前处于创作者奖励页面，从页面 DOM 实时同步指标
