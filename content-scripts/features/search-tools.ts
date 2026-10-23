@@ -5,7 +5,6 @@ import { SEARCH_NAVIGATE_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
 import { t, type MessageKey } from '../../shared/i18n'
 import {
   EMPTY_SEARCH_FILTERS,
-  SEARCH_LANGUAGE_OPTIONS,
   SEARCH_LIKES_OPTIONS,
   SEARCH_MEDIA_OPTIONS,
   SEARCH_TIME_OPTIONS,
@@ -25,7 +24,7 @@ const BAR_CLASS = 'xf-search-filters'
 // 「用户」「列表」标签里的结果不是帖子，筛选语法不适用
 const FILTERABLE_TABS = new Set([null, 'live', 'media'])
 
-type SelectField = 'time' | 'minLikes' | 'media' | 'lang'
+type SelectField = 'time' | 'minLikes' | 'media'
 type ToggleField = 'originalOnly' | 'following'
 
 interface SelectSpec {
@@ -60,16 +59,6 @@ const SELECTS: readonly SelectSpec[] = [
     any: 'searchFilters.anyMedia',
     options: SEARCH_MEDIA_OPTIONS.map((value) => ({ value, label: `searchFilters.${value}` as MessageKey })),
     custom: (value) => `filter:${value}`,
-  },
-  {
-    field: 'lang',
-    label: 'searchFilters.language',
-    any: 'searchFilters.anyLanguage',
-    options: SEARCH_LANGUAGE_OPTIONS.map((value) => ({
-      value,
-      label: `searchFilters.lang${value[0].toUpperCase()}${value.slice(1)}` as MessageKey,
-    })),
-    custom: (value) => `lang:${value}`,
   },
 ]
 

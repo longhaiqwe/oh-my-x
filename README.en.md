@@ -117,11 +117,12 @@ Adds a row of filters below the tabs on search results and hashtag pages, so you
 | Time | Past 24 hours / 7 days / 30 days | `within_time:24h` / `7d` / `30d` |
 | Likes | 10+ / 100+ / 1000+ likes | `min_faves:10` and so on |
 | Media | Images / Videos / Images or videos | `filter:images` / `filter:videos` / `filter:media` |
-| Language | Chinese / English / Japanese | `lang:zh` / `lang:en` / `lang:ja` |
 | Original posts only | On / off | `-filter:replies` |
 | People you follow | On / off | URL parameter `pf=on` |
 
 Each choice rewrites the search and runs it again; you can see and keep editing it in the search box. Operators of the same kind that you type yourself (such as `min_faves:500`) show in the matching dropdown. The filter bar is not shown on the People and Lists tabs.
+
+There is no language filter: X marks article posts as having no language, so `lang:zh` also drops Chinese articles. You can still add `lang:` in the search box yourself; the filter bar keeps it as is.
 
 ### 02 Content Filter
 

@@ -194,7 +194,8 @@ oh-my-x/
 
 - 搜索结果页 `/search?q=` 和话题标签页 `/hashtag/标签` 都算搜索页（`parseSearchLocation`）。标签用地址参数 `f`：没有 = 热门，`live` = 最新；只看关注的人是 `pf=on`。
 - 默认「最新」：动态循环每轮看一次地址（搜索页换搜索词时路径不变，不会补跑 `all`），停在「热门」就请求替换成 `f=live` 的地址。用户点「热门」标签（document 捕获阶段的 click）或在「热门」里用筛选条改条件时，记住这个搜索词，之后保持「热门」；只存在页面内存里。开关 `searchDefaultLatest`，默认开。
-- 筛选条：插在标签栏 `nav` 后面、同一层里，跟着 X 的顶部区域固定；「用户」「列表」标签不显示。四个下拉框（时间 / 点赞数 / 图片视频 / 语言）+ 两个按钮（只看原帖、只看关注的人）+ 清除。条件按搜索语法写进 `q`：`within_time:` `min_faves:` `-filter:replies` `filter:images|videos|media` `lang:`（2026-10-23 在 X 网页实测都生效）；搜索框里自己写的同类语法会显示成下拉框里的额外选项，其他语法原样保留。话题标签页上筛选时换成 `/search?q=#标签 …`。开关 `searchFilterBar`，默认开。
+- 筛选条：插在标签栏 `nav` 后面、同一层里，跟着 X 的顶部区域固定；「用户」「列表」标签不显示。三个下拉框（时间 / 点赞数 / 图片视频）+ 两个按钮（只看原帖、只看关注的人）+ 清除。条件按搜索语法写进 `q`：`within_time:` `min_faves:` `-filter:replies` `filter:images|videos|media`（2026-10-23 在 X 网页实测都生效）；搜索框里自己写的同类语法会显示成下拉框里的额外选项，其他语法原样保留。话题标签页上筛选时换成 `/search?q=#标签 …`。开关 `searchFilterBar`，默认开。
+- 不做语言筛选（2026-10-23 实测后用户决定去掉）：X 把长文帖（正文只有链接）的语言记为 `zxx`，`lang:zh` 会排除中文长文；`(lang:zh OR lang:zxx)` 只认最后一个 `lang:`，不加括号的 OR 会拆坏搜索词，`-lang:en` 返回 0 条。用户手写的 `lang:` 按普通搜索词保留。
 - 换地址：内容脚本发 `XF_SEARCH_NAVIGATE`（`{ href, replace }`），拦截器在 MAIN world 调 `navigateSearchPage`：`history.pushState / replaceState` 后派发 `popstate`，X 的路由按新地址渲染，不重新加载页面（2026-10-23 实测）。X 的历史记录格式是 `{ key, state }`，新增记录时照这个格式生成；只接受同源的搜索页地址。
 
 ## 内容脚本编排

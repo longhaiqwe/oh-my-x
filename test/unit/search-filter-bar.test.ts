@@ -116,7 +116,8 @@ describe('搜索筛选条', () => {
     expect(select('time').value).toBe('')
     expect(select('minLikes').value).toBe('100')
     expect(select('minLikes').selectedOptions[0].textContent).toBe('至少 100 赞')
-    expect(select('lang').value).toBe('zh')
+    expect(bar()!.querySelectorAll('select')).toHaveLength(3)
+    expect(bar()!.querySelector('select[data-field="lang"]')).toBeNull()
     expect(select('minLikes').parentElement!.dataset.active).toBe('true')
     expect(select('time').parentElement!.dataset.active).toBe('false')
     expect(button('originalOnly').getAttribute('aria-pressed')).toBe('true')
@@ -149,11 +150,11 @@ describe('搜索筛选条', () => {
     ])
   })
 
-  it('清除筛选去掉筛选条管的语法和只看关注的人，其他语法保留', async () => {
+  it('清除筛选去掉筛选条管的语法和只看关注的人，其他语法（含 lang:）保留', async () => {
     await start()
-    go('/search?q=from%3Ax%20claude%20lang%3Aen&f=live&pf=on')
+    go('/search?q=from%3Ax%20claude%20lang%3Aen%20min_faves%3A10&f=live&pf=on')
     bar()!.querySelector<HTMLButtonElement>('.xf-search-clear')!.click()
-    expect(navigations()).toEqual([{ href: '/search?q=from%3Ax%20claude&f=live', replace: false }])
+    expect(navigations()).toEqual([{ href: '/search?q=from%3Ax%20claude%20lang%3Aen&f=live', replace: false }])
   })
 
   it('在「热门」里改条件后停在「热门」，默认「最新」不再切换', async () => {
@@ -161,10 +162,10 @@ describe('搜索筛选条', () => {
     go('/search?q=claude&f=live')
     document.querySelector<HTMLAnchorElement>('a[role="tab"][aria-selected="false"]')!.click()
     go('/search?q=claude')
-    select('lang').value = 'ja'
-    select('lang').dispatchEvent(new Event('change'))
-    expect(navigations()).toEqual([{ href: '/search?q=claude%20lang%3Aja', replace: false }])
-    go('/search?q=claude%20lang%3Aja')
+    select('media').value = 'images'
+    select('media').dispatchEvent(new Event('change'))
+    expect(navigations()).toEqual([{ href: '/search?q=claude%20filter%3Aimages', replace: false }])
+    go('/search?q=claude%20filter%3Aimages')
     expect(navigations()).toHaveLength(1)
   })
 

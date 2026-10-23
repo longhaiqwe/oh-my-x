@@ -1,12 +1,13 @@
 // 搜索：新搜索默认打开「最新」、搜索结果页筛选条共用的地址和搜索词处理。
 // 页面拦截器也引用这里（navigateSearchPage），所以不能引入 shared/i18n。
 // 筛选按 X 的搜索语法写进搜索词，2026-10-23 在 X 网页实测：within_time:24h / 7d / 30d、min_faves:N、
-// -filter:replies、filter:images / videos / media、lang:xx 都生效；「最新」标签是 f=live，只看关注的人是 pf=on。
+// -filter:replies、filter:images / videos / media 都生效；「最新」标签是 f=live，只看关注的人是 pf=on。
+// 不做语言筛选：X 把长文帖（正文只有链接）的语言记为 zxx，lang:zh 会排除中文长文；
+// (lang:zh OR lang:zxx) 只认最后一个 lang:，-lang:en 返回 0 条，用搜索语法拼不出「中文帖 + 中文长文」。
 
 export const SEARCH_TIME_OPTIONS = ['24h', '7d', '30d'] as const
 export const SEARCH_LIKES_OPTIONS = [10, 100, 1000] as const
 export const SEARCH_MEDIA_OPTIONS = ['images', 'videos', 'media'] as const
-export const SEARCH_LANGUAGE_OPTIONS = ['zh', 'en', 'ja'] as const
 
 export interface SearchFilters {
   /** within_time 的值，如 7d */
@@ -17,8 +18,6 @@ export interface SearchFilters {
   originalOnly: boolean
   /** filter: 后面的 images / videos / media */
   media: string | null
-  /** lang: 后面的语言代码 */
-  lang: string | null
 }
 
 export const EMPTY_SEARCH_FILTERS: Readonly<SearchFilters> = Object.freeze({
@@ -26,7 +25,6 @@ export const EMPTY_SEARCH_FILTERS: Readonly<SearchFilters> = Object.freeze({
   minLikes: null,
   originalOnly: false,
   media: null,
-  lang: null,
 })
 
 export interface SearchLocation {
@@ -44,7 +42,6 @@ const TIME_TOKEN = /^within_time:(\d+[smhd])$/i
 const LIKES_TOKEN = /^min_faves:(\d+)$/i
 const ORIGINAL_TOKEN = /^-filter:replies$/i
 const MEDIA_TOKEN = /^filter:(images|videos|media)$/i
-const LANG_TOKEN = /^lang:([a-z]{2,3}(?:-[a-z]+)?)$/i
 // 引号里的短语算一个词，里面的空格和语法原样保留
 const QUERY_TOKEN = /"[^"]*"?|\S+/g
 
@@ -58,7 +55,6 @@ export function splitSearchQuery(query: string): { terms: string; filters: Searc
     else if ((match = LIKES_TOKEN.exec(token))) filters.minLikes = Number(match[1])
     else if (ORIGINAL_TOKEN.test(token)) filters.originalOnly = true
     else if ((match = MEDIA_TOKEN.exec(token))) filters.media = match[1].toLowerCase()
-    else if ((match = LANG_TOKEN.exec(token))) filters.lang = match[1].toLowerCase()
     else rest.push(token)
   }
   return { terms: rest.join(' '), filters }
@@ -71,12 +67,11 @@ export function buildSearchQuery(terms: string, filters: SearchFilters): string 
   if (filters.minLikes) parts.push(`min_faves:${filters.minLikes}`)
   if (filters.originalOnly) parts.push('-filter:replies')
   if (filters.media) parts.push(`filter:${filters.media}`)
-  if (filters.lang) parts.push(`lang:${filters.lang}`)
   return parts.filter(Boolean).join(' ')
 }
 
 export function hasSearchFilters(filters: SearchFilters): boolean {
-  return Boolean(filters.time || filters.minLikes || filters.originalOnly || filters.media || filters.lang)
+  return Boolean(filters.time || filters.minLikes || filters.originalOnly || filters.media)
 }
 
 function toUrl(href: string): URL | null {

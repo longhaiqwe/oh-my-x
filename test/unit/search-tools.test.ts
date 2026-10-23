@@ -13,9 +13,9 @@ import {
 
 describe('splitSearchQuery / buildSearchQuery', () => {
   it('拆出筛选条管的语法，其余部分按原顺序保留', () => {
-    const { terms, filters } = splitSearchQuery('claude  code within_time:7d min_faves:100 -filter:replies filter:images lang:zh')
+    const { terms, filters } = splitSearchQuery('claude  code within_time:7d min_faves:100 -filter:replies filter:images')
     expect(terms).toBe('claude code')
-    expect(filters).toEqual({ time: '7d', minLikes: 100, originalOnly: true, media: 'images', lang: 'zh' })
+    expect(filters).toEqual({ time: '7d', minLikes: 100, originalOnly: true, media: 'images' })
   })
 
   it('引号里的短语算一个词，里面的语法不拆', () => {
@@ -24,9 +24,9 @@ describe('splitSearchQuery / buildSearchQuery', () => {
     expect(filters).toEqual(EMPTY_SEARCH_FILTERS)
   })
 
-  it('不认识的语法原样保留', () => {
-    expect(splitSearchQuery('a filter:links -filter:retweets since:2026-01-01').terms)
-      .toBe('a filter:links -filter:retweets since:2026-01-01')
+  it('不认识的语法原样保留，包括筛选条不管的 lang:', () => {
+    expect(splitSearchQuery('a filter:links -filter:retweets since:2026-01-01 lang:zh').terms)
+      .toBe('a filter:links -filter:retweets since:2026-01-01 lang:zh')
   })
 
   it('同一类语法写了两次时以最后一个为准，拼回去只留一个', () => {
@@ -35,10 +35,10 @@ describe('splitSearchQuery / buildSearchQuery', () => {
   })
 
   it('按固定顺序拼回，没有条件时只剩其余部分', () => {
-    expect(buildSearchQuery('a b', { time: '24h', minLikes: 10, originalOnly: true, media: 'media', lang: 'en' }))
-      .toBe('a b within_time:24h min_faves:10 -filter:replies filter:media lang:en')
+    expect(buildSearchQuery('a b', { time: '24h', minLikes: 10, originalOnly: true, media: 'media' }))
+      .toBe('a b within_time:24h min_faves:10 -filter:replies filter:media')
     expect(buildSearchQuery(' a ', EMPTY_SEARCH_FILTERS)).toBe('a')
-    expect(buildSearchQuery('', { ...EMPTY_SEARCH_FILTERS, lang: 'zh' })).toBe('lang:zh')
+    expect(buildSearchQuery('', { ...EMPTY_SEARCH_FILTERS, media: 'videos' })).toBe('filter:videos')
   })
 
   it('hasSearchFilters 只看筛选条管的条件', () => {
@@ -92,8 +92,8 @@ describe('filteredSearchHref', () => {
   })
 
   it('话题标签页换成搜索页，带上当前标签', () => {
-    expect(filteredSearchHref('/hashtag/AI?src=hashtag_click&f=live', '#AI lang:zh', false))
-      .toBe('/search?q=%23AI%20lang%3Azh&f=live')
+    expect(filteredSearchHref('/hashtag/AI?src=hashtag_click&f=live', '#AI filter:videos', false))
+      .toBe('/search?q=%23AI%20filter%3Avideos&f=live')
   })
 
   it('不是搜索页或搜索词为空时返回 null', () => {
