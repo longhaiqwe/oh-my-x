@@ -50,6 +50,7 @@ import {
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
+  KeyMentionByName,
   KeyRadarWidth,
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
@@ -138,6 +139,7 @@ export interface ExtensionSettings {
   [KeyScheduledSidebar]: ToggleValue
   [KeyOwnPostAutoSync]: ToggleValue
   [KeyComposerMediaGrid]: ToggleValue
+  [KeyMentionByName]: ToggleValue
   [KeyRadarWidth]: RadarWidthValue
   [KeyTweetFilterEnabled]: ToggleValue
   [KeyTweetFilterAction]: TweetFilterAction
@@ -197,6 +199,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyScheduledSidebar,
   KeyOwnPostAutoSync,
   KeyComposerMediaGrid,
+  KeyMentionByName,
   KeyTweetFilterEnabled,
   KeyJumpToReplies,
   KeySortRepliesByTime,

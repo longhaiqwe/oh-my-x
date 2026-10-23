@@ -11,6 +11,7 @@ import {
 import { runViralRadar, invalidateViralRadarCache } from '../content-scripts/features/viral-radar'
 import { runTweetFilter, invalidateTweetFilterCache } from '../content-scripts/features/tweet-filter'
 import { dynamicFeatures, invalidateDynamicSettingsCache } from '../content-scripts/features/dynamic'
+import { setMentionByNameEnabled } from '../content-scripts/features/mention-by-name'
 import { runQuickListFeature } from '../content-scripts/features/quick-list'
 import { scanProfileActivity } from '../content-scripts/options/profile-activity'
 import constructNewData from '../content-scripts/utilities/constructNewData'
@@ -39,6 +40,7 @@ import {
   KeyAiRepostEnabled,
   KeyComposerMediaGrid,
   KeySpamAiBotAccounts,
+  KeyMentionByName,
   SPAM_RELEVANT_KEYS,
   VIRAL_RELEVANT_KEYS,
   TWEET_FILTER_RELEVANT_KEYS,
@@ -135,6 +137,10 @@ export default defineContentScript({
 
         if (changedSettingKeys.includes(KeyAiRepostEnabled) || changedSettingKeys.includes(KeyComposerMediaGrid)) {
           void dynamicFeatures.general(['composer'])
+        }
+
+        if (changedSettingKeys.includes(KeyMentionByName)) {
+          setMentionByNameEnabled(currentSettings[KeyMentionByName] !== 'off')
         }
       }
 

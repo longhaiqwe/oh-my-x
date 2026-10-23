@@ -18,6 +18,7 @@ Last updated: October 23, 2026
 - With an X page open and automatic synchronization enabled, the extension uses your existing X session to synchronize your own posts. Other features request Lists, post content/media, profile activity, and creator rewards data from X. Creator rewards may refresh in the background while you are signed in.
 - The extension reads X cookies such as `ct0` (CSRF token) and `twid` (account identification) for authenticated X requests and account isolation. X session credentials are not sent to AI services.
 - The extension can load X's public client script from `abs.twimg.com` to resolve current API identifiers. Post thumbnails load from X's image CDN; the database stores their URLs, not image files.
+- Mention by name: when you type a name containing non-English characters after @ in a post, quote, or reply editor, that name (up to 30 characters) is sent with your X session to X's user search, the same endpoint X's editor uses for @ suggestions. The results (names, usernames, profile image URLs, and whether you follow the account) are kept in the page's memory and discarded when the page is closed or reloaded.
 - User actions can add a member to an X List, download media, or use interaction helpers. If enabled, the reply helper can like a post after a successful reply. These actions communicate with X or its media CDN.
 
 ## 3. Optional AI service

@@ -46,7 +46,7 @@ The settings popup has five tabs. The names below match the popup:
 | [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
-| [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, AI quote drafts, schedule overview |
+| [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, AI quote drafts, schedule overview |
 | [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 ---
@@ -199,6 +199,14 @@ When you attach 2 to 4 images, they are shown in two columns of equal tiles, lef
 - It changes the image order that X's editor keeps; post requests are not intercepted or modified. If X's data can't be read, X's layout is kept, and a failed drag shows a message.
 - With a video or GIF, X's layout is kept. Turn it off under Create → Image grid and ordering.
 
+#### Mention by name
+
+X's editor only treats English letters, digits, and underscores after @ as a mention, so typing a Chinese name after @ lists no accounts. With this feature on, in the post, quote, and reply editors, type a non-English name after @, such as a Chinese or Japanese name, and accounts with matching names are listed below the cursor, with accounts you follow first. Choose one with the arrow keys or the mouse, then press Enter or Tab, or click: "@name" is replaced with "@username ", which X treats as a mention.
+
+- It uses the user search that X's own editor uses, so the typed name is sent to X. X already lists English names itself; this feature leaves them to X.
+- Only display names on X are matched. Simplified and Traditional Chinese are searched separately: a name written in Traditional characters is not found by a Simplified search, and an English name is not found by searching a Chinese translation of it.
+- With an input method such as pinyin, the search runs after you pick the characters. Esc closes the list and keeps the post editor open. Turn it off under Create → Mention by name.
+
 #### AI quote drafts
 
 In post, quote, and reply editors, click the AI draft button. It appears to the right of Everyone, or above the input in reply dialogs and inline reply boxes without an audience selector. The extension reads the original post and uses your model to write two drafts. Inline replies use the post on the current detail page as their source. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
@@ -252,7 +260,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 | **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
-| **Create** (Create & Publish) | Quote my posts, image grid and ordering, AI quote drafts, schedule overview |
+| **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, AI quote drafts, schedule overview |
 | **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
 
 The Filter tab has two levels: the first shows each feature's switch and status; click Settings, Manage muted words, Manage lists, or All records at the bottom right of a card to open the second level, and use the back button at the top left to return.
