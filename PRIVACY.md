@@ -1,14 +1,15 @@
 # Privacy Policy for oh-my-x
 
-Last updated: October 19, 2026
+Last updated: October 23, 2026
 
-**oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and user-triggered AI requests.
+**oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
 ## 1. Local storage and developer access
 
 - Settings, keyword lists, allow/block lists, interception logs and statistics, Lists metadata, creator rewards data, and AI configuration (including your API key) are stored in `chrome.storage.local`. The API key is not encrypted by the extension; password masking in the settings is only a display feature.
 - The popup and settings page also keep copies of a few settings (interface language, the last opened tab, the spam word list, collapsed sections) in the extension's own `localStorage`, so they open without waiting for `chrome.storage.local`. On X pages, the schedule panel saves the query ID and query parameters of X's scheduled-posts request in that page's `localStorage` so it can refresh the list; it does not save cookies or credentials there.
 - The own-post library stores account IDs, post IDs and text, article titles/previews, X-hosted thumbnail URLs, dates, and synchronization checkpoints in extension-local IndexedDB. It does not store session cookies or credentials in this database.
+- AI reply scores are cached in extension-local IndexedDB for up to 7 days, with a maximum of 5,000 entries. Manual bot/human labels, including the reply and its context, remain until removed and can be exported as JSONL. Marked bot accounts and daily AI usage counters are stored in `chrome.storage.local`.
 - Cached posts may remain after editing or deletion on X. You can pause synchronization or disable automatic synchronization in settings. Removing the extension removes its local storage and database.
 - The extension has no developer telemetry, advertising trackers, or analytics service. The developer does not receive your post library, API key, X credentials, or browsing history.
 
@@ -21,10 +22,11 @@ Last updated: October 19, 2026
 
 ## 3. Optional AI service
 
-- AI generation and connection testing run only when you click their controls. Before contacting a configured AI host, the extension checks its site permission. Grant access in **Settings → Create → AI quote drafts → Authorize and test connection** (Chinese interface: 创作 → AI 总结转发 → 授权并测试连接). Declining permission prevents the request. Changing to a different host requires permission for that host.
+- AI generation and connection testing run only when you click their controls. Before contacting a configured AI host, the extension checks its site permission. Grant access in **Settings → AI service → Authorize and test connection** (Chinese interface: 设置 → AI 服务 → 授权并测试连接). Declining permission prevents the request. Changing to a different host requires permission for that host.
 - Generating repost options sends the selected source text (up to 12,000 characters, plus a truncation marker if necessary), available author name/handle and article title, your repost style (style description and sample posts, if you filled them in), your additional instructions, the extension's writing instructions, and model name to the configured OpenAI-compatible service. The API key is sent in the authorization header. Connection testing sends a short test message and model name with the API key, not the selected post.
+- Optional AI reply checks run manually or automatically within the scope you enable. They send the original post, queued replies, the replied-to comment when available, author information, reply timing, available follower counts and verification status, scoring instructions, and model name to your configured service. The API key is sent in the authorization header. The sample test sends the bundled sample set. Scores and manual labels control local folding; they do not block accounts on X.
 - This is an external transfer to the service you configure, unless you choose a local service. That service's retention, processing, and billing terms apply. Generated options are shown for you to choose; the AI feature does not publish posts automatically.
-- AI requests omit browser cookies and reject redirects. Each request has a 25-second timeout. Canceling or closing the requesting panel aborts the extension's request and discards late results. A provider may already have received or processed it; cancellation does not guarantee that provider-side processing or billing stops.
+- AI requests omit browser cookies and reject redirects. Requests allow 25 seconds for the first data, 15 seconds of subsequent inactivity, and 90 seconds overall. Canceling or closing the requesting panel aborts the extension's request and discards late results. A provider may already have received or processed it; cancellation does not guarantee that provider-side processing or billing stops.
 - Remote services must use HTTPS. HTTP is accepted only for local services at localhost and 127.0.0.1, so text and API keys sent over HTTP stay on this computer.
 
 ## 4. Permissions

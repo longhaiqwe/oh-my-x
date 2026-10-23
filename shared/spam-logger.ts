@@ -1,3 +1,4 @@
+import { isExtensionContextInvalidated } from './extension-context'
 import { KeySpamLog, KeySpamStats } from '../storage-keys'
 import type { DailyStats, SpamCategory, SpamLogEntry } from './spam-types'
 import { spamCategoryLabel } from './spam-types'
@@ -42,6 +43,7 @@ function emptyCategoryStats(): Record<SpamCategory, number> {
     marketing: 0,
     low_quality: 0,
     normal: 0,
+    ai: 0,
   }
 }
 
@@ -80,6 +82,7 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
 
 const pendingEntries: Array<Omit<SpamLogEntry, 'id' | 'timestamp'>> = []
 const pendingResolvers: Array<() => void> = []
+let contextInvalidated = false
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 
 async function flushPending(): Promise<void> {
@@ -89,6 +92,7 @@ async function flushPending(): Promise<void> {
 
   try {
     await serialize(async () => {
+      if (contextInvalidated) return
       const data = await browser.storage.local.get([KeySpamLog, KeySpamStats])
       const log = Array.isArray(data[KeySpamLog]) ? (data[KeySpamLog] as SpamLogEntry[]) : []
       const stats = Array.isArray(data[KeySpamStats]) ? (data[KeySpamStats] as DailyStats[]) : []
@@ -131,13 +135,23 @@ async function flushPending(): Promise<void> {
       })
     })
   } catch (err) {
-    console.error('[oh-my-x] failed to flush spam log:', err)
+    if (isExtensionContextInvalidated(err)) {
+      contextInvalidated = true
+      if (flushTimer) clearTimeout(flushTimer)
+      flushTimer = null
+      pendingEntries.length = 0
+      pendingResolvers.splice(0).forEach((resolve) => resolve())
+      dedupCache.clear()
+    } else {
+      console.error('[oh-my-x] failed to flush spam log:', err)
+    }
   } finally {
     resolvers.forEach((r) => r())
   }
 }
 
 export function recordIntercept(entry: Omit<SpamLogEntry, 'id' | 'timestamp'>): Promise<void> {
+  if (contextInvalidated) return Promise.resolve()
   // 去重：同推文在 5 分钟内只记一次
   if (isDuplicate(dedupKey(entry))) return Promise.resolve()
 

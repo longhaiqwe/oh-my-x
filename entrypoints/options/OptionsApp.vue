@@ -11,9 +11,10 @@ import { moduleComponents, SettingsSurfaceKey } from '../popup/modules'
 import FeatureSwitch from '../popup/components/ui/FeatureSwitch.vue'
 import LanguageMenu from '../popup/components/ui/LanguageMenu.vue'
 import { useI18n } from '../popup/composables/useI18n'
+import { ModuleNavigationKey } from '../popup/module-navigation'
 import pkg from '../../package.json'
 
-// 完整设置页：与弹窗共用五个模块页，左侧切换模块，地址 #模块 id 可直接打开对应模块
+// 完整设置页：与弹窗共用模块页，左侧切换模块，地址 #模块 id 可直接打开对应模块
 provide(SettingsSurfaceKey, 'options')
 
 const version = pkg.version
@@ -24,6 +25,8 @@ function readHash(): FeatureModuleId | null {
 }
 
 const active = ref<FeatureModuleId>(readHash() ?? DEFAULT_FEATURE_MODULE)
+
+provide(ModuleNavigationKey, (module) => { active.value = module })
 
 const nav = ref<HTMLElement | null>(null)
 

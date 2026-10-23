@@ -46,6 +46,8 @@ describe('storage defaults', () => {
         expect(['all', 'list', 'off']).toContain(value)
       } else if (key === 'uiLanguage') {
         expect(['auto', 'zh-CN', 'en']).toContain(value)
+      } else if (key === 'spamAiAutoScope') {
+        expect(['own', 'all', 'off']).toContain(value)
       } else if (
         typeof value === 'string' &&
         key !== 'spamKeywordList' &&
@@ -54,12 +56,17 @@ describe('storage defaults', () => {
         key !== 'spamRulesEnabled' &&
         key !== 'statRatioTargetHandle' &&
         key !== 'tweetFilterKeywords' &&
-        key !== 'aiRepostBaseUrl' &&
-        key !== 'aiRepostApiKey' &&
+        key !== 'aiServiceBaseUrl' &&
+        key !== 'aiServiceApiKey' &&
+        key !== 'aiServiceModel' &&
+        key !== 'aiServiceBaseUrl' &&
+        key !== 'aiServiceApiKey' &&
+        key !== 'aiServiceModel' &&
         key !== 'aiRepostModel' &&
         key !== 'aiRepostCustomPrompt' &&
         key !== 'aiRepostStylePrompt' &&
-        key !== 'aiRepostStyleSamples'
+        key !== 'aiRepostStyleSamples' &&
+        key !== 'spamAiModel'
       ) {
         expect(['on', 'off']).toContain(value)
       } else {

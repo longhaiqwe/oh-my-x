@@ -1,6 +1,7 @@
 // 共享类型定义
 import { getLocale, t, type Locale, type MessageKey } from './i18n'
-export type SpamCategory = 'porn_spam' | 'bot' | 'marketing' | 'low_quality' | 'normal'
+/** ai：AI 打分超过阈值被折叠的回复（不是规则分类） */
+export type SpamCategory = 'porn_spam' | 'bot' | 'marketing' | 'low_quality' | 'normal' | 'ai'
 
 /** 命中细节，和语言无关；显示时由 formatRuleHit 按语言拼成文字 */
 export interface RuleHitDetail {
@@ -113,6 +114,19 @@ export interface SpamLogEntry {
   category: SpamCategory
   hits: RuleHit[]
   action: 'filter' | 'allow'
+  /** 谁隐藏的：rule 规则（旧记录没有这一项），ai AI 打分 */
+  source?: 'rule' | 'ai'
+  /** source 为 ai 时的模型结果 */
+  ai?: {
+    /** 只因为标了「机器人」而折叠、还没有分数时为 null */
+    score: number | null
+    signals: string[]
+    reason: string
+    /** 折叠时用户的标注 */
+    label?: 'bot' | 'human'
+    /** 这条没单独标注，因为账号标过机器人而折叠 */
+    account?: boolean
+  }
 }
 
 export interface SpamCategoryStat {

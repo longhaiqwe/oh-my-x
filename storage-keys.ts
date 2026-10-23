@@ -65,6 +65,14 @@ export const KeySpamWhitelist = 'spamWhitelist' // @user
 export const KeySpamBlacklist = 'spamBlacklist' // @user
 export const KeySpamLog = 'spamLog' // recent intercepts
 export const KeySpamStats = 'spamStats' // aggregated daily stats
+// 回复区 AI 打分（方案见 docs/plans/ai-reply-scoring.md）
+export const KeySpamAiEnabled = 'spamAiEnabled'
+export const KeySpamAiAutoScope = 'spamAiAutoScope' // 自动判断范围：own（只我的帖子）/ all（所有对话页）/ off（不自动）
+export const KeySpamAiThreshold = 'spamAiThreshold' // AI 嫌疑分达到这个值折叠（0–100）
+export const KeySpamAiModel = 'spamAiModel' // 打分用的模型；留空用公共默认模型
+export const KeySpamAiDailyLimit = 'spamAiDailyLimit' // 每天自动判断的条数上限
+export const KeySpamAiUsage = 'spamAiUsage' // 当天的判断条数统计（后台写）
+export const KeySpamAiBotAccounts = 'spamAiBotAccounts' // 标过「机器人」的账号（小写用户名数组，后台写），这些账号的回复直接折叠
 export const KeyPopupActiveTab = 'popupActiveTab' // last active tab
 
 // Stat ratio storage keys
@@ -92,6 +100,11 @@ export const KeyViralShowBadge = 'viralShowBadge' // 'on' | 'off'：是否展示
 export const KeyTweetFilterEnabled = 'tweetFilterEnabled'
 export const KeyTweetFilterAction = 'tweetFilterAction' // 'collapse' | 'hide'
 export const KeyTweetFilterKeywords = 'tweetFilterKeywords'
+
+// Shared AI service (legacy repost URL/key are retained only for migration)
+export const KeyAiServiceBaseUrl = 'aiServiceBaseUrl'
+export const KeyAiServiceApiKey = 'aiServiceApiKey'
+export const KeyAiServiceModel = 'aiServiceModel'
 
 // AI Repost summary storage keys
 export const KeyAiRepostEnabled = 'aiRepostEnabled'
@@ -132,6 +145,11 @@ export const allSettingsKeys = [
   KeySpamKeywordList,
   KeySpamWhitelist,
   KeySpamBlacklist,
+  KeySpamAiEnabled,
+  KeySpamAiAutoScope,
+  KeySpamAiThreshold,
+  KeySpamAiModel,
+  KeySpamAiDailyLimit,
   KeySidebarColumn,
   KeyStatRatioTargetHandle,
   KeyStatRatioEnabled,
@@ -166,8 +184,9 @@ export const allSettingsKeys = [
   KeyBookmarkCount,
   KeyMediaDownload,
   KeyAiRepostEnabled,
-  KeyAiRepostBaseUrl,
-  KeyAiRepostApiKey,
+  KeyAiServiceBaseUrl,
+  KeyAiServiceApiKey,
+  KeyAiServiceModel,
   KeyAiRepostModel,
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
@@ -192,6 +211,16 @@ export const SPAM_RELEVANT_KEYS = new Set<string>([
   KeySpamRulesEnabled,
   KeySpamWhitelist,
   KeySpamBlacklist,
+  KeySpamAiEnabled,
+  KeySpamAiAutoScope,
+  KeySpamAiThreshold,
+  KeySpamAiModel,
+  KeySpamAiDailyLimit,
+  KeySpamAiBotAccounts,
+  // AI 连接改了以后，因为没配置而暂停的 AI 打分要重新开始
+  KeyAiServiceBaseUrl,
+  KeyAiServiceApiKey,
+  KeyAiServiceModel,
 ])
 
 // 触发 爆款雷达 重新处理的 key 集合
@@ -361,6 +390,11 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeySpamKeywordList]: defaultSpamKeywords.join('\n'),
   [KeySpamWhitelist]: '',
   [KeySpamBlacklist]: '',
+  [KeySpamAiEnabled]: 'off',
+  [KeySpamAiAutoScope]: 'own',
+  [KeySpamAiThreshold]: 70,
+  [KeySpamAiModel]: '',
+  [KeySpamAiDailyLimit]: 300,
   [KeySidebarColumn]: 'off',
   [KeyStatRatioTargetHandle]: '*',
   [KeyStatRatioEnabled]: 'on',
@@ -395,9 +429,10 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyBookmarkCount]: 'on',
   [KeyMediaDownload]: 'on',
   [KeyAiRepostEnabled]: 'on',
-  [KeyAiRepostBaseUrl]: 'https://api.openai.com/v1',
-  [KeyAiRepostApiKey]: '',
-  [KeyAiRepostModel]: 'gpt-4o-mini',
+  [KeyAiServiceBaseUrl]: 'https://api.openai.com/v1',
+  [KeyAiServiceApiKey]: '',
+  [KeyAiServiceModel]: 'gpt-4o-mini',
+  [KeyAiRepostModel]: '',
   [KeyAiRepostCustomPrompt]: '',
   [KeyAiRepostStylePrompt]: '',
   [KeyAiRepostStyleSamples]: '',

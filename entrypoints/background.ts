@@ -1,4 +1,34 @@
-import { AI_REQUEST_PORT, AI_REQUEST_TIMEOUT_MS, aiPermissionOrigin, type AiRequest, type AiResponse } from '../shared/ai-request'
+import { readChatCompletionStream } from '../shared/ai-stream'
+import { startAiDeadline } from '../shared/ai-deadline'
+import { AI_CONFIG_KEYS, MIGRATE_AI_SERVICE, migrateAiService, resolveAiService } from '../shared/ai-service'
+import {
+  AI_REQUEST_PORT,
+  AI_KEEPALIVE,
+  OPEN_SETTINGS,
+  REPLY_LABEL_LIST,
+  REPLY_LABEL_SET,
+  REPLY_SCORE_FOLDED,
+  REPLY_SCORE_LOOKUP,
+  aiPermissionOrigin,
+  type AiRequest,
+  type AiResponse,
+  type AiProgressHandler,
+} from '../shared/ai-request'
+import { REPLY_SCORE_SAMPLE_THREADS } from '../shared/ai-reply-samples'
+import {
+  REPLY_SCORE_BATCH_SIZE,
+  REPLY_SCORE_PROMPT_VERSION,
+  buildReplyScoreMessages,
+  createReplyScoreStreamParser,
+  parseReplyScoreResponse,
+  type ReplyScore,
+  type ReplyScoreItem,
+  type ReplyScoreParent,
+  type ReplyScoreTarget,
+} from '../shared/ai-reply-score'
+import { createReplyScoreRepository, toReplyScore, type StoredReplyLabel } from '../shared/reply-score-db'
+import { createReplyScoreUsage } from '../shared/reply-score-usage'
+import { parseBotAccounts, updateBotAccounts } from '../shared/reply-bot-accounts'
 import { createLibraryService, LIBRARY_MESSAGE, LIBRARY_SYNC, LIBRARY_ALARM } from '../shared/own-post-library'
 import { createLibraryRepository } from '../shared/own-post-library-db'
 import { migrateSpamStorage } from '../shared/spam-migration'
@@ -6,12 +36,13 @@ import { getLocale, initI18n, type Locale } from '../shared/i18n'
 import { AppError, toTransferable, type TransferableError } from '../shared/errors'
 import type { QuickListItem } from '../shared/quick-list'
 import {
-  KeyAiRepostApiKey,
-  KeyAiRepostBaseUrl,
+  KeyAiServiceBaseUrl,
+  KeyAiServiceModel,
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
-  KeyAiRepostModel,
+  KeySpamAiDailyLimit,
+  KeySpamAiBotAccounts,
   KeyCreatorRewardsStats,
   KeyCreatorRewardsHistory,
   KeyImpressionsDaily,
@@ -222,27 +253,16 @@ async function callAiRepostApi(
   locale: Locale = getLocale(),
 ): Promise<AiRepostOptionsResult> {
   const stored = await browser.storage.local.get([
-    KeyAiRepostBaseUrl,
-    KeyAiRepostApiKey,
-    KeyAiRepostModel,
+    ...AI_CONFIG_KEYS,
     KeyAiRepostCustomPrompt,
     KeyAiRepostStylePrompt,
     KeyAiRepostStyleSamples,
   ])
 
-  const baseUrl = String(
-    overrideConfig?.baseUrl ??
-      stored[KeyAiRepostBaseUrl] ??
-      defaultPreferences[KeyAiRepostBaseUrl],
-  ).trim()
-  const apiKey = String(
-    overrideConfig?.apiKey ?? stored[KeyAiRepostApiKey] ?? '',
-  ).trim()
-  const model = String(
-    overrideConfig?.model ??
-      stored[KeyAiRepostModel] ??
-      defaultPreferences[KeyAiRepostModel],
-  ).trim()
+  const connection = resolveAiService(stored, 'repost')
+  const baseUrl = String(overrideConfig?.baseUrl ?? connection.baseUrl).trim()
+  const apiKey = String(overrideConfig?.apiKey ?? connection.apiKey).trim()
+  const model = String(overrideConfig?.model ?? connection.model).trim()
   const customPrompt = String(
     overrideConfig?.customPrompt ?? stored[KeyAiRepostCustomPrompt] ?? '',
   ).trim()
@@ -261,7 +281,18 @@ async function callAiRepostApi(
     samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
   }
   const messages = buildRepostMessages(source, customPrompt, style, locale)
+  const { content } = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
+  return parseAiRepostResponse(content, locale)
+}
 
+/** 调用 OpenAI 兼容的 /chat/completions，返回模型输出的文字，以及服务返回的用量（没返回时为 null） */
+async function postChatCompletion(
+  endpoint: string,
+  apiKey: string,
+  body: Record<string, unknown>,
+  signal: AbortSignal,
+  onContent?: (delta: string) => void,
+): Promise<{ content: string; usage: { promptTokens: number; completionTokens: number } | null }> {
   const res = await fetch(endpoint, {
     method: 'POST',
     signal,
@@ -271,13 +302,13 @@ async function callAiRepostApi(
       'content-type': 'application/json',
       authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.65,
-    }),
+    body: JSON.stringify(body),
   })
 
+  if (res.ok && onContent && res.headers.get('content-type')?.includes('text/event-stream')) {
+    return readChatCompletionStream(res, signal, onContent)
+  }
+  // Some compatible services ignore stream:true and return normal JSON.
   const rawText = await res.text()
   let json: any = null
   try {
@@ -292,12 +323,249 @@ async function callAiRepostApi(
     throw new AppError('error.aiHttp', { status: res.status, detail: errDetail })
   }
 
-  const content =
-    json?.choices?.[0]?.message?.content ??
-    json?.choices?.[0]?.text ??
-    json?.output_text ??
-    ''
-  return parseAiRepostResponse(String(content), locale)
+  const prompt = Number(json?.usage?.prompt_tokens)
+  const completion = Number(json?.usage?.completion_tokens)
+  return {
+    content: String(
+      json?.choices?.[0]?.message?.content ??
+        json?.choices?.[0]?.text ??
+        json?.output_text ??
+        '',
+    ),
+    usage: Number.isFinite(prompt) || Number.isFinite(completion)
+      ? { promptTokens: Number.isFinite(prompt) ? prompt : 0, completionTokens: Number.isFinite(completion) ? completion : 0 }
+      : null,
+  }
+}
+
+// ---------- 回复区 AI 打分 ----------
+
+const replyScores = createReplyScoreRepository()
+const replyScoreUsage = createReplyScoreUsage()
+
+// 机器人账号列表的读改写排成一队，连着标几条时不会互相覆盖
+let botAccountWrites: Promise<unknown> = Promise.resolve()
+
+function queueBotAccounts(task: () => Promise<void>): Promise<void> {
+  const run = botAccountWrites.then(task)
+  botAccountWrites = run.catch(() => {})
+  return run
+}
+
+/** 标「机器人」时记下账号，撤销时移出 */
+function setBotAccount(handle: string, add: boolean): Promise<void> {
+  return queueBotAccounts(async () => {
+    const stored = await browser.storage.local.get(KeySpamAiBotAccounts)
+    const list = parseBotAccounts(stored[KeySpamAiBotAccounts])
+    const next = updateBotAccounts(list, handle, add)
+    if (next !== list) await browser.storage.local.set({ [KeySpamAiBotAccounts]: next })
+  })
+}
+
+/** 还没有账号列表时（这个功能加上之前标的），把标过「机器人」的账号补进去 */
+function fillBotAccountsFromLabels(): Promise<void> {
+  return queueBotAccounts(async () => {
+    const stored = await browser.storage.local.get(KeySpamAiBotAccounts)
+    if (stored[KeySpamAiBotAccounts] !== undefined) return
+    const handles = (await replyScores.allLabels()).filter((entry) => entry.label === 'bot').map((entry) => entry.author)
+    if (handles.length) await browser.storage.local.set({ [KeySpamAiBotAccounts]: parseBotAccounts(handles) })
+  })
+}
+const TWEET_ID_RE = /^\d{1,25}$/
+const DEFAULT_REPLY_SCORE_DAILY_LIMIT = Number(defaultPreferences[KeySpamAiDailyLimit]) || 300
+
+// 已知支持 response_format: json_object 的服务；其他 OpenAI 兼容服务可能不认这个参数，不带
+const JSON_MODE_HOSTS = new Set(['api.openai.com', 'api.deepseek.com'])
+
+function supportsJsonMode(endpoint: string): boolean {
+  try { return JSON_MODE_HOSTS.has(new URL(endpoint).hostname) } catch { return false }
+}
+
+function sanitizeScoreParent(raw: any): ReplyScoreParent | null {
+  if (!raw || typeof raw !== 'object') return null
+  const text = typeof raw.text === 'string' ? raw.text : ''
+  return { id: String(raw.id ?? ''), author: String(raw.author ?? ''), text }
+}
+
+function sanitizeScoreItems(raw: unknown): ReplyScoreItem[] {
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<string>()
+  const items: ReplyScoreItem[] = []
+  for (const item of raw) {
+    const id = String(item?.id ?? '')
+    const text = typeof item?.text === 'string' ? item.text.trim() : ''
+    if (!TWEET_ID_RE.test(id) || !text || seen.has(id)) continue
+    seen.add(id)
+    const delay = Number(item.delaySeconds)
+    const followers = Number(item.followers)
+    const replyTo = sanitizeReplyTarget(item.replyTo)
+    items.push({
+      id,
+      author: String(item.author ?? ''),
+      text,
+      delaySeconds: item.delaySeconds != null && Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : null,
+      followers: item.followers != null && Number.isFinite(followers) && followers >= 0 ? Math.floor(followers) : null,
+      verified: typeof item.verified === 'boolean' ? item.verified : null,
+      ...(replyTo ? { replyTo } : {}),
+    })
+    if (items.length >= REPLY_SCORE_BATCH_SIZE) break
+  }
+  return items
+}
+
+function sanitizeReplyTarget(raw: any): ReplyScoreTarget | null {
+  if (!raw || typeof raw !== 'object') return null
+  const author = typeof raw.author === 'string' ? raw.author.trim().slice(0, 50) : ''
+  const text = typeof raw.text === 'string' ? raw.text.trim() : ''
+  return author || text ? { author, text } : null
+}
+
+function sanitizeTweetIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return [...new Set(raw.map(String).filter((id) => TWEET_ID_RE.test(id)))].slice(0, 200)
+}
+
+/**
+ * 把页面发来的标注整理成要存的记录；不合法时返回 null。
+ * 标注时的模型名从打分缓存里取（页面不知道用的是哪个模型）。
+ */
+async function labelEntryOf(message: any): Promise<StoredReplyLabel | null> {
+  const label = message?.label
+  if (label !== 'bot' && label !== 'human') return null
+  const [item] = sanitizeScoreItems([message.item])
+  const parent = sanitizeScoreParent(message.parent)
+  if (!item || !parent || item.id !== String(message.id)) return null
+  let ai: StoredReplyLabel['ai'] = null
+  const score = Number(message.ai?.score)
+  if (message.ai && Number.isFinite(score)) {
+    const cached = (await replyScores.getMany([item.id])).get(item.id)
+    ai = {
+      score: Math.min(100, Math.max(0, Math.round(score))),
+      signals: Array.isArray(message.ai.signals) ? message.ai.signals.map(String).slice(0, 12) : [],
+      reason: typeof message.ai.reason === 'string' ? message.ai.reason.slice(0, 160) : '',
+      model: cached?.model ?? null,
+      promptVersion: REPLY_SCORE_PROMPT_VERSION,
+    }
+  }
+  return {
+    id: item.id,
+    label,
+    author: item.author,
+    text: item.text,
+    parentAuthor: parent.author,
+    parentText: parent.text,
+    ...(item.replyTo ? { replyTo: item.replyTo } : {}),
+    delaySeconds: item.delaySeconds,
+    followers: item.followers ?? null,
+    verified: item.verified ?? null,
+    ai,
+    labeledAt: Date.now(),
+  }
+}
+
+function dailyLimitOf(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.min(5000, Math.max(0, Math.floor(n))) : DEFAULT_REPLY_SCORE_DAILY_LIMIT
+}
+
+interface ReplyScoreConnection {
+  endpoint: string
+  apiKey: string
+  model: string
+}
+
+/** 打分与总结共用 AI 服务，各自的模型覆盖互不影响。 */
+async function replyScoreConnection(signal: AbortSignal): Promise<ReplyScoreConnection> {
+  const stored = await browser.storage.local.get(AI_CONFIG_KEYS)
+  const { baseUrl, apiKey, model } = resolveAiService(stored, 'score')
+  if (!apiKey) throw new AppError('error.aiNoKey')
+  if (!model) throw new AppError('error.aiNoModel')
+  const endpoint = resolveChatCompletionsUrl(baseUrl)
+  await requireAiPermission(baseUrl, signal)
+  return { endpoint, apiKey, model }
+}
+
+function requestReplyScores(
+  connection: ReplyScoreConnection,
+  parent: ReplyScoreParent,
+  replies: ReplyScoreItem[],
+  locale: Locale,
+  signal: AbortSignal,
+  onContent?: (delta: string) => void,
+) {
+  return postChatCompletion(connection.endpoint, connection.apiKey, {
+    model: connection.model,
+    messages: buildReplyScoreMessages(parent, replies, locale),
+    temperature: 0,
+    ...(onContent ? { stream: true } : {}),
+    ...(supportsJsonMode(connection.endpoint) ? { response_format: { type: 'json_object' } } : {}),
+  }, signal, onContent)
+}
+
+/** 设置页「用样例集测试」：一次一段对话。不写缓存，不计入当天用量 */
+async function scoreReplySamples(
+  message: Extract<AiRequest, { type: 'XF_TEST_REPLY_SCORE_SAMPLES' }>,
+  signal: AbortSignal,
+): Promise<AiResponse> {
+  const thread = REPLY_SCORE_SAMPLE_THREADS[Number(message.threadIndex)]
+  if (!thread) throw new AppError('error.aiUnsupported')
+  const locale: Locale = message.locale === 'en' || message.locale === 'zh-CN' ? message.locale : getLocale()
+  const connection = await replyScoreConnection(signal)
+  const { content, usage } = await requestReplyScores(connection, thread.parent, thread.replies, locale, signal)
+  const scores = parseReplyScoreResponse(content, thread.replies.map((r) => r.id))
+  return { ok: true, scores, usage, model: connection.model }
+}
+
+async function scoreReplies(
+  message: Extract<AiRequest, { type: 'XF_SCORE_REPLIES' }>,
+  signal: AbortSignal,
+  onProgress?: AiProgressHandler,
+): Promise<AiResponse> {
+  const parent = sanitizeScoreParent(message.parent)
+  const replies = sanitizeScoreItems(message.replies)
+  if (!parent || !replies.length) throw new AppError('error.aiUnsupported')
+  const mode = message.mode === 'manual' ? 'manual' : 'auto'
+  const locale: Locale = message.locale === 'en' || message.locale === 'zh-CN' ? message.locale : getLocale()
+
+  const cached = await replyScores.getMany(replies.map((r) => r.id))
+  const scores: ReplyScore[] = [...cached.values()].map(toReplyScore)
+  if (cached.size) replyScoreUsage.add({ cached: cached.size })
+  let batch = replies.filter((r) => !cached.has(r.id))
+  if (!batch.length) return { ok: true, scores }
+
+  if (mode === 'auto') {
+    const stored = await browser.storage.local.get(KeySpamAiDailyLimit)
+    const usage = await replyScoreUsage.read()
+    const remaining = dailyLimitOf(stored[KeySpamAiDailyLimit] ?? DEFAULT_REPLY_SCORE_DAILY_LIMIT) - usage.auto
+    if (remaining <= 0) return { ok: true, scores, limitReached: true }
+    batch = batch.slice(0, remaining)
+  }
+
+  const connection = await replyScoreConnection(signal)
+  const { model } = connection
+
+  const fresh = new Map<string, ReplyScore>()
+  const writes: Promise<unknown>[] = []
+  const accept = (score: ReplyScore, publish: boolean) => {
+    if (signal.aborted || fresh.has(score.id)) return
+    fresh.set(score.id, score)
+    // Persist each completed result so timeout/disconnect does not discard it.
+    writes.push(replyScores.putMany([{ ...score, model, promptVersion: REPLY_SCORE_PROMPT_VERSION, savedAt: Date.now() }])
+      .catch(error => console.debug('[oh-my-x] AI 打分结果写入缓存失败', error)))
+    if (publish) onProgress?.({ type: 'XF_AI_PROGRESS', scores: [score] })
+  }
+  const push = createReplyScoreStreamParser(batch.map(r => r.id), score => accept(score, true))
+  signal.throwIfAborted()
+  try {
+    const { content } = await requestReplyScores(connection, parent, batch, locale, signal, push)
+    signal.throwIfAborted()
+    for (const score of parseReplyScoreResponse(content, batch.map(r => r.id))) accept(score, false)
+    return { ok: true, scores: [...scores, ...fresh.values()], model }
+  } finally {
+    // An interrupted request still consumed provider work; completed replies are not failures.
+    replyScoreUsage.add({ [mode]: batch.length, failed: batch.length - fresh.size })
+    await Promise.all(writes)
+  }
 }
 
 async function testAiConnection(config: {
@@ -306,10 +574,10 @@ async function testAiConnection(config: {
   model?: string
 }, signal: AbortSignal): Promise<{ ok: boolean; model: string }> {
   const baseUrl = String(
-    config.baseUrl || defaultPreferences[KeyAiRepostBaseUrl],
+    config.baseUrl || defaultPreferences[KeyAiServiceBaseUrl],
   ).trim()
   const apiKey = String(config.apiKey || '').trim()
-  const model = String(config.model || defaultPreferences[KeyAiRepostModel]).trim()
+  const model = String(config.model || defaultPreferences[KeyAiServiceModel]).trim()
 
   if (!apiKey) throw new AppError('error.aiKeyRequired')
   if (!model) throw new AppError('error.aiModelRequired')
@@ -500,7 +768,7 @@ async function requireAiPermission(baseUrl: string, signal: AbortSignal): Promis
   if (!granted) throw new AppError('error.aiNotAuthorized')
 }
 
-async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promise<AiResponse> {
+async function executeAiRequest(message: AiRequest, signal: AbortSignal, onProgress?: AiProgressHandler): Promise<AiResponse> {
   signal.throwIfAborted()
   switch (message.type) {
     case 'XF_GENERATE_REPOST_OPTIONS':
@@ -511,41 +779,59 @@ async function executeAiRequest(message: AiRequest, signal: AbortSignal): Promis
       const source = await fetchTweetFullContentById(String(message.tweetId || ''), signal)
       return { ok: Boolean(source), source }
     }
+    case 'XF_SCORE_REPLIES':
+      return await scoreReplies(message, signal, onProgress)
+    case 'XF_TEST_REPLY_SCORE_SAMPLES':
+      return await scoreReplySamples(message, signal)
     default: throw new AppError('error.aiUnsupported')
   }
 }
 
 export default defineBackground(() => {
   void initI18n()
+  void migrateAiService().catch(() => {})
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== MIGRATE_AI_SERVICE) return
+    if (sender.id !== browser.runtime.id || !sender.url?.startsWith(`chrome-extension://${browser.runtime.id}/`)) return
+    void migrateAiService().then(() => respond({ ok: true }), () => respond({ ok: false }))
+    return true
+  })
 
   browser.runtime.onConnect.addListener(port => {
     if (port.name !== AI_REQUEST_PORT) return
     const sender = port.sender
     const url = sender?.url || ''
+    // 弹窗和完整设置页（测试连接、用样例集测试）也可以发
     const validUrl = /^https:\/\/(x\.com|twitter\.com|mobile\.twitter\.com|pro\.x\.com)\//.test(url)
-      || url === `chrome-extension://${browser.runtime.id}/popup.html`
+      || new RegExp(`^chrome-extension://${browser.runtime.id}/(popup|options)\\.html(#.*)?$`).test(url)
     if (sender?.id !== browser.runtime.id || !validUrl) { port.disconnect(); return }
     const controller = new AbortController()
     let closed = false
     let started = false
-    let timer: ReturnType<typeof setTimeout> | undefined
+    let stopDeadline: (() => void) | undefined
     const onDisconnect = () => {
       closed = true
-      clearTimeout(timer)
+      stopDeadline?.()
       controller.abort(new AppError('error.requestCancelled'))
     }
     port.onDisconnect.addListener(onDisconnect)
-    port.onMessage.addListener((message: AiRequest) => {
-      if (started || closed) return
+    port.onMessage.addListener((message: AiRequest | { type: typeof AI_KEEPALIVE }) => {
+      // 保活消息只是让后台保持运行，不用处理
+      if (started || closed || message?.type === AI_KEEPALIVE) return
       started = true
       const aborted = new Promise<never>((_, reject) => {
         controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
       })
-      timer = setTimeout(() => controller.abort(new AppError('error.aiTimeout', { seconds: AI_REQUEST_TIMEOUT_MS / 1000 })), AI_REQUEST_TIMEOUT_MS)
-      void Promise.race([executeAiRequest(message, controller.signal), aborted])
+      // 超时按多久没有新数据算，见 shared/ai-deadline.ts
+      stopDeadline = startAiDeadline(controller)
+      void Promise.race([executeAiRequest(message, controller.signal, progress => {
+        if (!closed && !controller.signal.aborted) {
+          try { port.postMessage(progress) } catch { onDisconnect() }
+        }
+      }), aborted])
         .catch(error => ({ ok: false, error: toTransferable(error, 'error.aiFailed') }))
         .then(response => {
-          clearTimeout(timer)
+          stopDeadline?.()
           if (!closed) {
             // Navigation may disconnect the port before the disconnect event arrives.
             try { port.postMessage(response) } catch { /* requester has gone */ }
@@ -565,6 +851,66 @@ export default defineBackground(() => {
       .then(tabs => Promise.allSettled(tabs.filter(tab=>tab.id!=null).map(tab=>browser.tabs.sendMessage(tab.id!,{type:LIBRARY_SYNC}))))
       .catch(()=>{})
   })
+  // AI 打分：页面上折叠了一条，当天折叠数加 1；X 页面上点「AI 未配置」打开设置页
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (sender?.id !== browser.runtime.id) return
+    if (message?.type === REPLY_SCORE_FOLDED) replyScoreUsage.add({ folded: 1 })
+    if (message?.type === OPEN_SETTINGS) void browser.tabs.create({ url: browser.runtime.getURL(message.module === 'settings' ? '/options.html#settings' : '/options.html#filter') })
+  })
+
+  // AI 打分只查缓存和标注，不调用模型
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== REPLY_SCORE_LOOKUP) return
+    if (sender?.id !== browser.runtime.id) return
+    void (async () => {
+      try {
+        const ids = sanitizeTweetIds(message.ids)
+        const [found, labels] = await Promise.all([replyScores.getMany(ids), replyScores.getLabels(ids)])
+        if (found.size) replyScoreUsage.add({ cached: found.size })
+        respond({
+          ok: true,
+          scores: [...found.values()].map(toReplyScore),
+          labels: [...labels].map(([id, label]) => ({ id, label })),
+        })
+      } catch (error) {
+        respond({ ok: false, error: toTransferable(error, 'error.readFailed') })
+      }
+    })()
+    return true
+  })
+
+  // 标注：保存、撤销、列出全部（设置页显示条数和导出）
+  // botAccount 为 true / false 时同时把作者加入 / 移出机器人账号列表，不传就不改
+  void fillBotAccountsFromLabels().catch(() => {})
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== REPLY_LABEL_SET && message?.type !== REPLY_LABEL_LIST) return
+    if (sender?.id !== browser.runtime.id) return
+    void (async () => {
+      try {
+        if (message.type === REPLY_LABEL_LIST) {
+          respond({ ok: true, labels: await replyScores.allLabels() })
+          return
+        }
+        if (message.label === null) {
+          const [id] = sanitizeTweetIds([message.id])
+          if (!id) throw new AppError('error.aiUnsupported')
+          await replyScores.deleteLabel(id)
+        } else {
+          const entry = await labelEntryOf(message)
+          if (!entry) throw new AppError('error.aiUnsupported')
+          await replyScores.putLabel(entry)
+        }
+        if (typeof message.botAccount === 'boolean') {
+          await setBotAccount(String(message.item?.author ?? ''), message.botAccount)
+        }
+        respond({ ok: true })
+      } catch (error) {
+        respond({ ok: false, error: toTransferable(error, 'error.dbWriteFailed') })
+      }
+    })()
+    return true
+  })
+
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if(message?.type !== LIBRARY_MESSAGE) return
     void (async()=>{

@@ -9,6 +9,7 @@ import LayoutModule from './components/modules/LayoutModule.vue'
 import FilterModule from './components/modules/FilterModule.vue'
 import InsightModule from './components/modules/InsightModule.vue'
 import CreateModule from './components/modules/CreateModule.vue'
+import SettingsModule from './components/modules/SettingsModule.vue'
 import EngageModule from './components/modules/EngageModule.vue'
 
 /** 模块 id → 模块页组件，弹窗和完整设置页共用 */
@@ -18,6 +19,7 @@ export const moduleComponents: Record<FeatureModuleId, Component> = {
   insight: InsightModule,
   create: CreateModule,
   engage: EngageModule,
+  settings: SettingsModule,
 }
 
 /** 当前设置界面：插件弹窗，或整页打开的完整设置页 */

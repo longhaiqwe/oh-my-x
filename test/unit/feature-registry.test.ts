@@ -15,10 +15,10 @@ import { allSettingsKeys } from '../../storage-keys'
 import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 
 describe('feature registry', () => {
-  it('按文章顺序定义五个模块', () => {
-    expect(FEATURE_MODULES.map((m) => m.id)).toEqual(['layout', 'filter', 'insight', 'create', 'engage'])
-    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab'))).toEqual(['界面', '过滤', '数据', '创作', '互动'])
-    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab', 'en'))).toEqual(['Layout', 'Filter', 'Insights', 'Create', 'Engage'])
+  it('按文章顺序定义六个模块', () => {
+    expect(FEATURE_MODULES.map((m) => m.id)).toEqual(['layout', 'filter', 'insight', 'create', 'engage', 'settings'])
+    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab'))).toEqual(['界面', '过滤', '数据', '创作', '互动', '设置'])
+    expect(FEATURE_MODULES.map((m) => moduleText(m.id, 'tab', 'en'))).toEqual(['Layout', 'Filter', 'Insights', 'Create', 'Engage', 'Settings'])
   })
 
   it('功能 id 不重复，且都属于已定义的模块', () => {

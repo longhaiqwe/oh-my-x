@@ -98,14 +98,14 @@ afterEach(() => {
 })
 
 describe('英文界面没有残留中文', () => {
-  it('弹窗：5 个模块和过滤的 4 个子页', async () => {
+  it('弹窗：6 个模块和过滤的 4 个子页', async () => {
     app = createApp(App)
     app.mount(root)
     await settle()
 
     const leftovers: Record<string, string[]> = {}
     const tabs = () => [...root.querySelectorAll<HTMLElement>('[role="tab"]')]
-    expect(tabs().map((tab) => tab.textContent?.trim())).toEqual(['Layout', 'Filter', 'Insights', 'Create', 'Engage'])
+    expect(tabs().map((tab) => tab.textContent?.trim())).toEqual(['Layout', 'Filter', 'Insights', 'Create', 'Engage', 'Settings'])
 
     for (let i = 0; i < tabs().length; i++) {
       tabs()[i].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))

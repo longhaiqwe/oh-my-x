@@ -1,18 +1,13 @@
-import { sendAiRequest } from '../../shared/ai-request'
-import {
-  KeyAiRepostApiKey,
-  KeyAiRepostBaseUrl,
-  KeyAiRepostEnabled,
-  KeyAiRepostModel,
-  defaultPreferences,
-} from '../../storage-keys'
+import { sendAiRequest, OPEN_SETTINGS } from '../../shared/ai-request'
+import { KeyAiRepostEnabled } from '../../storage-keys'
+import { AI_CONFIG_KEYS, resolveAiService } from '../../shared/ai-service'
 import { collectVisibleText } from '../../shared/parse-tweet'
 import type { AiRepostOptionsResult, RepostSourceInput } from '../../shared/ai-repost'
-import selectors from '../selectors'
+import { findComposerRoots } from '../utilities/composer-roots'
 import { getPrecomposeUrl } from '../options/precompose'
 import addStyles from '../utilities/addStyles'
 import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
-import { getStorage, setStorage } from '../utilities/storage'
+import { getStorage } from '../utilities/storage'
 import { getLocale, t } from '../../shared/i18n'
 import { errorText, type TransferableError } from '../../shared/errors'
 
@@ -461,6 +456,30 @@ export function extractLocalRepostSource(modalEl: HTMLElement): {
   tweetId: string | null
 } {
   const doc = modalEl.ownerDocument || document
+
+  // 页内回复对应当前详情页的主帖，不使用草稿链接或其他帖子的历史点击快照。
+  // 主帖可能已被虚拟列表卸载，此时只返回 ID，让后台补全原文。
+  const inlineTweetId = modalEl.dataset.xfInlineComposer === '1'
+    ? extractTweetIdFromUrl(doc.location.href)
+    : null
+  if (inlineTweetId) {
+    for (const article of doc.querySelectorAll<HTMLElement>('article[data-testid="tweet"]')) {
+      if (article.closest('[role="dialog"]')) continue
+      const snapshot = extractTweetSnapshotFromArticle(article)
+      if (snapshot?.tweetId !== inlineTweetId) continue
+      return {
+        tweetId: inlineTweetId,
+        source: snapshot.text ? {
+          authorName: snapshot.authorName,
+          authorHandle: snapshot.authorHandle,
+          title: snapshot.title,
+          text: snapshot.text,
+        } : null,
+      }
+    }
+    return { source: null, tweetId: inlineTweetId }
+  }
+
   const editor = findComposeEditor(modalEl)
   const editorRoot =
     editor?.closest('[data-testid="tweetTextarea_0_label"]') ||
@@ -756,19 +775,6 @@ function openOrUpdateRepostPanel(
   const renderConfigView = async (errorNotice?: string) => {
     activeRequest?.abort()
     triggerBtn.disabled = false
-    const stored = await getStorage([
-      KeyAiRepostBaseUrl,
-      KeyAiRepostApiKey,
-      KeyAiRepostModel,
-    ])
-    const baseUrl = String(
-      stored[KeyAiRepostBaseUrl] || defaultPreferences[KeyAiRepostBaseUrl],
-    )
-    const apiKey = String(stored[KeyAiRepostApiKey] || '')
-    const model = String(
-      stored[KeyAiRepostModel] || defaultPreferences[KeyAiRepostModel],
-    )
-
     if (closed || !panel.isConnected) return
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
@@ -778,123 +784,20 @@ function openOrUpdateRepostPanel(
         </div>
       </div>
       ${errorNotice ? `<div class="xf-ai-repost-status xf-ai-repost-error">${escapeHtml(errorNotice)}</div>` : ''}
-      <div class="xf-ai-repost-status">${t('aiPage.privacy')}</div>
-      <div class="xf-ai-repost-config">
-        <div class="xf-ai-repost-config-row">
-          <label>Base URL</label>
-          <input type="text" class="xf-ai-repost-input" data-field="baseUrl" value="${escapeHtml(baseUrl)}" placeholder="https://api.openai.com/v1" />
-        </div>
-        <div class="xf-ai-repost-config-row">
-          <label>API Key</label>
-          <input type="password" class="xf-ai-repost-input" data-field="apiKey" value="${escapeHtml(apiKey)}" placeholder="sk-..." />
-        </div>
-        <div class="xf-ai-repost-config-row">
-          <label>Model</label>
-          <input type="text" class="xf-ai-repost-input" data-field="model" value="${escapeHtml(model)}" placeholder="gpt-4o-mini / deepseek-chat" />
-        </div>
-        <div class="xf-ai-repost-config-actions">
-          <button type="button" class="xf-ai-repost-save-btn" data-action="save-and-run">${t('aiPage.saveAndRun')}</button>
-          <button type="button" class="xf-ai-repost-test-btn" data-action="test-connection">${t('aiPage.test')}</button>
-        </div>
-        <div class="xf-ai-repost-test-feedback" data-field="test-feedback"></div>
+      <div class="xf-ai-repost-status">${t('aiPage.sharedServiceHint')}</div>
+      <div class="xf-ai-repost-config-actions">
+        <button type="button" class="xf-ai-repost-save-btn" data-action="open-settings">${t('aiService.configure')}</button>
+        <button type="button" class="xf-ai-repost-test-btn" data-action="retry">${t('aiPage.retry')}</button>
       </div>
     `
-
-    panel.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
+    panel.querySelector('[data-action="close"]')?.addEventListener('click', closePanel)
+    panel.querySelector('[data-action="open-settings"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      closePanel()
+      void browser.runtime.sendMessage({ type: OPEN_SETTINGS, module: 'settings' })
     })
-
-    const feedbackEl = panel.querySelector<HTMLElement>('[data-field="test-feedback"]')
-    const testBtn = panel.querySelector<HTMLButtonElement>('[data-action="test-connection"]')
-
-    testBtn?.addEventListener('click', async (e) => {
+    panel.querySelector('[data-action="retry"]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      const testBaseUrl =
-        panel?.querySelector<HTMLInputElement>('[data-field="baseUrl"]')?.value.trim() ||
-        String(defaultPreferences[KeyAiRepostBaseUrl])
-      const testApiKey =
-        panel?.querySelector<HTMLInputElement>('[data-field="apiKey"]')?.value.trim() || ''
-      const testModel =
-        panel?.querySelector<HTMLInputElement>('[data-field="model"]')?.value.trim() ||
-        String(defaultPreferences[KeyAiRepostModel])
-
-      if (!testApiKey) {
-        if (feedbackEl) {
-          feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-          feedbackEl.textContent = t('aiPage.needKey')
-        }
-        return
-      }
-
-      if (testBtn) testBtn.disabled = true
-      if (feedbackEl) {
-        feedbackEl.className = 'xf-ai-repost-test-feedback'
-        feedbackEl.textContent = t('aiPage.testing')
-      }
-
-      const request = beginRequest()
-      try {
-        const res = (await sendAiRequest({
-          type: 'XF_TEST_AI_CONNECTION',
-          config: {
-            baseUrl: testBaseUrl,
-            apiKey: testApiKey,
-            model: testModel,
-          },
-        }, request.signal)) as { ok?: boolean; error?: TransferableError; model?: string } | undefined
-        if (!isCurrent(request)) return
-
-        if (res?.ok) {
-          if (feedbackEl) {
-            feedbackEl.className = 'xf-ai-repost-test-feedback is-ok'
-            feedbackEl.textContent = t('aiPage.connected', { model: res.model || testModel })
-          }
-        } else {
-          if (feedbackEl) {
-            feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-            feedbackEl.textContent = t('aiPage.connectFailed', { reason: errorText(res?.error) || t('aiPage.noResponseCheck') })
-          }
-        }
-      } catch (err: any) {
-        if (!isCurrent(request)) return
-        if (feedbackEl) {
-          feedbackEl.className = 'xf-ai-repost-test-feedback is-err'
-          feedbackEl.textContent = t('aiPage.exception', { reason: errorText(err) || String(err) })
-        }
-      } finally {
-        if (isCurrent(request) && testBtn) testBtn.disabled = false
-      }
-    })
-
-    panel.querySelector('[data-action="save-and-run"]')?.addEventListener('click', async (e) => {
-      e.stopPropagation()
-      const newBaseUrl =
-        panel?.querySelector<HTMLInputElement>('[data-field="baseUrl"]')?.value.trim() ||
-        String(defaultPreferences[KeyAiRepostBaseUrl])
-      const newApiKey =
-        panel?.querySelector<HTMLInputElement>('[data-field="apiKey"]')?.value.trim() || ''
-      const newModel =
-        panel?.querySelector<HTMLInputElement>('[data-field="model"]')?.value.trim() ||
-        String(defaultPreferences[KeyAiRepostModel])
-
-      if (!newApiKey) {
-        void renderConfigView(t('aiPage.validKey'))
-        return
-      }
-
-      await setStorage({
-        [KeyAiRepostBaseUrl]: newBaseUrl,
-        [KeyAiRepostApiKey]: newApiKey,
-        [KeyAiRepostModel]: newModel,
-      })
-
-      if (closed || !panel.isConnected) return
-      void runGeneration({
-        baseUrl: newBaseUrl,
-        apiKey: newApiKey,
-        model: newModel,
-      })
+      void runGeneration()
     })
   }
 
@@ -968,9 +871,9 @@ function openOrUpdateRepostPanel(
 
     const request = beginRequest()
     triggerBtn.disabled = true
-    const stored = await getStorage([KeyAiRepostApiKey])
+    const stored = await browser.storage.local.get(AI_CONFIG_KEYS)
     if (!isCurrent(request)) return
-    const currentKey = overrideConfig?.apiKey ?? String(stored[KeyAiRepostApiKey] || '').trim()
+    const currentKey = overrideConfig?.apiKey ?? resolveAiService(stored, 'repost').apiKey
     if (!currentKey) {
       await renderConfigView(t('aiPage.firstUse'))
       return
@@ -1100,7 +1003,7 @@ function findFallbackBarAnchor(modalEl: HTMLElement, editor: HTMLElement): HTMLE
 }
 
 /**
- * 向发帖/Repost 弹窗注入「AI 总结」按钮（位于受众选择按钮「每个人 ∨」右侧水平并排）
+ * 向弹窗和页内编辑器注入「AI 总结」按钮；没有受众按钮时放在输入框上方。
  */
 export async function updateAiRepostComposerButton() {
   try {
@@ -1112,9 +1015,7 @@ export async function updateAiRepostComposerButton() {
       return
     }
 
-    const modals = Array.from(
-      document.querySelectorAll<HTMLElement>(selectors.modalWrapper),
-    )
+    const modals = findComposerRoots()
 
     modals.forEach((modalEl) => {
       const editor = findComposeEditor(modalEl)

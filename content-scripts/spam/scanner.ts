@@ -1,10 +1,27 @@
+import { describeAiError } from '../../shared/ai-error'
 import { t } from '../../shared/i18n'
 import { evaluateSpam } from '../../shared/spam-rules'
 import { recordIntercept } from '../../shared/spam-logger'
-import { extractTweetInfo } from '../../shared/parse-tweet'
+import {
+  extractAuthorNameElement,
+  extractAuthorVerified,
+  extractTweetId,
+  extractTweetInfo,
+  extractTweetTime,
+  type TweetInfo,
+} from '../../shared/parse-tweet'
 import type { SpamEvaluation, SpamRuleId } from '../../shared/spam-types'
+import { REPLY_SCORE_BATCH_SIZE, replyDelaySeconds, type ReplyScoreItem, type ReplyScoreParent, type ReplyScoreTarget } from '../../shared/ai-reply-score'
+import { OPEN_SETTINGS, REPLY_SCORE_FOLDED } from '../../shared/ai-request'
+import { readConversationId, readReplyTarget, REPLY_TARGET_EVENT, REPLY_TO_ATTR } from '../../shared/reply-target'
+import { errorText } from '../../shared/errors'
+import { getOwnHandle } from '../../shared/own-posts'
+import { knownFollowerCount } from '../features/user-followers'
+import { aiScorer, type AiDisplay } from './ai-scorer'
+import { buildFoldBar, ensureAiPill, ensureScoreTag, findHeaderRow, foldBarKey, removeAiBadges, type AiPillState } from './ai-badge'
+import type { ReplyLabel } from '../../shared/reply-score-db'
 import { injectKeywordButton } from './keyword-picker'
-import { applyAllow, applyHideDirect, resetArticleSpamState } from './article-state'
+import { applyAllow, applyHideDirect, applyReplace, resetArticleSpamState } from './article-state'
 import { getSpamConfig, invalidateSpamConfigCache } from './config'
 import {
   cleanupDebugBars,
@@ -15,7 +32,17 @@ import {
   removeDebugBar,
   removeScrollStabilityStyles,
 } from './debug-bar'
-import { DEBUG_BAR_ID, DEBUG_BAR_VERSION, DEBUG_CONFIG_ATTR, PROCESSED_ATTR, SCORE_ATTR, STATE_ATTR, XF_SELF_SELECTOR } from './dom-attrs'
+import {
+  AI_VERSION_ATTR,
+  DEBUG_BAR_ID,
+  DEBUG_BAR_VERSION,
+  DEBUG_CONFIG_ATTR,
+  HIDDEN_BY_ATTR,
+  PROCESSED_ATTR,
+  SCORE_ATTR,
+  STATE_ATTR,
+  XF_SELF_SELECTOR,
+} from './dom-attrs'
 import type { SpamConfig } from './types'
 
 export { applyReplace } from './article-state'
@@ -29,16 +56,213 @@ const SPAM_FP_ATTR = 'data-xf-spam-fp'
 // 黑/白名单、阈值、启用规则的变更都走 invalidateSpamConfig，从而触发重算。
 let spamConfigVersion = 0
 
-async function processArticle(article: HTMLElement, config: SpamConfig) {
+/** 一段对话的主帖：作为 AI 打分的上下文 */
+interface ThreadInfo {
+  id: string
+  author: string
+  text: string
+  time: number | null
+  /** 主帖所在对话的 ID（拦截脚本写在主帖上）；还不知道时为空 */
+  conversationId: string
+}
+
+function threadOf(article: HTMLElement): ThreadInfo | null {
+  const id = extractTweetId(article)
+  if (!id) return null
+  const info = extractTweetInfo(document, article)
+  return { id, author: info?.authorHandle ?? '', text: info?.text ?? '', time: extractTweetTime(article), conversationId: readConversationId(article, id) }
+}
+
+/**
+ * 不在这段对话里的推文：帖子页底部「发现更多」推荐的帖子，对话 ID 和主帖的不同。
+ * 按主帖处理（不评分、不送 AI），同时从标题栏按钮的计数里去掉。
+ */
+function outsideThread(article: HTMLElement, thread: ThreadInfo | null): boolean {
+  if (!thread?.conversationId) return false
+  const id = extractTweetId(article)
+  const conversation = id ? readConversationId(article, id) : ''
+  if (!conversation || conversation === thread.conversationId) return false
+  pageAiItems.delete(id!)
+  return true
+}
+
+// 被回复推文的 ID 由拦截脚本晚一步写上；写上以后这条回复要重新处理，送模型的内容才带得上被回复的评论
+const REPLY_KEY_ATTR = 'data-xf-reply-key'
+
+function replyKey(article: HTMLElement): string {
+  return article.getAttribute(REPLY_TO_ATTR) ?? '?'
+}
+
+/** 调试条加上当前的 AI 结果版本和被回复推文，扫描时据此判断要不要重画 */
+function showDebugBar(article: HTMLElement, evaluation: SpamEvaluation, config: SpamConfig, ai?: AiDisplay) {
+  ensureBar(article, evaluation, config, ai)
+  const bar = article.querySelector(`#${DEBUG_BAR_ID}`)
+  bar?.setAttribute(AI_VERSION_ATTR, String(aiScorer.version()))
+  bar?.setAttribute(REPLY_KEY_ATTR, replyKey(article))
+}
+
+// ---------- AI 判断：本页状态 ----------
+
+interface PageAiItem {
+  item: ReplyScoreItem
+  parent: ReplyScoreParent
+}
+
+/** 本页（按地址）见过的、可以送 AI 判断的回复：标题栏按钮的计数和手动判断都用它 */
+const pageAiItems = new Map<string, PageAiItem>()
+/** 本页见过的评论正文，按推文 ID：回复别人评论的回复，要把那条评论一起送给模型 */
+const pageComments = new Map<string, ReplyScoreTarget>()
+/** 本页点过「展开」的回复，不再折叠 */
+const expandedIds = new Set<string>()
+/** 已经计过折叠数的回复，同一条只算一次 */
+const foldReported = new Set<string>()
+let pageAiPath = ''
+let expandVersion = 0
+
+function syncAiPage() {
+  const path = location.pathname
+  if (path === pageAiPath) return
+  pageAiPath = path
+  pageAiItems.clear()
+  pageComments.clear()
+  expandedIds.clear()
+}
+
+function rememberComment(article: HTMLElement, info: TweetInfo) {
+  const id = extractTweetId(article)
+  if (id && info.text) pageComments.set(id, { author: info.authorHandle, text: info.text })
+}
+
+/**
+ * 这条回复回的评论；直接回主帖、或还不知道回的是哪条时返回 null。
+ * 被回复的评论在页面上一般排在这条上面，已经记下了；没记下时只送作者。
+ */
+function replyTargetOf(article: HTMLElement, id: string, thread: ThreadInfo): ReplyScoreTarget | null {
+  const target = readReplyTarget(article, id)
+  if (!target || target.id === thread.id) return null
+  return pageComments.get(target.id) ?? { author: target.author, text: '' }
+}
+
+function setExpanded(id: string, expanded: boolean) {
+  if (expanded) expandedIds.add(id)
+  else expandedIds.delete(id)
+  expandVersion++
+  void runScan()
+}
+
+function sendToBackground(message: Record<string, unknown>) {
+  try {
+    void browser.runtime.sendMessage?.(message)?.catch?.(() => {})
+  } catch {
+    // 插件更新后旧页面连不上后台，忽略
+  }
+}
+
+/**
+ * 这条回复的 AI 判断状态；不送模型时返回 undefined。
+ * 规则已经会隐藏的、主帖、主帖作者的回复、自己的回复、纯图片回复不送。
+ */
+function aiDisplayFor(
+  article: HTMLElement,
+  info: TweetInfo,
+  evaluation: SpamEvaluation,
+  config: SpamConfig,
+  thread: ThreadInfo | null,
+): AiEntry | undefined {
+  if (!config.ai || !thread) return undefined
+  if (evaluation.score >= config.threshold || !info.text) return undefined
+  const id = extractTweetId(article)
+  if (!id || id === thread.id) return undefined
+  const handle = info.authorHandle.toLowerCase()
+  if (thread.author && handle === thread.author.toLowerCase()) return undefined
+  const own = getOwnHandle()?.toLowerCase() || ''
+  if (own && handle === own) return undefined
+  const item: ReplyScoreItem = {
+    id,
+    author: info.authorHandle,
+    text: info.text,
+    delaySeconds: replyDelaySeconds(thread.time, extractTweetTime(article)),
+    followers: knownFollowerCount(info.authorHandle, extractAuthorNameElement(article)),
+    verified: extractAuthorVerified(article),
+  }
+  const replyTo = replyTargetOf(article, id, thread)
+  if (replyTo) item.replyTo = replyTo
+  const parent: ReplyScoreParent = { id: thread.id, author: thread.author, text: thread.text }
+  // 账号标过机器人：直接折叠，不自动送模型，也不算进标题栏按钮的条数；这条单独标了真人的照常判断
+  const account = isBotAccount(config, info.authorHandle) && aiScorer.label(id) !== 'human'
+  if (account) pageAiItems.delete(id)
+  else pageAiItems.set(id, { item, parent })
+  return { id, item, parent, account, display: aiScorer.request(item, parent, !account && isAutoThread(config, thread)) }
+}
+
+interface AiEntry extends PageAiItem {
+  id: string
+  /** 作者是标过机器人的账号，且这条没有标真人 */
+  account: boolean
+  display: AiDisplay
+}
+
+function isBotAccount(config: SpamConfig, handle: string): boolean {
+  return Boolean(handle && config.ai?.botAccounts.has(handle.toLowerCase()))
+}
+
+/**
+ * 用户点了「机器人 / 真人」（next 为 null 是撤销）：标成机器人时清掉这条的「展开」状态，让它马上折叠。
+ * own 是这条自己的标注，shown 是按钮上亮着的（只因账号折叠时是 bot）。
+ * 账号跟着「机器人」走：标机器人时记下账号；撤销亮着的「机器人」，或把这条的机器人改成真人时移出。
+ * 只因账号折叠的那条标真人，只放出这一条，账号不变。
+ * 本页先改，后台写好列表后其他页面跟着重扫。
+ */
+function applyLabel(ai: AiEntry, next: ReplyLabel | null, own: ReplyLabel | undefined, shown: ReplyLabel | undefined, config: SpamConfig) {
+  if (next === 'bot' && expandedIds.delete(ai.id)) expandVersion++
+  const botAccount = next === 'bot' ? true
+    : (next === null ? shown === 'bot' : own === 'bot') ? false
+    : undefined
+  const handle = ai.item.author.toLowerCase()
+  if (botAccount === true) config.ai?.botAccounts.add(handle)
+  if (botAccount === false) config.ai?.botAccounts.delete(handle)
+  const done = ai.display.status === 'done' ? ai.display : undefined
+  aiScorer.setLabel({
+    id: ai.id,
+    label: next,
+    item: ai.item,
+    parent: ai.parent,
+    ai: done ? { score: done.score, signals: done.signals, reason: done.reason } : null,
+    ...(botAccount === undefined ? {} : { botAccount }),
+  })
+  void runScan()
+}
+
+/** 这段对话在不在自动判断范围内 */
+function isAutoThread(config: SpamConfig, thread: ThreadInfo | null): boolean {
+  if (!config.ai || !thread) return false
+  if (config.ai.autoScope === 'all') return true
+  const own = getOwnHandle()?.toLowerCase() || ''
+  return config.ai.autoScope === 'own' && Boolean(own) && thread.author.toLowerCase() === own
+}
+
+function hiddenState(article: HTMLElement): 'rule' | 'ai' | 'show' {
+  if (article.getAttribute(STATE_ATTR) !== 'hidden') return 'show'
+  return article.getAttribute(HIDDEN_BY_ATTR) === 'ai' ? 'ai' : 'rule'
+}
+
+/** AI 折叠的回复前面应该有折叠条；X 重绘时可能把它弄丢 */
+function foldBarMissing(article: HTMLElement): boolean {
+  return hiddenState(article) === 'ai' && !article.previousElementSibling?.matches?.('[data-xf-spam-hidden-replacement]')
+}
+
+async function processArticle(article: HTMLElement, config: SpamConfig, thread: ThreadInfo | null = null) {
   // 轻量级预指纹短路（非 debug）：
   // 在昂贵的 extractTweetInfo（TreeWalker 遍历 DOM）之前，用 textContent 长度 +
   // 首尾 16 字符 + 配置版本快速判断推文是否已变更。
   // 注意：使用 textContent 而非 innerText，因为 textContent 不会触发强制回流（reflow）。
   // 指纹匹配 → 跳过整条处理链路（含 TreeWalk + evaluateSpam），节省大量 CPU。
+  // AI 结果、展开状态、被回复推文变了也要重新处理。
   if (!config.debug) {
     const rawText = article.textContent || ''
-    const preFp = `${rawText.length}:${rawText.slice(0, 16)}:${rawText.slice(-16)}:v${spamConfigVersion}`
-    if (article.getAttribute(PROCESSED_ATTR) === '1' && article.getAttribute(SPAM_FP_ATTR) === preFp) {
+    const aiKey = config.ai ? `:a${aiScorer.version()}:e${expandVersion}:r${replyKey(article)}` : ''
+    const preFp = `${rawText.length}:${rawText.slice(0, 16)}:${rawText.slice(-16)}:v${spamConfigVersion}${aiKey}`
+    if (article.getAttribute(PROCESSED_ATTR) === '1' && article.getAttribute(SPAM_FP_ATTR) === preFp && !foldBarMissing(article)) {
       return
     }
     article.setAttribute(SPAM_FP_ATTR, preFp)
@@ -47,6 +271,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
   // X 推文分阶段渲染；每轮重评估能避免初次拿到不完整 text/name。
   const info = extractTweetInfo(document, article)
   if (!info) return
+  if (config.ai) rememberComment(article, info)
 
   if (info.authorHandle && config.blacklist.has(info.authorHandle.toLowerCase())) {
     article.setAttribute(PROCESSED_ATTR, '1')
@@ -61,7 +286,7 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
     if (config.debug) {
       applyAllow(article)
       article.setAttribute(SCORE_ATTR, String(evaluation.score))
-      ensureBar(article, evaluation, config)
+      showDebugBar(article, evaluation, config)
     } else {
       if (article.getAttribute(STATE_ATTR) !== 'hidden') {
         void recordIntercept({
@@ -72,15 +297,19 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
           category: evaluation.category,
           hits: evaluation.hits,
           action: 'filter',
+          source: 'rule',
         })
       }
       applyHideDirect(article)
+      article.setAttribute(HIDDEN_BY_ATTR, 'rule')
+      ensureScoreTag(article, undefined)
     }
     return
   }
 
   if (info.authorHandle && config.whitelist.has(info.authorHandle.toLowerCase())) {
     if (article.getAttribute(STATE_ATTR)) applyAllow(article)
+    ensureScoreTag(article, undefined)
     article.setAttribute(PROCESSED_ATTR, '1')
     return
   }
@@ -99,39 +328,84 @@ async function processArticle(article: HTMLElement, config: SpamConfig) {
   article.setAttribute(SCORE_ATTR, String(evaluation.score))
 
   const shouldHide = evaluation.score >= config.threshold
+  const ai = aiDisplayFor(article, info, evaluation, config, thread)
 
+  // 调试模式：只画调试条，不隐藏、不折叠
   if (config.debug) {
     if (article.getAttribute(STATE_ATTR) === 'hidden') applyAllow(article)
-    ensureBar(article, evaluation, config)
+    ensureScoreTag(article, undefined)
+    showDebugBar(article, evaluation, config, ai?.display)
     return
   }
 
-  const isHidden = article.getAttribute(STATE_ATTR) === 'hidden'
-  if (shouldHide === isHidden) {
-    ensureBar(article, evaluation, config)
-    return
+  // 规则分数达到阈值：直接隐藏；否则 AI 分数达到阈值：折叠（点过「展开」的除外）
+  // 用户标注优先：标了「真人」不折叠，标了「机器人」直接折叠（没有分数也折叠）
+  // 账号标过机器人、这条没有单独标注：按标了「机器人」处理
+  const done = ai?.display.status === 'done' ? ai.display : undefined
+  const ownLabel = ai ? aiScorer.label(ai.id) : undefined
+  const byAccount = Boolean(ai?.account && ownLabel === undefined)
+  const label = ownLabel ?? (byAccount ? 'bot' : undefined)
+  const wouldFold = Boolean(ai && config.ai && (label === 'bot' || (label !== 'human' && done && done.score >= config.ai.threshold)))
+  const expanded = wouldFold && expandedIds.has(ai!.id)
+  const want = shouldHide ? 'rule' : wouldFold && !expanded ? 'ai' : 'show'
+  const current = hiddenState(article)
+  const foldKey = want === 'ai' ? foldBarKey(done, label, byAccount) : ''
+  const staleFold = want === 'ai' && current === 'ai' && article.previousElementSibling?.getAttribute('data-xf-fold-key') !== foldKey
+  const onLabel = ai ? (next: ReplyLabel | null) => applyLabel(ai, next, ownLabel, label, config) : undefined
+
+  if (want !== current || foldBarMissing(article) || staleFold) {
+    applyAllow(article)
+    if (want === 'rule') {
+      void recordIntercept({
+        authorHandle: info.authorHandle,
+        authorName: info.authorName,
+        text: info.text,
+        score: evaluation.score,
+        category: evaluation.category,
+        hits: evaluation.hits,
+        action: 'filter',
+        source: 'rule',
+      })
+      applyHideDirect(article)
+      article.setAttribute(HIDDEN_BY_ATTR, 'rule')
+    } else if (want === 'ai' && ai) {
+      if (current !== 'ai') {
+        void recordIntercept({
+          authorHandle: info.authorHandle,
+          authorName: info.authorName,
+          text: info.text,
+          score: evaluation.score,
+          category: 'ai',
+          hits: [],
+          action: 'filter',
+          source: 'ai',
+          ai: { score: done?.score ?? null, signals: done?.signals ?? [], reason: done?.reason ?? '', label, ...(byAccount ? { account: true } : {}) },
+        })
+        if (!foldReported.has(ai.id)) {
+          foldReported.add(ai.id)
+          sendToBackground({ type: REPLY_SCORE_FOLDED })
+        }
+      }
+      applyReplace(article, buildFoldBar({ display: done, handle: info.authorHandle, label, account: byAccount, onExpand: () => setExpanded(ai.id, true), onLabel }))
+      article.previousElementSibling?.setAttribute('data-xf-fold-key', foldKey)
+      article.setAttribute(HIDDEN_BY_ATTR, 'ai')
+    }
   }
 
-  applyAllow(article)
-
-  if (shouldHide) {
-    void recordIntercept({
-      authorHandle: info.authorHandle,
-      authorName: info.authorName,
-      text: info.text,
-      score: evaluation.score,
-      category: evaluation.category,
-      hits: evaluation.hits,
-      action: 'filter',
-    })
-    applyHideDirect(article)
-    ensureBar(article, evaluation, config)
-  }
+  // 显示出来的回复带分数标签和标注按钮；展开过的折叠回复后面加「收起」
+  ensureScoreTag(article, want === 'show' ? ai?.display : undefined, {
+    label,
+    account: byAccount,
+    onLabel,
+    onCollapse: expanded ? () => setExpanded(ai!.id, false) : undefined,
+  })
 }
 
-export function invalidateSpamConfig() {
+export function invalidateSpamConfig(options: { keepAiPause?: boolean } = {}) {
   invalidateSpamConfigCache()
   spamConfigVersion++
+  // 设置或 AI 连接改了：解除 AI 判断的暂停，失败次数清零（只是机器人账号列表变了时不用）
+  if (!options.keepAiPause) aiScorer.reset()
 }
 
 let scanScheduled = false
@@ -145,12 +419,12 @@ async function scheduleScan() {
     return
   }
   scanScheduled = true
-  const idle = (window as any).requestIdleCallback as ((cb: () => void) => void) | undefined
+  const idle = (window as any).requestIdleCallback as ((cb: () => void, options: { timeout: number }) => void) | undefined
   if (idle) {
     idle(() => {
       scanScheduled = false
       void runScan()
-    })
+    }, { timeout: 200 })
   } else {
     setTimeout(() => {
       scanScheduled = false
@@ -177,7 +451,35 @@ const CONVERSATION_ARIA_RE = /conversation|对话|会話|conversa|konversation/i
 
 interface ScanScope {
   articles: HTMLElement[]
-  mainTweetIndex: number
+  /** 主帖和排在主帖上方的上级推文：不评分 */
+  nonReplies: Set<HTMLElement>
+  /** 这段对话的主帖；拿不到时为 null */
+  thread: ThreadInfo | null
+}
+
+/** 详情页的主帖记忆：主帖滚出页面后，仍能认出主帖和上级推文、拿到主帖正文 */
+interface ThreadMemory {
+  thread: ThreadInfo | null
+  nonReplyIds: Set<string>
+}
+
+const threadMemory = new Map<string, ThreadMemory>()
+const THREAD_MEMORY_LIMIT = 50
+
+function rememberThread(statusId: string, articles: HTMLElement[], mainIndex: number): ThreadMemory {
+  const memory = threadMemory.get(statusId) ?? { thread: null, nonReplyIds: new Set<string>() }
+  for (let i = 0; i <= mainIndex; i++) {
+    const id = extractTweetId(articles[i])
+    if (id) memory.nonReplyIds.add(id)
+  }
+  // 主帖正文取到一次就够了；正文为空时（页面还没渲染完）再取。对话 ID 由拦截脚本晚一步写上，没有时再读
+  const main = articles[mainIndex]
+  if (!memory.thread?.text) memory.thread = threadOf(main) ?? memory.thread
+  else if (!memory.thread.conversationId) memory.thread.conversationId = readConversationId(main, memory.thread.id)
+  threadMemory.delete(statusId)
+  threadMemory.set(statusId, memory)
+  if (threadMemory.size > THREAD_MEMORY_LIMIT) threadMemory.delete(threadMemory.keys().next().value as string)
+  return memory
 }
 
 function isConversationLabel(label: string): boolean {
@@ -228,6 +530,7 @@ export function collectConversationRoots(root: ParentNode = document): HTMLEleme
   return innermostRoots(found)
 }
 
+/** 主帖在 articles 里的位置；主帖和行内回复框都不在页面上时返回 -1 */
 function findMainTweetIndex(scopeRoot: HTMLElement, articles: HTMLElement[], statusId?: string): number {
   if (statusId) {
     const matched = articles.findIndex((art) => art.querySelector(`a[href*="/status/${statusId}"]`))
@@ -244,16 +547,32 @@ function findMainTweetIndex(scopeRoot: HTMLElement, articles: HTMLElement[], sta
     if (lastBefore >= 0) return lastBefore
   }
 
-  return 0
+  return -1
 }
 
 function collectStatusPageScope(statusId?: string): ScanScope | null {
   const articles = tweetsIn(document)
   if (!articles.length) return null
-  return {
-    articles,
-    mainTweetIndex: findMainTweetIndex(document.body, articles, statusId),
+  const mainIndex = findMainTweetIndex(document.body, articles, statusId)
+  if (mainIndex >= 0) {
+    const memory = statusId ? rememberThread(statusId, articles, mainIndex) : null
+    return {
+      articles,
+      nonReplies: new Set(articles.slice(0, mainIndex + 1)),
+      thread: memory ? memory.thread : threadOf(articles[mainIndex]),
+    }
   }
+  // 往下翻评论时 X 会把主帖和行内回复框移出页面：按记住的 ID 认主帖和上级推文，其余都是回复
+  const memory = statusId ? threadMemory.get(statusId) : undefined
+  if (memory) {
+    const nonReplies = new Set(articles.filter((article) => {
+      const id = extractTweetId(article)
+      return id !== null && memory.nonReplyIds.has(id)
+    }))
+    return { articles, nonReplies, thread: memory.thread }
+  }
+  // 没见过主帖（页面刚打开、还没渲染完）：把第一条当主帖
+  return { articles, nonReplies: new Set(articles.slice(0, 1)), thread: threadOf(articles[0]) }
 }
 
 function collectDeckConversationScopes(): ScanScope[] {
@@ -261,7 +580,12 @@ function collectDeckConversationScopes(): ScanScope[] {
     .map((root) => {
       const articles = tweetsIn(root)
       if (!articles.length) return null
-      return { articles, mainTweetIndex: findMainTweetIndex(root, articles) }
+      const mainIndex = Math.max(0, findMainTweetIndex(root, articles))
+      return {
+        articles,
+        nonReplies: new Set(articles.slice(0, mainIndex + 1)),
+        thread: threadOf(articles[mainIndex]),
+      }
     })
     .filter((scope): scope is ScanScope => scope !== null)
 }
@@ -270,6 +594,7 @@ function resetSpamArtifactsOutside(keep: Set<HTMLElement>) {
   document.querySelectorAll<HTMLElement>(`article[${STATE_ATTR}="hidden"], article[${PROCESSED_ATTR}]`).forEach((el) => {
     if (keep.has(el)) return
     applyAllow(el)
+    ensureScoreTag(el, undefined)
     el.removeAttribute(PROCESSED_ATTR)
     el.removeAttribute(SCORE_ATTR)
   })
@@ -280,17 +605,76 @@ function clearPageSpamState() {
   removeScrollStabilityStyles()
   cleanupOrphanReplacements()
   resetSpamArtifactsOutside(new Set())
+  removeAiBadges()
+}
+
+function openAiSettings() {
+  sendToBackground({ type: OPEN_SETTINGS, module: 'settings' })
+}
+
+/**
+ * 帖子页标题栏上的 AI 按钮：显示本页判断了多少条、暂停原因；
+ * 不在自动范围内（或今天的自动额度用完）时，点一下手动判断本页还没判断的回复。
+ */
+function updateAiPill(config: SpamConfig, thread: ThreadInfo | null) {
+  const row = config.ai ? findHeaderRow() : null
+  if (!row || !config.ai) {
+    ensureAiPill(null, null, () => {})
+    return
+  }
+  let done = 0
+  let pending = 0
+  const waiting: PageAiItem[] = []
+  for (const entry of pageAiItems.values()) {
+    const state = aiScorer.peek(entry.item.id)
+    if (state === 'done') done += 1
+    else if (state === 'pending') pending += 1
+    else waiting.push(entry)
+  }
+  const { paused, busy } = aiScorer.status()
+  const auto = isAutoThread(config, thread)
+  const next = Math.min(waiting.length, REPLY_SCORE_BATCH_SIZE)
+  const judgeWaiting = () => {
+    if (aiScorer.manual(waiting)) void runScan()
+  }
+
+  let state: AiPillState | null
+  let onClick = judgeWaiting
+  if (busy || pending) {
+    state = { text: t('spamPage.aiPillBusy', { done, total: done + pending }), title: t('spamPage.aiPillBusyHint', { done, pending }), busy: true, clickable: false }
+  } else if (paused?.reason === 'needsConfig') {
+    state = { text: t('spamPage.aiPillNeedsConfig'), title: errorText(paused.error, 'error.aiFailed'), tone: 'warn', clickable: true }
+    onClick = openAiSettings
+  } else if (paused?.reason === 'error') {
+    const error = describeAiError(paused.error)
+    state = { text: t('aiError.pill', { reason: error.summary }), title: `${error.guidance}\n${error.detail}`, error, tone: 'warn', clickable: true }
+    onClick = error.action === 'refresh' ? () => location.reload()
+      : error.action === 'settings' ? openAiSettings : judgeWaiting
+  } else if (next && paused?.reason === 'limit') {
+    state = { text: t('spamPage.aiPillLimit', { count: next }), clickable: true }
+  } else if (next && !auto) {
+    state = { text: t('spamPage.aiPillManual', { count: next }), clickable: true }
+  } else if (next) {
+    // 自动范围内还剩没结果的：试过 2 次都失败的
+    state = { text: t('spamPage.aiPillRetry', { done, count: next }), clickable: true }
+  } else if (done) {
+    state = { text: t('spamPage.aiPillDone', { done }), clickable: false }
+  } else {
+    state = auto ? { text: t('spamPage.aiPillAuto'), clickable: false } : null
+  }
+  ensureAiPill(row, state, onClick)
 }
 
 function scanScope(scope: ScanScope, config: SpamConfig, force: boolean, debugConfigKey: string) {
-  for (let i = 0; i < scope.articles.length; i++) {
-    const article = scope.articles[i]
+  const aiVersion = String(aiScorer.version())
+  for (const article of scope.articles) {
     if (article.closest('[data-xf-spam-hidden-replacement]')) continue
     if (config.debug && isInsideDialog(article)) removeDebugBar(article)
 
-    // 主贴（及主贴前置上下文）：不进入评分体系、不展示调试条
-    if (i <= scope.mainTweetIndex) {
+    // 主贴（及主贴前置上下文）、不在这段对话里的推文（「发现更多」）：不进入评分体系、不展示调试条
+    if (scope.nonReplies.has(article) || outsideThread(article, scope.thread)) {
       removeDebugBar(article)
+      ensureScoreTag(article, undefined)
       if (article.getAttribute(STATE_ATTR) === 'hidden') applyAllow(article)
       article.removeAttribute(PROCESSED_ATTR)
       article.removeAttribute(SCORE_ATTR)
@@ -298,20 +682,22 @@ function scanScope(scope: ScanScope, config: SpamConfig, force: boolean, debugCo
       continue
     }
 
-    // 评论推文（index > mainTweetIndex）：进入评分体系
+    // 评论推文：进入评分体系
     if (!force && config.debug && article.getAttribute(PROCESSED_ATTR)) {
       const bar = article.querySelector<HTMLElement>(`#${DEBUG_BAR_ID}`)
       if (
         bar?.getAttribute('data-xf-score-key') &&
         bar.getAttribute('data-xf-debug-version') === DEBUG_BAR_VERSION &&
-        bar.getAttribute(DEBUG_CONFIG_ATTR) === debugConfigKey
+        bar.getAttribute(DEBUG_CONFIG_ATTR) === debugConfigKey &&
+        bar.getAttribute(AI_VERSION_ATTR) === aiVersion &&
+        bar.getAttribute(REPLY_KEY_ATTR) === replyKey(article)
       ) {
         injectKeywordButton(article)
         continue
       }
     }
 
-    void processArticle(article, config)
+    void processArticle(article, config, scope.thread)
     injectKeywordButton(article)
   }
 }
@@ -326,8 +712,16 @@ export async function runScan(force = false) {
       el.removeAttribute(PROCESSED_ATTR)
     })
     cleanupOrphanReplacements()
+    removeAiBadges()
     return
   }
+
+  // AI 判断没开时清掉排队中的请求和页面上的 AI 标签
+  if (!config.ai) {
+    aiScorer.stop()
+    removeAiBadges()
+  }
+  syncAiPage()
 
   const { isDetailPage, statusId } = isTweetDetailPage()
 
@@ -365,6 +759,9 @@ export async function runScan(force = false) {
   for (const scope of scopes) {
     scanScope(scope, config, force, debugConfigKey)
   }
+
+  // 标题栏按钮只放在帖子详情页（Deck 对话栏里照常自动判断，但没有这个按钮）
+  if (isDetailPage) updateAiPill(config, scopes[0]?.thread ?? null)
 }
 
 export function cleanupOrphanReplacements() {
@@ -398,6 +795,7 @@ export function cleanupAllSpamArtifacts() {
   document.querySelectorAll<HTMLElement>('[data-xf-spam-hidden-replacement]').forEach((el) => el.remove())
   document.querySelectorAll<HTMLElement>('.x-focus-spam-placeholder').forEach((el) => el.remove())
   document.querySelectorAll<HTMLElement>('article[data-testid="tweet"]').forEach(resetArticleSpamState)
+  removeAiBadges()
   return document.querySelectorAll('article[data-testid="tweet"]').length
 }
 
@@ -424,6 +822,8 @@ export function isSelfMutation(records: MutationRecord[]): boolean {
 }
 
 let popstateListener: (() => void) | null = null
+let replyTargetListener: (() => void) | null = null
+let stopAiListener: (() => void) | null = null
 
 export function startSpamObserver() {
   if (observer) return
@@ -450,6 +850,15 @@ export function startSpamObserver() {
     window.addEventListener('popstate', popstateListener)
   }
 
+  // 拦截脚本写上被回复推文后重扫（属性变化不触发上面的监听）
+  if (!replyTargetListener && typeof window !== 'undefined') {
+    replyTargetListener = () => void scheduleScan()
+    window.addEventListener(REPLY_TARGET_EVENT, replyTargetListener)
+  }
+
+  // AI 判断结果回来后重扫，调试条按新结果重画
+  stopAiListener ??= aiScorer.onChange(() => void scheduleScan())
+
   void runScan()
 }
 
@@ -460,5 +869,12 @@ export function stopSpamObserver() {
     window.removeEventListener('popstate', popstateListener)
     popstateListener = null
   }
+  if (replyTargetListener && typeof window !== 'undefined') {
+    window.removeEventListener(REPLY_TARGET_EVENT, replyTargetListener)
+    replyTargetListener = null
+  }
+  stopAiListener?.()
+  stopAiListener = null
+  aiScorer.stop()
   removeScrollStabilityStyles()
 }

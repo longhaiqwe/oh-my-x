@@ -1,6 +1,8 @@
 import './style.css'
 
-import { createApp } from 'vue'
+import { createApp, h } from 'vue'
 import App from './App.vue'
 
-createApp(App).mount('#app')
+import SettingsReady from './components/ui/SettingsReady.vue'
+
+createApp({ render: () => h(SettingsReady, null, { default: () => h(App) }) }).mount('#app')

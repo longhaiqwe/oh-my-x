@@ -1,7 +1,7 @@
 {
   "name": "oh-my-x",
   "displayName": "oh-my-x",
-  "version": "2.3.4",
+  "version": "2.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "typecheck": "vue-tsc --noEmit",
     "check": "npm run typecheck && npm test && npm run build"
   },

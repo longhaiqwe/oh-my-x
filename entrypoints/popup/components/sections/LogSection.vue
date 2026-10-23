@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { clearLog, clearStats, readLog } from '../../../../shared/spam-logger'
 import { ruleHitText, spamCategoryLabel } from '../../../../shared/spam-types'
 import type { RuleHit, SpamLogEntry } from '../../../../shared/spam-types'
+import type { MessageKey } from '../../../../shared/i18n'
 import { useI18n } from '../../composables/useI18n'
 
 const { t, locale } = useI18n()
@@ -37,6 +38,11 @@ function actionLabel(action: SpamLogEntry['action']) {
 // 新记录按命中细节用当前语言重拼；旧记录只有中文说明，非中文界面只显示规则名
 function hitLabel(hit: RuleHit) {
   return ruleHitText(hit, locale.value)
+}
+
+// AI 折叠的记录：信号编号换成名称
+function aiSignalsText(signals: string[]) {
+  return signals.map((s) => t(`aiSignal.${s}` as MessageKey)).join(t('spamPage.aiSignalSeparator'))
 }
 
 function fmtTime(ts: number) {
@@ -84,7 +90,11 @@ onMounted(refresh)
      <div class="flex items-center gap-1 flex-wrap min-w-0">
       <span class="font-mono">@{{ entry.authorHandle || 'unknown' }}</span>
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ spamCategoryLabel(entry.category, locale) }}</span>
-      <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.score', { score: entry.score }) }}</span>
+      <template v-if="entry.source === 'ai' && entry.ai">
+       <span v-if="entry.ai.score !== null" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.aiScore', { score: entry.ai.score }) }}</span>
+       <span v-if="entry.ai.label === 'bot'" class="px-2 py-0.5 rounded-full bg-card-bg">{{ t(entry.ai.account ? 'spamLog.aiLabeledBotAccount' : 'spamLog.aiLabeledBot') }}</span>
+      </template>
+      <span v-else class="px-2 py-0.5 rounded-full bg-card-bg">{{ t('spamLog.score', { score: entry.score }) }}</span>
       <span class="px-2 py-0.5 rounded-full bg-card-bg">{{ actionLabel(entry.action) }}</span>
      </div>
      <span class="shrink-0">{{ fmtTime(entry.timestamp) }}</span>
@@ -96,6 +106,13 @@ onMounted(refresh)
       :key="idx"
       class="text-xs px-2 py-0.5 rounded-full bg-card-bg text-secondary-text"
      >{{ t('spamLog.hit', { rule: hitLabel(hit) }) }}</span>
+    </div>
+    <div v-if="entry.source === 'ai' && entry.ai" class="flex flex-col gap-1">
+     <span
+      v-if="entry.ai.signals.length"
+      class="self-start text-xs px-2 py-0.5 rounded-full bg-card-bg text-secondary-text"
+     >{{ t('spamPage.aiSignals', { signals: aiSignalsText(entry.ai.signals) }) }}</span>
+     <p v-if="entry.ai.reason" class="text-xs leading-normal text-muted-text">{{ entry.ai.reason }}</p>
     </div>
    </li>
   </ul>

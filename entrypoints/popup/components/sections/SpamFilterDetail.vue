@@ -8,8 +8,9 @@ import FeatureCard from '../ui/FeatureCard.vue'
 import FeatureSwitch from '../ui/FeatureSwitch.vue'
 import RulesSection from './RulesSection.vue'
 import KeywordsSection from './KeywordsSection.vue'
+import SpamAiSection from './SpamAiSection.vue'
 
-// 垃圾回复过滤的第二层页面：阈值、检测规则、垃圾词库、调试模式
+// 垃圾回复过滤的第二层页面：阈值、检测规则、垃圾词库、调试模式、AI 判断（试验）
 const threshold = ref(55)
 const { t } = useI18n()
 
@@ -59,4 +60,6 @@ onMounted(async () => {
    <FeatureSwitch :storage-key="KeySpamDebugMode" :label="t('spamFilter.debugTitle')" />
   </template>
  </FeatureCard>
+
+ <SpamAiSection />
 </template>
