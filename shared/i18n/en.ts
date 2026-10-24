@@ -74,7 +74,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   'feature.tweetButton.description': 'The Post button in the left navigation. When hidden, press N to post',
   'feature.navigationButtons.label': 'Navigation buttons',
   'feature.navigationButtons.description': 'Click an icon to show or hide it. A dashed outline means hidden',
-  'feature.navigationButtons.note': 'Items that X moves into the More menu are hidden there too',
+  'feature.navigationButtons.note': 'Items that X moves into the More menu are hidden there too. Radar requires Premium+',
   'feature.navigationLabels.label': 'Navigation labels',
   'feature.navigationLabels.description': 'When to show text next to navigation buttons',
   'feature.articleToc.label': 'Article outline',

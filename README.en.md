@@ -100,7 +100,7 @@ Two switches; on means hidden. The right sidebar includes search, Who to follow,
 
 Hide any of these 10 buttons: Explore, Notifications, Chat, Grok, Premium, History, Articles, Profile, More, and X Money. Items that X moves into the More menu are hidden there too. Navigation labels can be shown never, on hover, or always.
 
-Two more buttons, Radar and Inspiration (the top posts list in Creator Studio), are not in X's navigation. The extension adds them; both are off by default. When on, they appear above Profile, and clicking them does not reload the page. In a short window the navigation grows by these two items, and you scroll the left column to reach the account button at the bottom.
+Two more buttons, Radar and Inspiration (the top posts list in Creator Studio), are not in X's navigation. The extension adds them; both are off by default. Radar requires Premium+. When on, they appear above Profile, and clicking them does not reload the page. In a short window the navigation grows by these two items, and you scroll the left column to reach the account button at the bottom.
 
 #### Article outline
 

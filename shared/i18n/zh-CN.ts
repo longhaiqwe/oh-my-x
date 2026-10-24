@@ -77,7 +77,7 @@ export const zhCN = {
   'feature.tweetButton.description': '左侧导航栏里的发帖按钮，隐藏后可以按 N 发帖',
   'feature.navigationButtons.label': '导航栏按钮',
   'feature.navigationButtons.description': '点击图标切换是否显示，虚线框表示已隐藏',
-  'feature.navigationButtons.note': '被 X 收进「更多」菜单的入口，也会在菜单里一起隐藏',
+  'feature.navigationButtons.note': '被 X 收进「更多」菜单的入口，也会在菜单里一起隐藏。Radar 需要 Premium+',
   'feature.navigationLabels.label': '导航文字',
   'feature.navigationLabels.description': '设置导航按钮旁的文字何时显示',
   'feature.articleToc.label': '长文目录',
