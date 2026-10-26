@@ -1,6 +1,6 @@
 # Chrome 应用商店提交资料
 
-更新：2026-10-19，对应版本 2.3.1。
+更新：2026-10-26，对应版本 2.5.0（2.3.1 的提交记录见第九节，2.5.0 见第十节）。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
 
@@ -12,7 +12,7 @@
 npm run zip
 ```
 
-生成 `build/oh-my-x-2.3.1-chrome.zip`，`manifest.json` 在压缩包根目录。
+生成 `build/oh-my-x-<版本号>-chrome.zip`，`manifest.json` 在压缩包根目录。工作目录里有未提交的改动时，改在只含已推送提交的干净目录里打包。
 
 2.3.1 和 GitHub Releases 的 2.3.0 相比，只多了 AI 服务地址的 HTTPS 限制（见第五节）。
 
@@ -52,8 +52,10 @@ GitHub Releases 里的 `oh-my-x-chrome-mv3.zip` 顶层多一层 `chrome-mv3/` �
 ### 单一用途（Single purpose）
 
 ```text
-oh-my-x adds layout, filtering, insight, writing, and interaction features to the X (Twitter) website. It runs only on x.com, twitter.com, mobile.twitter.com, and pro.x.com.
+oh-my-x adds layout, filtering, insight, writing, and interaction features to the X (Twitter) website. Its content scripts run only on x.com, twitter.com, mobile.twitter.com, and pro.x.com. On other pages it acts only when the user chooses "Save to X drafts" from the right-click menu, which saves the selected text to the user's X drafts.
 ```
+
+2.5.0 起用上面这段。2.3.1 用的是「It runs only on x.com, twitter.com, mobile.twitter.com, and pro.x.com.」，加了右键存草稿后和实际不符，2026-10-26 提交 2.5.0 时改掉。
 
 ### 权限理由（Permission justification）
 
@@ -87,7 +89,7 @@ scripting
 When the user clicks "Scan last 7 days" in the popup on an X profile page and the page's content script does not respond (for example right after an extension update), the extension injects its own bundled scan function into that X tab. Used only on the active X tab and only after that click. It is also used with activeTab to read the selected text once after the user clicks "Save to X drafts" in the right-click menu.
 ```
 
-2.4.0 新增下面两项（右键存草稿），提交 2.4.0 时要在后台补上理由：
+2.4.0 新增下面两项（右键存草稿）。商店跳过了 2.4.0，2026-10-26 提交 2.5.0 时在后台填上了这两项理由，scripting 理由也换成了上面这段：
 
 contextMenus
 
@@ -145,7 +147,7 @@ https://github.com/longhaiqwe/oh-my-x/blob/main/PRIVACY.md
 
 1. **AI 服务地址的 HTTP**：2.3.1 起远程地址只接受 `https://`，`http://` 只对 `localhost`、`127.0.0.1` 放行（`shared/ai-request.ts`）。2.3.0 及以前远程地址也能填 `http://`。
 2. **可选主机权限是 `https://*/*`、`http://localhost/*`、`http://127.0.0.1/*`**（2.3.1 起，之前是 `https://*/*` 和 `http://*/*`）。官方说申请大范围主机权限的扩展审核时间更长。这里是运行时按地址申请，不是安装时申请。
-3. **功能多**。单一用途要「窄且容易理解」，单一用途说明按「增强 X 网页端」写，所有功能只在 X 页面生效。
+3. **功能多**。单一用途要「窄且容易理解」，单一用途说明按「增强 X 网页端」写。内容脚本只在 X 页面运行；2.4.0 起多了右键存草稿，在其他网页选中文字后存到 X 草稿箱，单一用途说明里单独写明了这一项。
 4. **新开发者、新扩展**审核更严，一般几天，可能几周；超过三周可以联系开发者支持。
 
 ## 六、商店中文详细说明草稿
@@ -238,3 +240,17 @@ oh-my-x 与 X Corp. 无关联。
 ```text
 No test account is provided. Sign in to x.com with any X account. The extension runs only on x.com, twitter.com, mobile.twitter.com, and pro.x.com. Use the toolbar popup to turn each feature on or off. Spam reply filter: open a post page that has replies. Image grid and ordering: attach 2 to 4 images in the post editor. AI quote drafts need your own OpenAI-compatible API key; without one, no AI requests are sent. Other features need no extra setup.
 ```
+
+## 十、2.5.0 提交（2026-10-26）
+
+提交前商店线上和草稿都是 2.3.1，2.3.2 到 2.4.0 没有传过商店。
+
+| 页面 | 改动 |
+|------|------|
+| 文件包 | 上传 `build/oh-my-x-2.5.0-chrome.zip`（在提交 `1aacb8b` 的干净目录里打包），后台识别为 2.5.0，权限多了 contextMenus、activeTab |
+| 隐私权 | 单一用途换成第四节的新写法；scripting 理由换成第四节的新写法；新填 contextMenus、activeTab 理由（第四节原文）；远程代码仍选「不」 |
+| 其他页面 | 没改 |
+
+提交时勾选「通过审核后自动发布」。提交后状态「待审核」，线上版本仍是 2.3.1。
+
+操作方法：日常 Chrome（155 版）已开启远程调试，Chrome 资料目录里的 `DevToolsActivePort` 文件写着端口 9222 和浏览器连接路径，HTTP 的 `/json` 接口返回 404，只能用这个路径连 WebSocket。连上后新开后台标签页，用调试接口的 `DOM.setFileInputFiles` 传包、`Input.insertText` 填文字，全程只连一次。Chrome 不允许扩展操作商店页面，所以 Claude in Chrome 用不了。
