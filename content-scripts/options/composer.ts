@@ -146,18 +146,19 @@ export const addComposerInsertLinkButton = () => {
             if (formatted && formatted !== text) {
               ev.preventDefault()
               ev.stopPropagation()
+              // 粘贴时光标就在编辑器里，失焦时存的位置已过期，按当前光标插入
+              savedRangeMap.delete(editorEl)
               insertTextIntoContentEditable(editorEl, formatted)
             }
           }
         }, true)
       }
 
+      // X 的 tweetTextarea_0_label、tweetTextarea_0RichTextInputContainer 是编辑器外层，
+      // 监听挂在外层会先于编辑器拦下粘贴，模拟粘贴派发不到 DraftJS，导致文字重复
       const findAndAttach = () => {
-        const editors = [
-          modalEl.querySelector('.DraftEditor-editorContainer [contenteditable="true"]'),
-          modalEl.querySelector('[data-testid^="tweetTextarea"]'),
-        ].filter(Boolean) as HTMLElement[]
-        editors.forEach(attachEditorListeners)
+        const editor = findEditorInModal(modalEl)
+        if (editor) attachEditorListeners(editor)
       }
 
       findAndAttach()
@@ -199,10 +200,8 @@ export const addComposerInsertLinkButton = () => {
 
       const handleBtnMouseDown = (ev: MouseEvent) => {
         const sel = window.getSelection()
-        const activeEditor = [
-          modalEl.querySelector('.DraftEditor-editorContainer [contenteditable="true"]'),
-          modalEl.querySelector('[data-testid^="tweetTextarea"]'),
-        ].find((el) => el && sel && sel.rangeCount > 0 && el.contains(sel.anchorNode)) as HTMLElement | undefined
+        const editor = findEditorInModal(modalEl)
+        const activeEditor = editor && sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode) ? editor : undefined
         if (activeEditor && sel && sel.rangeCount > 0) {
           savedRangeMap.set(activeEditor, sel.getRangeAt(0).cloneRange())
         }

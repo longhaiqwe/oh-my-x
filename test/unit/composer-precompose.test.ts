@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   isComposeUrl,
   isComposeModalOpen,
@@ -271,6 +271,97 @@ describe('composer and precompose URL handling', () => {
       expect(text).not.toContain('**')
       expect(text).toContain('核心观点')
       expect(text).toContain('• 重点：说明内容')
+    })
+
+    describe('paste inside X editor wrappers', () => {
+      // jsdom 没有剪贴板事件，按浏览器的用法补一个最小实现
+      class FakeDataTransfer {
+        private data = new Map<string, string>()
+        setData(type: string, value: string) { this.data.set(type, value) }
+        getData(type: string) { return this.data.get(type) ?? '' }
+      }
+      class FakeClipboardEvent extends Event {
+        clipboardData: FakeDataTransfer | null
+        constructor(type: string, init: EventInit & { clipboardData?: FakeDataTransfer } = {}) {
+          super(type, init)
+          this.clipboardData = init.clipboardData ?? null
+        }
+      }
+
+      afterEach(() => {
+        vi.unstubAllGlobals()
+      })
+
+      /** 仿 X 真实结构：label > RichTextInputContainer > DraftEditor-editorContainer > 编辑器 */
+      function setupXComposer(lines: string[]) {
+        vi.stubGlobal('DataTransfer', FakeDataTransfer)
+        vi.stubGlobal('ClipboardEvent', FakeClipboardEvent)
+        document.body.innerHTML = `
+          <div role="dialog" aria-labelledby="modal-header">
+            <div data-testid="tweetTextarea_0_label">
+              <div data-testid="tweetTextarea_0RichTextInputContainer">
+                <div class="DraftEditor-editorContainer">
+                  <div data-testid="tweetTextarea_0" contenteditable="true" tabindex="0">${
+                    lines.map(line => `<div data-block="true"><span data-text="true">${line}</span></div>`).join('')
+                  }</div>
+                </div>
+              </div>
+            </div>
+            <div role="tablist"></div>
+          </div>`
+        const editor = document.querySelector<HTMLElement>('[data-testid="tweetTextarea_0"]')!
+        // 模拟 DraftJS 的 onPaste：接管插件派发的粘贴并记录文字和光标所在行
+        const handled: { text: string, line: string | null }[] = []
+        editor.addEventListener('paste', (ev) => {
+          ev.preventDefault()
+          handled.push({
+            text: (ev as unknown as FakeClipboardEvent).clipboardData!.getData('text/plain'),
+            line: window.getSelection()?.anchorNode?.textContent ?? null,
+          })
+        })
+        addComposerInsertLinkButton()
+        return { editor, handled }
+      }
+
+      function placeCaret(node: Node, offset: number) {
+        const range = document.createRange()
+        range.setStart(node, offset)
+        range.collapse(true)
+        const sel = window.getSelection()!
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+
+      function pasteInto(target: HTMLElement, text: string) {
+        const data = new FakeDataTransfer()
+        data.setData('text/plain', text)
+        target.dispatchEvent(new FakeClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+      }
+
+      it('hands converted markdown to the editor exactly once', () => {
+        const { editor, handled } = setupXComposer([''])
+        const span = editor.querySelector<HTMLElement>('[data-text="true"]')!
+        editor.focus()
+        placeCaret(span, 0)
+
+        pasteInto(span, '第一段，共 152 行。\n\n* Crapper：计算复杂度。\n\n最后一段。')
+
+        expect(handled.map(h => h.text)).toEqual(['第一段，共 152 行。\n\n• Crapper：计算复杂度。\n\n最后一段。'])
+      })
+
+      it('pastes at the live caret instead of the position saved on blur', () => {
+        const { editor, handled } = setupXComposer(['旧位置', '新位置'])
+        const [oldLine, newLine] = [...editor.querySelectorAll<HTMLElement>('[data-text="true"]')]
+        editor.focus()
+        placeCaret(oldLine.firstChild!, 3)
+        editor.dispatchEvent(new FocusEvent('blur'))
+
+        editor.focus()
+        placeCaret(newLine.firstChild!, 3)
+        pasteInto(newLine, '* 列表项')
+
+        expect(handled).toEqual([{ text: '• 列表项', line: '新位置' }])
+      })
     })
   })
 })
