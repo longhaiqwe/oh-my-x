@@ -37,16 +37,7 @@ export function normalizeForTweetFilter(text: string): string {
     .toLowerCase()
 }
 
-/**
- * 解析用户配置的换行/逗号分隔的关键词列表
- */
-export function parseTweetFilterKeywords(raw: string | undefined | null): string[] {
-  if (!raw) return []
-  return raw
-    .split(/[\n,，]/)
-    .map((k) => k.trim())
-    .filter(Boolean)
-}
+export { parseKeywordList as parseTweetFilterKeywords } from './keyword-list'
 
 /**
  * 评估推文是否命中推文过滤词库

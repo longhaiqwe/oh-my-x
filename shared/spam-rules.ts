@@ -300,13 +300,7 @@ export function evaluateSpam(input: {
   }
 }
 
-export function parseKeywordList(raw: string | undefined | null): string[] {
-  if (!raw) return []
-  return raw
-    .split(/[\n,，]/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
+export { parseKeywordList } from './keyword-list'
 
 export function parseHandleList(raw: string | undefined | null): string[] {
   if (!raw) return []
