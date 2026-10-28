@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { recordIntercept, readLog, clearLog, clearStats } from '../../shared/spam-logger'
+import { recordIntercept, readLog, readStats, clearLog, clearStats } from '../../shared/spam-logger'
 import { KeySpamLog, KeySpamStats } from '../../storage-keys'
 
 // 内存里的 storage 模拟，串行化行为要靠这个验证
@@ -80,5 +80,47 @@ describe('recordIntercept serialization', () => {
     // 后截获的 second_user 应该在最前面（index 0）
     expect(log[0].authorHandle).toBe('second_user')
     expect(log[1].authorHandle).toBe('first_user')
+  })
+})
+
+describe('clearLog / clearStats', () => {
+  const entry = (handle: string) => ({
+    authorHandle: handle,
+    authorName: handle,
+    text: `text ${handle}`,
+    score: 60,
+    category: 'marketing' as const,
+    hits: [],
+    action: 'filter' as const,
+  })
+
+  beforeEach(async () => {
+    ;(globalThis as any).browser = { storage: { local: makeFakeStorage() } }
+    await clearLog()
+    await clearStats()
+  })
+
+  it('clearLog 只清记录，clearStats 只清统计', async () => {
+    await recordIntercept(entry('clear_a'))
+    await clearLog()
+    expect(await readLog()).toEqual([])
+    expect((await readStats())[0]?.total).toBe(1)
+
+    await recordIntercept(entry('clear_b'))
+    await clearStats()
+    expect(await readStats()).toEqual([])
+    expect((await readLog()).map((e) => e.authorHandle)).toEqual(['clear_b'])
+  })
+
+  it.each([
+    ['clearLog', clearLog],
+    ['clearStats', clearStats],
+  ])('%s 丢掉还没写入的拦截，并让它们的等待结束', async (_name, clear) => {
+    const pending = recordIntercept(entry(`pending_${_name}`))
+    await clear()
+    await pending
+    await new Promise((r) => setTimeout(r, 80))
+    expect(await readLog()).toEqual([])
+    expect(await readStats()).toEqual([])
   })
 })

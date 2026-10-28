@@ -85,6 +85,16 @@ const pendingResolvers: Array<() => void> = []
 let contextInvalidated = false
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 
+/** 丢掉还没写入的拦截，并让等待它们的调用结束 */
+function discardPending(): void {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  pendingEntries.length = 0
+  pendingResolvers.splice(0).forEach((resolve) => resolve())
+}
+
 async function flushPending(): Promise<void> {
   if (pendingEntries.length === 0) return
   const batch = pendingEntries.splice(0, pendingEntries.length)
@@ -137,10 +147,7 @@ async function flushPending(): Promise<void> {
   } catch (err) {
     if (isExtensionContextInvalidated(err)) {
       contextInvalidated = true
-      if (flushTimer) clearTimeout(flushTimer)
-      flushTimer = null
-      pendingEntries.length = 0
-      pendingResolvers.splice(0).forEach((resolve) => resolve())
+      discardPending()
       dedupCache.clear()
     } else {
       console.error('[oh-my-x] failed to flush spam log:', err)
@@ -167,24 +174,17 @@ export function recordIntercept(entry: Omit<SpamLogEntry, 'id' | 'timestamp'>): 
   })
 }
 
-export async function clearLog(): Promise<void> {
-  if (flushTimer) {
-    clearTimeout(flushTimer)
-    flushTimer = null
-  }
-  pendingEntries.length = 0
-  pendingResolvers.splice(0).forEach((r) => r())
-  await browser.storage.local.remove(KeySpamLog)
+async function clearStored(key: string): Promise<void> {
+  discardPending()
+  await browser.storage.local.remove(key)
 }
 
-export async function clearStats(): Promise<void> {
-  if (flushTimer) {
-    clearTimeout(flushTimer)
-    flushTimer = null
-  }
-  pendingEntries.length = 0
-  pendingResolvers.splice(0).forEach((r) => r())
-  await browser.storage.local.remove(KeySpamStats)
+export function clearLog(): Promise<void> {
+  return clearStored(KeySpamLog)
+}
+
+export function clearStats(): Promise<void> {
+  return clearStored(KeySpamStats)
 }
 
 export async function getTodayStats(): Promise<{
