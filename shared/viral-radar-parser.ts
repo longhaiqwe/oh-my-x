@@ -99,7 +99,10 @@ export function extractTweetViews(article: HTMLElement): number | null {
  * 从 article[data-testid="tweet"] 中提取发布时间戳 (ms)
  */
 export function extractTweetPublishTime(article: HTMLElement): number | null {
-  const timeEl = article.querySelector<HTMLElement>('time[datetime]')
+  // 本帖的时间包在指向帖子的链接里；引用帖的时间不在链接里，详情页上它排在本帖时间前面
+  const timeEl =
+    article.querySelector<HTMLElement>('a[href*="/status/"] time[datetime]') ||
+    article.querySelector<HTMLElement>('time[datetime]')
   if (!timeEl) return null
   const datetimeStr = timeEl.getAttribute('datetime')
   if (!datetimeStr) return null

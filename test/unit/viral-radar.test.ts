@@ -81,6 +81,14 @@ describe('viral-radar-parser', () => {
       expect(extractTweetPublishTime(el)).toBe(Date.UTC(2026, 9, 28, 1, 2, 3))
     })
 
+    it('详情页引用了别的帖子时，取本帖链接里的时间而不是排在前面的引用帖时间', () => {
+      const el = article(
+        '<div role="link"><time datetime="2026-10-25T16:09:21.000Z">10月26日</time></div>' +
+          '<a href="/u/status/1"><time datetime="2026-10-27T11:20:00.000Z">下午7:20</time></a>',
+      )
+      expect(extractTweetPublishTime(el)).toBe(Date.UTC(2026, 9, 27, 11, 20, 0))
+    })
+
     it('returns null without a usable datetime', () => {
       expect(extractTweetPublishTime(article('<time>Oct 28</time>'))).toBeNull()
       expect(extractTweetPublishTime(article('<time datetime="">Oct 28</time>'))).toBeNull()
