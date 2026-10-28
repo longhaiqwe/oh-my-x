@@ -1,5 +1,6 @@
 import { AppError } from './errors'
 import type { Locale } from './i18n'
+import { dig, isTargetTweet, tweetAuthor, unwrapTweet } from './graphql-tweet'
 
 export interface RepostSourceInput {
   authorName?: string
@@ -379,15 +380,6 @@ export function parseAiRepostResponse(rawContent: string, locale: Locale = 'zh-C
 
 const trimmedText = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 
-/** 按路径取嵌套字段，和 a?.b?.c 一样：中途遇到 null / undefined 就返回 undefined */
-function dig(value: any, ...keys: string[]): any {
-  for (const key of keys) {
-    if (value == null) return undefined
-    value = value[key]
-  }
-  return value
-}
-
 /** 长文正文：先取 plain_text，再拼段落；两样都没有时返回 null */
 function articleBody(article: any): string | null {
   const plain = trimmedText(article.plain_text)
@@ -401,24 +393,6 @@ function articleBody(article: any): string | null {
 function articleSource(title: string, body: string): { title?: string; text: string } | null {
   if (!title && !body) return null
   return { title: title || undefined, text: body || title }
-}
-
-function unwrapTweet(node: any): any {
-  if (!node || typeof node !== 'object') return null
-  if (node.__typename === 'TweetWithVisibilityResults' && node.tweet) {
-    return node.tweet
-  }
-  return node
-}
-
-function tweetAuthor(tweet: any): { authorName: string; authorHandle: string } {
-  const userResult = dig(tweet, 'core', 'user_results', 'result')
-  const userLegacy = dig(userResult, 'legacy') || {}
-  const userCore = dig(userResult, 'core') || {}
-  return {
-    authorName: userCore.name || userLegacy.name || '',
-    authorHandle: userCore.screen_name || userLegacy.screen_name || '',
-  }
 }
 
 function tweetArticle(tweet: any, legacy: any): any {
@@ -440,12 +414,6 @@ function tweetArticleSource(tweet: any, legacy: any): { title?: string; text: st
 /** 长推文 (NoteTweet) 优先，其次普通推文 full_text */
 function tweetText(tweet: any, legacy: any): string {
   return trimmedText(dig(tweet, 'note_tweet', 'note_tweet_results', 'result', 'text')) || trimmedText(legacy.full_text)
-}
-
-/** 没有目标 ID 或推文没有 ID 时都算符合 */
-function isTargetTweet(tweet: any, legacy: any, targetId?: string): boolean {
-  const restId = String(tweet.rest_id || legacy.id_str || '')
-  return !targetId || !restId || restId === targetId
 }
 
 function parseTweetNode(rawNode: any, targetId?: string): RepostSourceInput | null {
