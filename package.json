@@ -8,6 +8,7 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "store": "node scripts/chrome-web-store.mjs",
     "compile": "wxt prepare",
     "postinstall": "wxt prepare",
     "clean": "rm -rf build .output",

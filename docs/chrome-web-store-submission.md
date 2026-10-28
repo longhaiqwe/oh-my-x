@@ -254,3 +254,42 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 提交时勾选「通过审核后自动发布」。提交后状态「待审核」，线上版本仍是 2.3.1。
 
 操作方法：日常 Chrome（155 版）已开启远程调试，Chrome 资料目录里的 `DevToolsActivePort` 文件写着端口 9222 和浏览器连接路径，HTTP 的 `/json` 接口返回 404，只能用这个路径连 WebSocket。连上后新开后台标签页，用调试接口的 `DOM.setFileInputFiles` 传包、`Input.insertText` 填文字，全程只连一次。Chrome 不允许扩展操作商店页面，所以 Claude in Chrome 用不了。
+
+## 十一、用接口发版
+
+脚本：`scripts/chrome-web-store.mjs`（`npm run store -- <命令>`），调用 Chrome Web Store API v2 的 `upload`、`publish`、`fetchStatus`。不用登录后台。2026-10-28 只用模拟的网络请求测过，还没连真实商店跑过。
+
+### 一次性配置
+
+1. Google Cloud 控制台：新建或选一个项目，启用 Chrome Web Store API。
+2. OAuth 同意屏幕：用户类型选「外部」，把 longhaiqwe@gmail.com 加进测试用户。发布状态停在「测试」时，refresh token 7 天后失效（Google OAuth 的规则）；要长期用就改成「正式」。
+3. 凭据 → 创建 OAuth 客户端 ID，类型选「桌面应用」。脚本的 `auth` 命令用本机 `127.0.0.1` 回调，只有桌面应用类型可以不登记回调地址。官方文档用的是「Web 应用」+ OAuth Playground，那样拿到的 refresh token 也能用，手动写进配置文件即可。
+4. 发布者 ID：开发者后台「发布者 → 设置」里有。
+5. 写配置文件 `~/.config/oh-my-x/chrome-web-store.json`（不在仓库里，脚本写入时权限设为 600）：
+
+   ```json
+   {
+     "clientId": "…",
+     "clientSecret": "…",
+     "publisherId": "…"
+   }
+   ```
+
+   也可以用环境变量 `CWS_CLIENT_ID`、`CWS_CLIENT_SECRET`、`CWS_REFRESH_TOKEN`、`CWS_PUBLISHER_ID`；`CWS_CONFIG` 可以换配置文件路径。
+6. 跑 `npm run store -- auth`，浏览器里用发布扩展的账号同意授权，refresh token 自动写进配置文件。
+7. 跑 `npm run store -- status`，能看到线上版本就说明配好了。
+
+### 每次发版
+
+1. 按 AGENT.md 的发版流程升版本号、打标签、推送（GitHub Release 由 release.yml 发布）。
+2. 在干净目录打包：主目录常有没提交的改动，要在只含发版提交的目录里跑 `npm run zip`。
+3. `npm run store -- release <包路径>`：上传并提交审核，审核通过后上线。加 `--staged` 则通过后先暂存，再到后台手动发布。
+4. `npm run store -- wait`：默认每 10 分钟查一次，审核有结果后退出；被拒时退出码为 2。
+
+### 还要进后台的情况
+
+- 改商店页、截图、隐私权页或可见性。
+- 新增权限：先在隐私权页填好理由，再用脚本提交。
+- 审核被拒或收到政策警告（`status` 会显示警告），要看具体原因。
+
+按比例放量要求 7 天活跃用户超过 1 万（官方文档），目前用不了。
