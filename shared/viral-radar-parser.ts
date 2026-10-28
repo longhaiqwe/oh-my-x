@@ -58,7 +58,6 @@ export function extractTweetViews(article: HTMLElement): number | null {
     article.querySelector<HTMLElement>('a[href*="/analytics"]') ||
     article.querySelector<HTMLElement>('[data-testid="analytics"]') ||
     article.querySelector<HTMLElement>('a[aria-label*="View" i]') ||
-    article.querySelector<HTMLElement>('a[aria-label*="view" i]') ||
     article.querySelector<HTMLElement>('a[aria-label*="浏览"]') ||
     article.querySelector<HTMLElement>('a[aria-label*="查看"]')
 
