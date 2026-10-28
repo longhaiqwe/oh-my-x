@@ -4,9 +4,90 @@ import {
   calculateTweetVelocity,
   classifyTweetVelocity,
   formatVelocityBadge,
+  extractTweetViews,
+  extractTweetPublishTime,
 } from '../../shared/viral-radar-parser'
 
+function article(html: string): HTMLElement {
+  const el = document.createElement('article')
+  el.innerHTML = html
+  return el
+}
+
 describe('viral-radar-parser', () => {
+  describe('extractTweetViews', () => {
+    it('reads the analytics link aria-label', () => {
+      const el = article('<a href="/u/status/1/analytics" aria-label="1,273 次查看。查看帖子分析">x</a>')
+      expect(extractTweetViews(el)).toBe(1273)
+    })
+
+    it('reads the analytics link text when aria-label has no number', () => {
+      const el = article('<a href="/u/status/1/analytics" aria-label="查看帖子分析"><span>1.2万</span></a>')
+      expect(extractTweetViews(el)).toBe(12000)
+    })
+
+    it('reads the analytics link text when it has no aria-label', () => {
+      const el = article('<div data-testid="analytics">3.4K</div>')
+      expect(extractTweetViews(el)).toBe(3400)
+    })
+
+    it('prefers the /analytics link over other view links', () => {
+      const el = article(
+        '<a href="/u/status/2" aria-label="9 Views">a</a>' +
+          '<a href="/u/status/1/analytics" aria-label="5 Views">b</a>',
+      )
+      expect(extractTweetViews(el)).toBe(5)
+    })
+
+    it('finds links by English or Chinese aria-label', () => {
+      expect(extractTweetViews(article('<a href="/x" aria-label="15.3k views">x</a>'))).toBe(15300)
+      expect(extractTweetViews(article('<a href="/x" aria-label="1.5万 次浏览">x</a>'))).toBe(15000)
+      expect(extractTweetViews(article('<a href="/x" aria-label="500 次查看">x</a>'))).toBe(500)
+    })
+
+    it('falls back to status links when the analytics link has no number', () => {
+      const viaAria = article(
+        '<a href="/u/status/1/analytics" aria-label="查看帖子分析">分析</a>' +
+          '<a href="/u/status/1" aria-label="2 replies">2</a>' +
+          '<a href="/u/status/1/photo" aria-label="800 Views">p</a>',
+      )
+      expect(extractTweetViews(viaAria)).toBe(800)
+
+      const viaText = article(
+        '<a href="/u/status/1/analytics" aria-label="查看帖子分析">分析</a>' +
+          '<a href="/u/status/1/x">1.1M Views</a>',
+      )
+      expect(extractTweetViews(viaText)).toBe(1100000)
+    })
+
+    it('skips status links whose view text has no number', () => {
+      const el = article(
+        '<a href="/u/status/1/analytics" aria-label="查看帖子分析">分析</a>' +
+          '<a href="/u/status/1/a" aria-label="View post">查看</a>' +
+          '<a href="/u/status/1/b">42 浏览</a>',
+      )
+      expect(extractTweetViews(el)).toBe(42)
+    })
+
+    it('returns null when no view count is present', () => {
+      expect(extractTweetViews(article('<a href="/u/status/1">12 replies</a><span>3</span>'))).toBeNull()
+      expect(extractTweetViews(article('<a href="/u/status/1/analytics" aria-label="查看帖子分析">分析</a>'))).toBeNull()
+    })
+  })
+
+  describe('extractTweetPublishTime', () => {
+    it('returns the datetime in milliseconds', () => {
+      const el = article('<time datetime="2026-10-28T01:02:03.000Z">Oct 28</time>')
+      expect(extractTweetPublishTime(el)).toBe(Date.UTC(2026, 9, 28, 1, 2, 3))
+    })
+
+    it('returns null without a usable datetime', () => {
+      expect(extractTweetPublishTime(article('<time>Oct 28</time>'))).toBeNull()
+      expect(extractTweetPublishTime(article('<time datetime="">Oct 28</time>'))).toBeNull()
+      expect(extractTweetPublishTime(article('<time datetime="not a date">Oct 28</time>'))).toBeNull()
+    })
+  })
+
   describe('parseNumberWithSuffix', () => {
     it('parses standard numbers with commas', () => {
       expect(parseNumberWithSuffix('1,234')).toBe(1234)

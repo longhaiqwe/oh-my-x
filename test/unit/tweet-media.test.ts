@@ -20,6 +20,22 @@ describe('toOriginalImageUrl', () => {
     const raw = 'https://pbs.twimg.com/media/G123456?format=png&name=orig'
     expect(toOriginalImageUrl(raw)).toBe('https://pbs.twimg.com/media/G123456?format=png&name=orig')
   })
+
+  it('should return empty string for empty or non-string input', () => {
+    expect(toOriginalImageUrl('')).toBe('')
+    expect(toOriginalImageUrl(undefined as unknown as string)).toBe('')
+  })
+
+  it('should leave non-twimg urls unchanged', () => {
+    expect(toOriginalImageUrl('https://example.com/a.jpg?name=small')).toBe('https://example.com/a.jpg?name=small')
+    expect(toOriginalImageUrl('/images/a.jpg?name=small')).toBe('/images/a.jpg?name=small')
+  })
+
+  it('should rewrite twimg urls that are not absolute', () => {
+    expect(toOriginalImageUrl('pbs.twimg.com/media/G1?format=jpg&name=small')).toBe('pbs.twimg.com/media/G1?format=jpg&name=orig')
+    expect(toOriginalImageUrl('pbs.twimg.com/media/G1?format=jpg')).toBe('pbs.twimg.com/media/G1?format=jpg&name=orig')
+    expect(toOriginalImageUrl('pbs.twimg.com/media/G1.jpg')).toBe('pbs.twimg.com/media/G1.jpg?name=orig')
+  })
 })
 
 describe('extractTweetMediaFromGraphql', () => {
