@@ -3,6 +3,7 @@ import {
   parseStatNumber,
   extractCountFromElement,
   isTargetProfilePage,
+  isTargetTweetDetailPage,
   getImpressionsRatioLevel,
   getEngagementRatioLevel,
   getTweetAuthor,
@@ -216,6 +217,76 @@ describe('stat-ratio.ts 单元测试', () => {
       addStatRatioBadges('creator_user')
       const group = document.querySelector('#id__low_stat')!
       expect(group.querySelectorAll('.xf-stat-ratio-badge').length).toBe(0)
+    })
+  })
+
+  describe('帖子详情页', () => {
+    beforeEach(() => {
+      document.body.innerHTML = ''
+    })
+
+    it('识别帖子详情页 URL', () => {
+      window.history.pushState({}, '', '/creator_user/status/123456')
+      expect(isTargetTweetDetailPage('creator_user')).toBe(true)
+      expect(isTargetTweetDetailPage('*')).toBe(true)
+      expect(isTargetTweetDetailPage('other_user')).toBe(false)
+
+      window.history.pushState({}, '', '/i/status/123456')
+      expect(isTargetTweetDetailPage('*')).toBe(false)
+
+      window.history.pushState({}, '', '/creator_user')
+      expect(isTargetTweetDetailPage('*')).toBe(false)
+    })
+
+    it('主帖用作者名区域上的粉丝数出徽章，浏览量徽章挂在时间行的「查看」链接上', () => {
+      window.history.pushState({}, '', '/creator_user/status/200')
+      document.body.innerHTML = `
+        <article data-testid="tweet">
+          <div data-testid="User-Name" data-xf-screen-name="creator_user" data-xf-followers-count="5422">
+            <a href="/creator_user">@creator_user</a>
+          </div>
+          <div>
+            <a href="/creator_user/status/200"><time>下午7:20</time></a>
+            <a href="/creator_user/status/200/analytics" class="css-146c3p1" id="views_link">
+              <div><span data-testid="app-text-transition-container"><span>10.1万</span></span></div>
+              <span>查看</span>
+            </a>
+          </div>
+          <div>
+            <div role="group" id="id__main_tweet" aria-label="13 回复、100 次转帖、845 喜欢、1293 书签、101992 次观看">
+              <button aria-label="13 回复。回复" data-testid="reply">13</button>
+              <button aria-label="845 喜欢次数。喜欢" data-testid="like">845</button>
+            </div>
+          </div>
+        </article>
+      `
+
+      addStatRatioBadges('*')
+
+      const likeBtn = document.querySelector('[data-testid="like"]')!
+      expect(likeBtn.querySelector('.xf-stat-ratio-badge')).not.toBeNull()
+
+      const viewsLink = document.querySelector('#views_link')!
+      const viewsBadge = viewsLink.querySelector('.xf-stat-ratio-badge')
+      expect(viewsBadge).not.toBeNull()
+      // 浏览量取操作栏说明里的精确值 101992，而不是显示的 10.1万
+      expect(viewsBadge!.querySelector('.xf-tt-sub')!.textContent).toContain('101,992')
+    })
+
+    it('还没拿到作者粉丝数时不出徽章', () => {
+      window.history.pushState({}, '', '/nobody_known/status/200')
+      document.body.innerHTML = `
+        <article data-testid="tweet">
+          <div data-testid="User-Name"><a href="/nobody_known">@nobody_known</a></div>
+          <div role="group" id="id__main_tweet">
+            <button aria-label="845 喜欢次数。喜欢" data-testid="like">845</button>
+          </div>
+        </article>
+      `
+
+      addStatRatioBadges('*')
+
+      expect(document.querySelectorAll('.xf-stat-ratio-badge').length).toBe(0)
     })
   })
 

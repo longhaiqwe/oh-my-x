@@ -304,7 +304,10 @@ export async function runViralRadar(force = false) {
     // - 信息流 / 推荐推文没有 stat-ratio 徽章：直接挂在观看量按钮内。
     // 字号 / 尺寸与 stat-ratio 徽章保持一致，视觉上像同一组。
     const countsGroup = article.querySelector<HTMLElement>('[role="group"][id*="id__"]:only-child')
-    const analyticsBtn = countsGroup?.querySelector<HTMLElement>('a[href*="/analytics"]') || null
+    // 详情页主帖的操作栏没有浏览量按钮，浏览量链接在时间那一行
+    const analyticsBtn =
+      countsGroup?.querySelector<HTMLElement>('a[href*="/analytics"]') ||
+      article.querySelector<HTMLElement>('a[href*="/analytics"]')
 
     if (!analyticsBtn) {
       // 该推文没有观看量入口：清理残留徽章后跳过，避免错位

@@ -1,6 +1,7 @@
 import selectors from '../selectors'
 import addStyles from '../utilities/addStyles'
 import { getLocale, t } from '../../shared/i18n'
+import { knownFollowerCount } from '../features/user-followers'
 
 /**
  * 格式化中英文数字字符串（如 "100", "1.2万", "3.5K", "367,602"）为数值
@@ -93,6 +94,32 @@ export function isTargetProfilePage(targetUsername = '*'): boolean {
   if (parts.length === 1) return true
   const allowedTabs = ['with_replies', 'highlights', 'articles', 'media', 'likes']
   return allowedTabs.includes(parts[1])
+}
+
+/**
+ * 帖子详情页 /username/status/123（含 /photo/1 等子路径）
+ */
+export function isTargetTweetDetailPage(targetUsername = '*'): boolean {
+  const parts = window.location.pathname.toLowerCase().split('/').filter(Boolean)
+  if (parts.length < 3 || parts[1] !== 'status' || !/^\d+$/.test(parts[2])) return false
+
+  const systemPages = ['home', 'explore', 'notifications', 'messages', 'settings', 'search', 'i', 'compose', 'intent', 'tos', 'privacy']
+  const username = parts[0]
+  if (systemPages.includes(username)) return false
+
+  const cleanedTarget = targetUsername.trim().replace(/^@/, '').toLowerCase()
+  return cleanedTarget === '*' || cleanedTarget === 'all' || username === cleanedTarget
+}
+
+/**
+ * 从操作栏的说明文字取精确浏览量（如 "…、101992 次观看" / "…, 101992 views"）
+ */
+export function extractViewsFromGroupLabel(group: Element): number | null {
+  const label = group.getAttribute('aria-label') || ''
+  const match = label.match(/(\d[\d,]*)\s*(?:次观看|次查看|views?\b)/i)
+  if (!match) return null
+  const parsed = parseInt(match[1].replace(/,/g, ''), 10)
+  return isNaN(parsed) ? null : parsed
 }
 
 /**
@@ -277,8 +304,9 @@ export function isTweetAuthorTarget(group: Element, targetUsername: string): boo
  * 注入与更新数据比例徽章
  */
 export function addStatRatioBadges(targetUsername = '*') {
-  if (!isTargetProfilePage(targetUsername)) {
-    // 若离开主页，清理已追加的徽章
+  const onProfile = isTargetProfilePage(targetUsername)
+  if (!onProfile && !isTargetTweetDetailPage(targetUsername)) {
+    // 若离开主页和帖子详情页，清理已追加的徽章
     const badges = document.querySelectorAll('.xf-stat-ratio-badge')
     if (badges.length > 0) {
       badges.forEach((el) => el.remove())
@@ -286,8 +314,9 @@ export function addStatRatioBadges(targetUsername = '*') {
     return
   }
 
-  const followers = getProfileFollowers()
-  if (!followers || followers <= 0) return
+  // 主页读顶部的关注者数；详情页没有这个链接，按推文作者读粉丝数缓存
+  const profileFollowers = onProfile ? getProfileFollowers() : null
+  if (onProfile && (!profileFollowers || profileFollowers <= 0)) return
 
   // 注入样式
   addStyles(
@@ -395,21 +424,33 @@ export function addStatRatioBadges(targetUsername = '*') {
   const tweetGroups = document.querySelectorAll(selectors.tweetCounts)
 
   tweetGroups.forEach((group) => {
+    const article = group.closest('article')
+    const badgeScope = article || group
+
     // 仅在自己的推文上展示数据比例徽章
     if (!isTweetAuthorTarget(group, targetUsername)) {
-      group.querySelectorAll('.xf-stat-ratio-badge').forEach((el) => el.remove())
+      badgeScope.querySelectorAll('.xf-stat-ratio-badge').forEach((el) => el.remove())
       return
     }
 
-    // 获取该推文的曝光量 (Views/Analytics)
-    const analyticsBtn = group.querySelector('a[href*="/analytics"]')
+    let followers = profileFollowers
+    if (!followers) {
+      const author = getTweetAuthor(group)
+      followers = author ? knownFollowerCount(author, article?.querySelector('[data-testid="User-Name"]')) : null
+    }
+    if (!followers || followers <= 0) return
+
+    // 获取该推文的曝光量 (Views/Analytics)。
+    // 详情页主帖的操作栏没有浏览量按钮，浏览量链接在时间那一行
+    const analyticsBtn = group.querySelector('a[href*="/analytics"]') || article?.querySelector('a[href*="/analytics"]') || null
     let impressionsCount = 0
     if (analyticsBtn) {
-      impressionsCount = extractCountFromElement(analyticsBtn)
+      impressionsCount = extractViewsFromGroupLabel(group) ?? extractCountFromElement(analyticsBtn)
     }
 
-    // 遍历数据组里的按钮：reply, retweet, like, analytics, bookmark
-    const btnItems = group.querySelectorAll('button[data-testid], a[href*="/analytics"]')
+    // 遍历数据组里的按钮：reply, retweet, like, bookmark，加上浏览量链接
+    const btnItems: Element[] = Array.from(group.querySelectorAll('button[data-testid]'))
+    if (analyticsBtn) btnItems.push(analyticsBtn)
 
     btnItems.forEach((btn) => {
       const testId = btn.getAttribute('data-testid')
@@ -427,7 +468,7 @@ export function addStatRatioBadges(targetUsername = '*') {
 
       if (!type) return
 
-      const count = extractCountFromElement(btn)
+      const count = type === 'analytics' ? impressionsCount : extractCountFromElement(btn)
       let level: LevelConfig | null = null
       let mainTitle = ''
       let subDetails = ''
