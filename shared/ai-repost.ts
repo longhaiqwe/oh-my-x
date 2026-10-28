@@ -306,8 +306,55 @@ export function buildRepostMessages(
   ]
 }
 
+const OPTION_A_KEYS = ['optionA', 'option_a', 'option1', 'option_1']
+const OPTION_B_KEYS = ['optionB', 'option_b', 'option2', 'option_2']
+const OPTION_A_HEADING = /^\s*(?:###?\s*)?(?:选项\s*[一1A]|Option\s*[1A]|方案\s*[一1A])\s*[：:.\-—]?\s*/i
+const OPTION_B_HEADING = /(?:^|\n)\s*(?:###?\s*)?(?:选项\s*[二2B]|Option\s*[2B]|方案\s*[二2B])\s*[：:.\-—]?\s*/i
+
+/** 按字段名顺序取第一个有值的；都没有时取 options 数组里的第 index 项 */
+function pickOption(obj: any, keys: string[], index: number): unknown {
+  for (const key of keys) {
+    if (obj[key]) return obj[key]
+  }
+  return Array.isArray(obj.options) ? obj.options[index]?.text || obj.options[index] : ''
+}
+
+/** 两项都是非空文字时返回结果 */
+function bothOptions(a: unknown, b: unknown, locale: Locale): AiRepostOptionsResult | null {
+  if (typeof a !== 'string' || !a.trim() || typeof b !== 'string' || !b.trim()) return null
+  return { optionA: sanitizeAiTone(a, locale), optionB: sanitizeAiTone(b, locale) }
+}
+
+function parseOptionsJson(str: string, locale: Locale): AiRepostOptionsResult | null {
+  let obj: any
+  try {
+    obj = JSON.parse(str)
+  } catch {
+    return null
+  }
+  if (!obj || typeof obj !== 'object') return null
+  return bothOptions(pickOption(obj, OPTION_A_KEYS, 0), pickOption(obj, OPTION_B_KEYS, 1), locale)
+}
+
+/** 混杂文字里第一个 { 到最后一个 } 之间的内容 */
+function jsonBlock(text: string): string | null {
+  const firstBrace = text.indexOf('{')
+  const lastBrace = text.lastIndexOf('}')
+  return firstBrace !== -1 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : null
+}
+
+/** 模型按纯文本输出了「选项一 / 选项A」和「选项二 / 选项B」 */
+function parseOptionsText(text: string, locale: Locale): AiRepostOptionsResult | null {
+  const parts = text.split(OPTION_B_HEADING)
+  if (parts.length < 2) return null
+  const firstPart = parts[0].replace(OPTION_A_HEADING, '').trim()
+  const secondPart = parts.slice(1).join('\n').trim()
+  return bothOptions(firstPart, secondPart, locale)
+}
+
 /**
- * 解析模型返回的 JSON 或文本，提取出 optionA 与 optionB
+ * 解析模型返回的 JSON 或文本，提取出 optionA 与 optionB。
+ * 依次尝试：去掉代码块后整体当 JSON、取出其中的 {...} 块、按「选项一 / 选项二」切分
  */
 export function parseAiRepostResponse(rawContent: string, locale: Locale = 'zh-CN'): AiRepostOptionsResult {
   const trimmed = (rawContent || '').trim()
@@ -315,75 +362,141 @@ export function parseAiRepostResponse(rawContent: string, locale: Locale = 'zh-C
     throw new AppError('error.aiEmpty')
   }
 
-  // 1. 尝试去除 markdown 代码块后直接 JSON.parse
   const strippedFence = trimmed
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim()
 
-  const tryParseJson = (str: string): AiRepostOptionsResult | null => {
-    try {
-      const obj = JSON.parse(str)
-      if (!obj || typeof obj !== 'object') return null
-
-      const a =
-        obj.optionA ||
-        obj.option_a ||
-        obj.option1 ||
-        obj.option_1 ||
-        (Array.isArray(obj.options) ? obj.options[0]?.text || obj.options[0] : '')
-      const b =
-        obj.optionB ||
-        obj.option_b ||
-        obj.option2 ||
-        obj.option_2 ||
-        (Array.isArray(obj.options) ? obj.options[1]?.text || obj.options[1] : '')
-
-      if (typeof a === 'string' && a.trim() && typeof b === 'string' && b.trim()) {
-        return {
-          optionA: sanitizeAiTone(a, locale),
-          optionB: sanitizeAiTone(b, locale),
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return null
-  }
-
-  const directParsed = tryParseJson(strippedFence)
-  if (directParsed) return directParsed
-
-  // 2. 尝试从混杂文本中提取第一个 {...} JSON 块
-  const firstBrace = strippedFence.indexOf('{')
-  const lastBrace = strippedFence.lastIndexOf('}')
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    const jsonSub = strippedFence.slice(firstBrace, lastBrace + 1)
-    const subParsed = tryParseJson(jsonSub)
-    if (subParsed) return subParsed
-  }
-
-  // 3. 兜底：如果模型按纯文本输出了「选项一 / 选项A」和「选项二 / 选项B」
-  const splitMatch = strippedFence.split(
-    /(?:^|\n)\s*(?:###?\s*)?(?:选项\s*[二2B]|Option\s*[2B]|方案\s*[二2B])\s*[：:.\-—]?\s*/i,
-  )
-  if (splitMatch.length >= 2) {
-    const firstPart = splitMatch[0]
-      .replace(
-        /^\s*(?:###?\s*)?(?:选项\s*[一1A]|Option\s*[1A]|方案\s*[一1A])\s*[：:.\-—]?\s*/i,
-        '',
-      )
-      .trim()
-    const secondPart = splitMatch.slice(1).join('\n').trim()
-    if (firstPart && secondPart) {
-      return {
-        optionA: sanitizeAiTone(firstPart, locale),
-        optionB: sanitizeAiTone(secondPart, locale),
-      }
-    }
-  }
+  const block = jsonBlock(strippedFence)
+  const parsed =
+    parseOptionsJson(strippedFence, locale) ??
+    (block ? parseOptionsJson(block, locale) : null) ??
+    parseOptionsText(strippedFence, locale)
+  if (parsed) return parsed
 
   throw new AppError('error.aiParse')
+}
+
+const trimmedText = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+/** 按路径取嵌套字段，和 a?.b?.c 一样：中途遇到 null / undefined 就返回 undefined */
+function dig(value: any, ...keys: string[]): any {
+  for (const key of keys) {
+    if (value == null) return undefined
+    value = value[key]
+  }
+  return value
+}
+
+/** 长文正文：先取 plain_text，再拼段落；两样都没有时返回 null */
+function articleBody(article: any): string | null {
+  const plain = trimmedText(article.plain_text)
+  if (plain) return plain
+  const blocks = dig(article, 'content_state', 'blocks')
+  if (!Array.isArray(blocks)) return null
+  return blocks.map((b: any) => trimmedText(b?.text)).filter(Boolean).join('\n\n')
+}
+
+/** 有标题或正文时组成结果；没有正文时用标题当正文 */
+function articleSource(title: string, body: string): { title?: string; text: string } | null {
+  if (!title && !body) return null
+  return { title: title || undefined, text: body || title }
+}
+
+function unwrapTweet(node: any): any {
+  if (!node || typeof node !== 'object') return null
+  if (node.__typename === 'TweetWithVisibilityResults' && node.tweet) {
+    return node.tweet
+  }
+  return node
+}
+
+function tweetAuthor(tweet: any): { authorName: string; authorHandle: string } {
+  const userResult = dig(tweet, 'core', 'user_results', 'result')
+  const userLegacy = dig(userResult, 'legacy') || {}
+  const userCore = dig(userResult, 'core') || {}
+  return {
+    authorName: userCore.name || userLegacy.name || '',
+    authorHandle: userCore.screen_name || userLegacy.screen_name || '',
+  }
+}
+
+function tweetArticle(tweet: any, legacy: any): any {
+  return (
+    dig(tweet, 'article', 'article_results', 'result') ||
+    dig(legacy, 'article', 'article_results', 'result') ||
+    dig(tweet, 'article_results', 'result')
+  )
+}
+
+/** 推文里的 X 长文 (Article) */
+function tweetArticleSource(tweet: any, legacy: any): { title?: string; text: string } | null {
+  const article = tweetArticle(tweet, legacy)
+  if (!article || typeof article !== 'object') return null
+  const body = articleBody(article) ?? trimmedText(article.preview_text)
+  return articleSource(trimmedText(article.title), body)
+}
+
+/** 长推文 (NoteTweet) 优先，其次普通推文 full_text */
+function tweetText(tweet: any, legacy: any): string {
+  return trimmedText(dig(tweet, 'note_tweet', 'note_tweet_results', 'result', 'text')) || trimmedText(legacy.full_text)
+}
+
+/** 没有目标 ID 或推文没有 ID 时都算符合 */
+function isTargetTweet(tweet: any, legacy: any, targetId?: string): boolean {
+  const restId = String(tweet.rest_id || legacy.id_str || '')
+  return !targetId || !restId || restId === targetId
+}
+
+function parseTweetNode(rawNode: any, targetId?: string): RepostSourceInput | null {
+  const tweet = unwrapTweet(rawNode)
+  if (!tweet || typeof tweet !== 'object') return null
+  const legacy = tweet.legacy || {}
+  if (!isTargetTweet(tweet, legacy, targetId)) return null
+
+  const author = tweetAuthor(tweet)
+  const article = tweetArticleSource(tweet, legacy)
+  if (article) return { ...author, ...article }
+  const text = tweetText(tweet, legacy)
+  return text ? { ...author, text } : null
+}
+
+/** 路径 A: TweetResultByRestId */
+function fromTweetResult(root: any, targetId?: string): RepostSourceInput | null {
+  const result = dig(root, 'tweetResult', 'result') ?? dig(root, 'tweet_result', 'result') ?? dig(root, 'tweet_result')
+  return result ? parseTweetNode(result, targetId) : null
+}
+
+/** 路径 B: ArticleEntityResultByRestId（不取预览文字，不带作者） */
+function fromArticleEntity(root: any): RepostSourceInput | null {
+  const entity =
+    dig(root, 'article_result_by_rest_id', 'result') ??
+    dig(root, 'article_result_by_rest_id') ??
+    dig(root, 'article_entity_result', 'result')
+  if (!entity || typeof entity !== 'object') return null
+  return articleSource(trimmedText(entity.title), articleBody(entity) ?? '')
+}
+
+function timelineInstructions(root: any): unknown {
+  return (
+    dig(root, 'threaded_conversation_with_injections_v2', 'instructions') ||
+    dig(root, 'user', 'result', 'timeline_v2', 'timeline', 'instructions') ||
+    []
+  )
+}
+
+/** 路径 C: TweetDetail / 用户时间线 instructions，取第一条符合的推文 */
+function fromInstructions(root: any, targetId?: string): RepostSourceInput | null {
+  const instructions = timelineInstructions(root)
+  if (!Array.isArray(instructions)) return null
+  for (const inst of instructions) {
+    for (const entry of dig(inst, 'entries') || []) {
+      const res = dig(entry, 'content', 'itemContent', 'tweet_results', 'result')
+      const parsed = res ? parseTweetNode(res, targetId) : null
+      if (parsed) return parsed
+    }
+  }
+  return null
 }
 
 /**
@@ -394,126 +507,6 @@ export function extractTweetFullTextFromGraphql(
   targetId?: string,
 ): RepostSourceInput | null {
   if (!payload || typeof payload !== 'object') return null
-
-  const unwrapTweet = (node: any): any => {
-    if (!node || typeof node !== 'object') return null
-    if (node.__typename === 'TweetWithVisibilityResults' && node.tweet) {
-      return node.tweet
-    }
-    return node
-  }
-
-  const parseTweetNode = (rawNode: any): RepostSourceInput | null => {
-    const tweet = unwrapTweet(rawNode)
-    if (!tweet || typeof tweet !== 'object') return null
-    const legacy = tweet.legacy || {}
-    const restId = String(tweet.rest_id || legacy.id_str || '')
-    if (targetId && restId && restId !== targetId) return null
-
-    const userResult = tweet.core?.user_results?.result
-    const userLegacy = userResult?.legacy || {}
-    const userCore = userResult?.core || {}
-    const authorHandle = userCore.screen_name || userLegacy.screen_name || ''
-    const authorName = userCore.name || userLegacy.name || ''
-
-    // 1. 优先检查是否为 X 长文 (Article)
-    const articleResult =
-      tweet.article?.article_results?.result ||
-      legacy.article?.article_results?.result ||
-      tweet.article_results?.result
-    if (articleResult && typeof articleResult === 'object') {
-      const title = typeof articleResult.title === 'string' ? articleResult.title.trim() : ''
-      let articleBody = ''
-      if (typeof articleResult.plain_text === 'string' && articleResult.plain_text.trim()) {
-        articleBody = articleResult.plain_text.trim()
-      } else if (Array.isArray(articleResult.content_state?.blocks)) {
-        articleBody = articleResult.content_state.blocks
-          .map((b: any) => (typeof b?.text === 'string' ? b.text.trim() : ''))
-          .filter(Boolean)
-          .join('\n\n')
-      } else if (typeof articleResult.preview_text === 'string') {
-        articleBody = articleResult.preview_text.trim()
-      }
-
-      if (title || articleBody) {
-        return {
-          authorName,
-          authorHandle,
-          title: title || undefined,
-          text: articleBody || title,
-        }
-      }
-    }
-
-    // 2. 检查是否为长推文 (NoteTweet)
-    const noteText = tweet.note_tweet?.note_tweet_results?.result?.text
-    if (typeof noteText === 'string' && noteText.trim()) {
-      return {
-        authorName,
-        authorHandle,
-        text: noteText.trim(),
-      }
-    }
-
-    // 3. 普通推文 full_text
-    if (typeof legacy.full_text === 'string' && legacy.full_text.trim()) {
-      return {
-        authorName,
-        authorHandle,
-        text: legacy.full_text.trim(),
-      }
-    }
-
-    return null
-  }
-
   const root = (payload as any).data ?? payload
-
-  // 路径 A: TweetResultByRestId
-  const directResult =
-    root?.tweetResult?.result ?? root?.tweet_result?.result ?? root?.tweet_result
-  if (directResult) {
-    const parsed = parseTweetNode(directResult)
-    if (parsed) return parsed
-  }
-
-  // 路径 B: ArticleEntityResultByRestId
-  const articleEntity =
-    root?.article_result_by_rest_id?.result ??
-    root?.article_result_by_rest_id ??
-    root?.article_entity_result?.result
-  if (articleEntity && typeof articleEntity === 'object') {
-    const title = typeof articleEntity.title === 'string' ? articleEntity.title.trim() : ''
-    let body = ''
-    if (typeof articleEntity.plain_text === 'string' && articleEntity.plain_text.trim()) {
-      body = articleEntity.plain_text.trim()
-    } else if (Array.isArray(articleEntity.content_state?.blocks)) {
-      body = articleEntity.content_state.blocks
-        .map((b: any) => (typeof b?.text === 'string' ? b.text.trim() : ''))
-        .filter(Boolean)
-        .join('\n\n')
-    }
-    if (title || body) {
-      return { title: title || undefined, text: body || title }
-    }
-  }
-
-  // 路径 C: TweetDetail instructions
-  const instructions =
-    root?.threaded_conversation_with_injections_v2?.instructions ||
-    root?.user?.result?.timeline_v2?.timeline?.instructions ||
-    []
-  if (Array.isArray(instructions)) {
-    for (const inst of instructions) {
-      for (const entry of inst?.entries || []) {
-        const res = entry?.content?.itemContent?.tweet_results?.result
-        if (res) {
-          const parsed = parseTweetNode(res)
-          if (parsed) return parsed
-        }
-      }
-    }
-  }
-
-  return null
+  return fromTweetResult(root, targetId) ?? fromArticleEntity(root) ?? fromInstructions(root, targetId)
 }
