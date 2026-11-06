@@ -55,20 +55,18 @@ import {
 } from '../storage-keys'
 import {
   parseCreatorRewardsPayload,
-  isCreatorRewardsStale,
   type CreatorRewardsStats,
 } from '../shared/creator-rewards'
 import {
   ACCOUNT_OVERVIEW_OPERATION,
   FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID,
   buildAccountOverviewVariables,
-  isImpressionsMissingYesterday,
-  isRewardsHistoryMissingToday,
   mergeImpressionsDays,
   parseAccountOverviewDaily,
   parseImpressionsCache,
   parseRewardsHistory,
   persistCreatorRewardsStats,
+  pickCreatorRewardsAutoRefresh,
   type ImpressionsDailyCache,
 } from '../shared/creator-rewards-daily'
 import {
@@ -782,13 +780,16 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
       updatedAt = (raw as any)?.updatedAt
     }
 
-    // 过了刷新节点但还没记到当天的累计数（X 更新晚了），每次闹钟都再取一次
-    const history = parseRewardsHistory(stored[KeyCreatorRewardsHistory])
-    if (isCreatorRewardsStale(updatedAt) || isRewardsHistoryMissingToday(history)) {
+    // 过了刷新节点但还没记到当天的累计数（X 更新晚了），或账号分析还没出昨天的数：每 10 分钟补取一次，直到取到
+    const action = pickCreatorRewardsAutoRefresh(
+      updatedAt,
+      parseRewardsHistory(stored[KeyCreatorRewardsHistory]),
+      parseImpressionsCache(stored[KeyImpressionsDaily]),
+    )
+    if (action === 'all') {
       console.info('[oh-my-x] 创作者奖励数据已到每日刷新节点，执行静默同步...')
       await refreshCreatorRewardsData()
-    } else if (isImpressionsMissingYesterday(parseImpressionsCache(stored[KeyImpressionsDaily]))) {
-      // 账号分析比奖励计划晚出前一天的数，每次闹钟（30 分钟）补取一次，直到取到
+    } else if (action === 'impressions') {
       await fetchImpressionsDailyFromApi()
     }
   } catch (e) {

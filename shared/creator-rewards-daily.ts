@@ -8,7 +8,7 @@ import {
   KeyCreatorRewardsHistory,
   KeyCreatorRewardsStats,
 } from '../storage-keys'
-import type { CreatorRewardsStats } from './creator-rewards'
+import { isCreatorRewardsStale, type CreatorRewardsStats } from './creator-rewards'
 
 /** 日期（UTC，YYYY-MM-DD）→ 截至当天结束的 90 天累计曝光 */
 export type RewardsHistory = Record<string, number>
@@ -33,7 +33,7 @@ export interface DailyConversionRow {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-/** 奖励计划每天 UTC 02:30（北京时间 10:30）更新，与 isCreatorRewardsStale 的分界一致 */
+/** 每天 UTC 02:30（北京时间 10:30）开始记录昨日累计，与 isCreatorRewardsStale 的分界一致 */
 const REWARDS_REFRESH_OFFSET_MS = (2 * 60 + 30) * 60 * 1000
 /** 留 120 天：超过 90 天后可用来推算移出统计窗口的那一天 */
 const REWARDS_HISTORY_LIMIT = 120
@@ -52,20 +52,23 @@ export function shiftDateKey(dateKey: string, days: number): string {
 }
 
 /**
- * 某次读到的累计数截至哪一天。
- * 推论：X 在 UTC 02:30 把数字更新到前一天为止，所以 02:30 之后读到的是昨天的累计，之前读到的是前天的。
+ * 按插件的刷新节点，现在应已有哪一天的累计数（用于判断是否需要补取）。
+ * 这是本地刷新策略，不是 X 提供的数据日期；节点前的新读数不能据此回填前天。
  */
 export function rewardsDataDate(updatedAt: number): string {
   return utcDateKey(updatedAt - REWARDS_REFRESH_OFFSET_MS - DAY_MS)
 }
 
-/** 记下一次读数。读数和前一天相同时视为 X 还没更新，不记 */
+/** 节点后记下昨日累计。读数和前一天相同时视为 X 还没更新，不记 */
 export function addRewardsSnapshot(
   history: RewardsHistory,
   impressionsCount: number,
   updatedAt: number,
 ): RewardsHistory {
   if (!(impressionsCount > 0) || !(updatedAt > 0)) return history
+  // X 可能在 02:30 前已更新（2026-10-23 实测 02:23 已变）。此时无法确定
+  // 读数所属日期，只更新总进度，等节点后重新读取，避免覆盖前天并吞掉昨天的增量。
+  if (updatedAt % DAY_MS < REWARDS_REFRESH_OFFSET_MS) return history
   const date = rewardsDataDate(updatedAt)
   if (history[shiftDateKey(date, -1)] === impressionsCount) return history
   if (history[date] === impressionsCount) return history
@@ -89,6 +92,31 @@ export function isRewardsHistoryMissingToday(history: RewardsHistory, now = Date
  */
 export function isImpressionsMissingYesterday(cache: ImpressionsDailyCache | null, now = Date.now()): boolean {
   return !cache?.days[shiftDateKey(utcDateKey(now), -1)]
+}
+
+/** 后台缺数据时的补取间隔。后台每次启动都会检查（每分钟的闹钟会唤醒后台），不限制就会每分钟请求一次 */
+export const AUTO_RETRY_INTERVAL_MS = 10 * 60 * 1000
+
+function isAutoRetryDue(lastFetchedAt: number | undefined, now: number): boolean {
+  return !lastFetchedAt || now - lastFetchedAt >= AUTO_RETRY_INTERVAL_MS
+}
+
+/**
+ * 后台检查时要取什么：
+ * - 过了刷新节点还没读过：奖励计划和账号分析一起取
+ * - 已读过但还没记到当天累计（X 更新晚了）：距上次读取满 10 分钟再一起取
+ * - 账号分析缺昨天：距上次读取满 10 分钟再取账号分析
+ */
+export function pickCreatorRewardsAutoRefresh(
+  rewardsUpdatedAt: number | undefined,
+  history: RewardsHistory,
+  impressions: ImpressionsDailyCache | null,
+  now = Date.now(),
+): 'all' | 'impressions' | null {
+  if (isCreatorRewardsStale(rewardsUpdatedAt, now)) return 'all'
+  if (isRewardsHistoryMissingToday(history, now) && isAutoRetryDue(rewardsUpdatedAt, now)) return 'all'
+  if (isImpressionsMissingYesterday(impressions, now) && isAutoRetryDue(impressions?.updatedAt, now)) return 'impressions'
+  return null
 }
 
 function parseJsonObject(raw: unknown): Record<string, unknown> | null {

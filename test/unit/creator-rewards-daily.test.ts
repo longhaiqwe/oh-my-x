@@ -10,6 +10,7 @@ import {
   parseImpressionsCache,
   parseRewardsHistory,
   persistCreatorRewardsStats,
+  pickCreatorRewardsAutoRefresh,
   rewardsDataDate,
   shiftDateKey,
 } from '../../shared/creator-rewards-daily'
@@ -37,6 +38,24 @@ describe('rewardsDataDate 读数截至哪一天', () => {
 })
 
 describe('addRewardsSnapshot 记录每日累计数', () => {
+  it('X 提前更新时不覆盖前天，刷新节点后将增量记到昨天', () => {
+    const history = { '2026-10-20': 238000, '2026-10-21': 249400 }
+    const early = addRewardsSnapshot(history, 253100, utc('2026-10-23T02:23:57.865'))
+    expect(early).toBe(history)
+
+    const afterRefresh = addRewardsSnapshot(early, 253100, utc('2026-10-23T02:30:00'))
+    expect(afterRefresh).toEqual({ ...history, '2026-10-22': 253100 })
+    expect(buildDailyConversion(afterRefresh, {}, '2026-10-22', 2).map((row) => row.counted))
+      .toEqual([11400, 3700])
+  })
+
+  it.each(['2026-10-23T00:00:00', '2026-10-23T02:29:59.999'])(
+    '刷新节点前没有历史也不把日期不确定的读数补到前天：%s', (time) => {
+      const history = {}
+      expect(addRewardsSnapshot(history, 253100, utc(time))).toBe(history)
+    },
+  )
+
   it('按读数日期记入，同一天再读到新值时覆盖', () => {
     let history = addRewardsSnapshot({}, 224600, utc('2026-10-18T06:35:00'))
     expect(history).toEqual({ '2026-10-17': 224600 })
@@ -168,6 +187,23 @@ describe('存储解析与合并', () => {
     expect(JSON.parse(store[KeyCreatorRewardsStats] as string).impressionsCount).toBe(224600)
     expect(JSON.parse(store[KeyCreatorRewardsHistory] as string)).toEqual(history)
   })
+
+  it('提前读到新值时更新总进度，但保持每日历史以便刷新节点后补记', async () => {
+    const history = { '2026-10-20': 238000, '2026-10-21': 249400 }
+    const store: Record<string, unknown> = { [KeyCreatorRewardsHistory]: JSON.stringify(history) }
+    const storage = {
+      get: async () => store,
+      set: async (items: Record<string, unknown>) => { Object.assign(store, items) },
+    }
+    const stats = { impressionsCount: 253100, updatedAt: utc('2026-10-23T02:23:57.865') } as CreatorRewardsStats
+    await persistCreatorRewardsStats(stats, storage)
+    expect(JSON.parse(store[KeyCreatorRewardsStats] as string)).toEqual(stats)
+    expect(JSON.parse(store[KeyCreatorRewardsHistory] as string)).toEqual(history)
+    expect(isRewardsHistoryMissingToday(history, utc('2026-10-23T02:30:00'))).toBe(true)
+
+    await persistCreatorRewardsStats({ ...stats, updatedAt: utc('2026-10-23T02:30:00') }, storage)
+    expect(JSON.parse(store[KeyCreatorRewardsHistory] as string)).toEqual({ ...history, '2026-10-22': 253100 })
+  })
 })
 
 describe('isImpressionsMissingYesterday 账号分析缺昨天的数据', () => {
@@ -183,5 +219,47 @@ describe('isImpressionsMissingYesterday 账号分析缺昨天的数据', () => {
 
   it('没有缓存算缺', () => {
     expect(isImpressionsMissingYesterday(null, utc('2026-10-20T02:52:00'))).toBe(true)
+  })
+})
+
+describe('pickCreatorRewardsAutoRefresh 后台补取', () => {
+  // 2026-10-26 实况：X 到北京 10:57 还没把 10-25 算进累计，账号分析也只到 10-24
+  const history = { '2026-10-23': 257600, '2026-10-24': 259700 }
+  const day = { total: 21793, verified: 4778 }
+  const impressionsAt = (time: string) => ({ days: { '2026-10-24': day }, updatedAt: utc(time) })
+
+  it('过了刷新节点还没读过，立即取，不受 10 分钟限制', () => {
+    expect(pickCreatorRewardsAutoRefresh(
+      utc('2026-10-26T02:26:41'), history, impressionsAt('2026-10-26T02:26:41'), utc('2026-10-26T02:30:27'),
+    )).toBe('all')
+  })
+
+  it('X 还没更新时，距上次读取不满 10 分钟不取', () => {
+    expect(pickCreatorRewardsAutoRefresh(
+      utc('2026-10-26T02:30:27'), history, impressionsAt('2026-10-26T02:30:27'), utc('2026-10-26T02:40:26'),
+    )).toBeNull()
+  })
+
+  it('X 还没更新时，满 10 分钟再一起取', () => {
+    expect(pickCreatorRewardsAutoRefresh(
+      utc('2026-10-26T02:30:27'), history, impressionsAt('2026-10-26T02:30:27'), utc('2026-10-26T02:40:27'),
+    )).toBe('all')
+  })
+
+  it('奖励累计已记到，账号分析缺昨天：满 10 分钟只取账号分析', () => {
+    const full = { ...history, '2026-10-25': 262000 }
+    const read = utc('2026-10-26T02:35:00')
+    expect(pickCreatorRewardsAutoRefresh(read, full, impressionsAt('2026-10-26T02:35:00'), utc('2026-10-26T02:44:59')))
+      .toBeNull()
+    expect(pickCreatorRewardsAutoRefresh(read, full, impressionsAt('2026-10-26T02:35:00'), utc('2026-10-26T02:45:00')))
+      .toBe('impressions')
+    expect(pickCreatorRewardsAutoRefresh(read, full, null, utc('2026-10-26T02:36:00'))).toBe('impressions')
+  })
+
+  it('两边都有昨天的数据就不取', () => {
+    const full = { ...history, '2026-10-25': 262000 }
+    const impressions = { days: { '2026-10-24': day, '2026-10-25': day }, updatedAt: utc('2026-10-26T04:20:00') }
+    expect(pickCreatorRewardsAutoRefresh(utc('2026-10-26T02:35:00'), full, impressions, utc('2026-10-26T09:00:00')))
+      .toBeNull()
   })
 })
