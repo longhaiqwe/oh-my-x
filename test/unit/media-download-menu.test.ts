@@ -131,3 +131,49 @@ describe('X 自带「下载视频」时不重复', () => {
     expect(dropdown.querySelector('#xf-download-video-btn')).not.toBeNull()
   })
 })
+
+
+describe('GIF 导出与下载', () => {
+  it('视频播放器未标注 GIF 时也提供导出入口', async () => {
+    const dropdown = await openShareMenu(mountVideoTweet(), XDS_ITEM('复制链接'))
+    const option = dropdown.querySelector<HTMLElement>('#xf-export-gif-btn')
+    expect(option?.textContent?.trim()).toBe('导出 GIF')
+    sendMessage.mockResolvedValue({ ok: true })
+    option!.click()
+    await sleep(0)
+    expect(sendMessage).toHaveBeenCalledWith({ type: 'XF_EXPORT_GIF', tweetId: '123', locale: 'zh-CN' })
+  })
+
+  it('导出页面打开失败时显示失败，并允许重试', async () => {
+    const dropdown = await openShareMenu(mountVideoTweet(), XDS_ITEM('复制链接'))
+    const option = dropdown.querySelector<HTMLElement>('#xf-export-gif-btn')
+    expect(option).not.toBeNull()
+    sendMessage.mockResolvedValue({ ok: false })
+    option!.click()
+    await sleep(0)
+    expect(option!.textContent?.trim()).toBe('无法打开 GIF 导出页，请重试')
+    sendMessage.mockResolvedValue({ ok: true })
+    option!.click()
+    await sleep(0)
+    expect(option!.textContent?.trim()).toBe('已打开 GIF 导出页')
+  })
+
+  it('GIF 只被识别为视频时，MP4 下载仍能取到 GIF 资源', async () => {
+    const dropdown = await openShareMenu(mountVideoTweet(), XDS_ITEM('复制链接'))
+    sendMessage.mockResolvedValueOnce({ ok: true, media: { videos: [], gifs: [{ bestMp4Url: 'https://video.twimg.com/g.mp4' }] } })
+      .mockResolvedValueOnce({ ok: true })
+    dropdown.querySelector<HTMLElement>('#xf-download-video-btn')!.click()
+    await sleep(0)
+    expect(sendMessage).toHaveBeenCalledWith({ type: 'XF_DOWNLOAD_MEDIA', url: 'https://video.twimg.com/g.mp4', filename: 'x_alice_123.mp4' })
+  })
+
+  it('后台返回下载失败时不显示已开始下载', async () => {
+    const dropdown = await openShareMenu(mountVideoTweet(), XDS_ITEM('复制链接'))
+    sendMessage.mockResolvedValueOnce({ media: { videos: [{ bestMp4Url: 'https://video.twimg.com/v.mp4' }] } })
+      .mockResolvedValueOnce({ ok: false })
+    const option = dropdown.querySelector<HTMLElement>('#xf-download-video-btn')!
+    option.click()
+    await sleep(0)
+    expect(option.textContent?.trim()).toBe('下载失败')
+  })
+})

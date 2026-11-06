@@ -1,3 +1,4 @@
+import { createFavoriteBloggerWriter, FAVORITE_BLOGGER_MESSAGE } from '../shared/favorite-bloggers'
 import { readChatCompletionStream } from '../shared/ai-stream'
 import { startAiDeadline } from '../shared/ai-deadline'
 import { AI_CONFIG_KEYS, MIGRATE_AI_SERVICE, migrateAiService, resolveAiService } from '../shared/ai-service'
@@ -906,6 +907,13 @@ async function saveSelectionAsDraft(info: Browser.contextMenus.OnClickData, tab?
 }
 
 export default defineBackground(() => {
+  const writeFavoriteBlogger = createFavoriteBloggerWriter(browser.storage.local)
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== FAVORITE_BLOGGER_MESSAGE) return
+    if (sender.id !== browser.runtime.id) return
+    void writeFavoriteBlogger(message).then(respond)
+    return true
+  })
   void initI18n()
   void migrateAiService().catch(() => {})
   browser.runtime.onMessage.addListener((message, sender, respond) => {
@@ -1107,6 +1115,23 @@ export default defineBackground(() => {
           sendResponse({ ok: Boolean(source), source })
         } catch (e: any) {
           sendResponse({ ok: false, error: toTransferable(e) ?? String(e) })
+        }
+      })()
+      return true
+    }
+
+    if (msg?.type === 'XF_EXPORT_GIF') {
+      void (async () => {
+        try {
+          const tweetId = String(msg.tweetId || '')
+          if (!/^\d+$/.test(tweetId)) throw new AppError('error.gifInvalidSource')
+          const url = new URL(browser.runtime.getURL('/gif-export.html'))
+          url.searchParams.set('tweetId', tweetId)
+          url.searchParams.set('locale', msg.locale === 'en' ? 'en' : 'zh-CN')
+          await browser.tabs.create({ url: url.href })
+          sendResponse({ ok: true })
+        } catch (error) {
+          sendResponse({ ok: false, error: toTransferable(error) })
         }
       })()
       return true

@@ -1,12 +1,12 @@
 # Privacy Policy for oh-my-x
 
-Last updated: October 23, 2026
+Last updated: November 6, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
 ## 1. Local storage and developer access
 
-- Settings, keyword lists, allow/block lists, interception logs and statistics, Lists metadata, creator rewards data, and AI configuration (including your API key) are stored in `chrome.storage.local`. The API key is not encrypted by the extension; password masking in the settings is only a display feature.
+- Settings, keyword lists, allow/block lists, interception logs and statistics, Lists metadata, saved bloggers and their display order, creator rewards data, and AI configuration (including your API key) are stored in `chrome.storage.local`. The API key is not encrypted by the extension; password masking in the settings is only a display feature.
 - The popup and settings page also keep copies of a few settings (interface language, the last opened tab, the spam word list, collapsed sections) in the extension's own `localStorage`, so they open without waiting for `chrome.storage.local`. On X pages, the schedule panel saves the query ID and query parameters of X's scheduled-posts request in that page's `localStorage` so it can refresh the list; it does not save cookies or credentials there.
 - The own-post library stores account IDs, post IDs and text, article titles/previews, X-hosted thumbnail URLs, dates, and synchronization checkpoints in extension-local IndexedDB. It does not store session cookies or credentials in this database.
 - AI reply scores are cached in extension-local IndexedDB for up to 7 days, with a maximum of 5,000 entries. Manual bot/human labels, including the reply and its context, remain until removed and can be exported as JSONL. Marked bot accounts and daily AI usage counters are stored in `chrome.storage.local`.
@@ -20,6 +20,7 @@ Last updated: October 23, 2026
 - The extension can load X's public client script from `abs.twimg.com` to resolve current API identifiers. Post thumbnails load from X's image CDN; the database stores their URLs, not image files.
 - Mention by name: when you type a name containing non-English characters after @ in a post, quote, or reply editor, that name (up to 30 characters) is sent with your X session to X's user search, the same endpoint X's editor uses for @ suggestions. The results (names, usernames, profile image URLs, and whether you follow the account) are kept in the page's memory and discarded when the page is closed or reloaded.
 - Save selection to drafts: when you choose "Save to X drafts" from the right-click menu, the extension reads the selected text on that page once and sends it, followed by the page's link (http and https pages only), to X with your X session to create a draft in your account. If that fails, it opens `x.com/intent/post` with the same text in the address so you can save the draft yourself. Nothing is read or sent before you click the menu item.
+- GIF export downloads the selected post’s MP4 from `video.twimg.com` without cookies and converts it to GIF locally in an extension page. The extension does not upload media to a conversion service. Clicking Copy GIF writes the animation to the clipboard as HTML. When you paste this marked content into X’s editor, the extension restores it as a GIF attachment for X to upload; it does not publish the post. It does not request clipboard-read permission or read the clipboard in the background.
 - User actions can add a member to an X List, download media, or use interaction helpers. If enabled, the reply helper can like a post after a successful reply. These actions communicate with X or its media CDN.
 
 ## 3. Optional AI service
@@ -29,7 +30,7 @@ Last updated: October 23, 2026
 - Optional AI reply checks run manually or automatically within the scope you enable. They send the original post, queued replies, the replied-to comment when available, author information, reply timing, available follower counts and verification status, scoring instructions, and model name to your configured service. The API key is sent in the authorization header. The sample test sends the bundled sample set. Scores and manual labels control local folding; they do not block accounts on X.
 - Turning search text into search operators runs only when you click that item in X's search box dropdown. It sends the text in the search box (up to 300 characters), today's date and a few nearby dates in your local time, the extension's instructions, and model name to your configured service, with the API key in the authorization header. The returned search query is opened with X's own search.
 - This is an external transfer to the service you configure, unless you choose a local service. That service's retention, processing, and billing terms apply. Generated options are shown for you to choose; the AI feature does not publish posts automatically.
-- AI requests omit browser cookies and reject redirects. Requests allow 25 seconds for the first data, 15 seconds of subsequent inactivity, and 90 seconds overall. Canceling or closing the requesting panel aborts the extension's request and discards late results. A provider may already have received or processed it; cancellation does not guarantee that provider-side processing or billing stops.
+- AI requests omit browser cookies and reject redirects. Repost generation has no extension-imposed waiting limit; network, browser, or provider limits may still end it. Other AI requests allow 25 seconds for the first data, 15 seconds of subsequent inactivity, and 90 seconds overall. Canceling or closing the requesting panel aborts the extension's request and discards late results. A provider may already have received or processed it; cancellation does not guarantee that provider-side processing or billing stops.
 - Remote services must use HTTPS. HTTP is accepted only for local services at localhost and 127.0.0.1, so text and API keys sent over HTTP stay on this computer.
 
 ## 4. Permissions
@@ -43,7 +44,7 @@ Last updated: October 23, 2026
 | `scripting` | When you click Scan last 7 days in the popup on an X profile page and the page's content script does not respond (for example, after the extension was updated), run the extension's own scan function in that X tab, so the page does not need a reload. It is used only on the active X tab and only after that click. It also reads the selected text after you choose Save to X drafts (see `activeTab`). |
 | `contextMenus` | Show the Save to X drafts item in the right-click menu when text is selected. |
 | `activeTab` | After you choose Save to X drafts, read the selected text in that tab once, keeping line breaks. It gives no access to other tabs, and no access to that tab before the click. |
-| Required host access | `x.com`, `pro.x.com`, `twitter.com`, `mobile.twitter.com` for X features; `abs.twimg.com` for X's public client script. |
+| Required host access | `x.com`, `pro.x.com`, `twitter.com`, `mobile.twitter.com` for X features; `abs.twimg.com` for X's public client script; `video.twimg.com` to fetch media for local GIF export. |
 | Optional host access | The HTTPS host of your chosen AI service, or http://localhost / http://127.0.0.1 for a local service, requested at runtime for the configured host. No blanket access to all websites is requested at installation. |
 
 Chrome site grants apply to a host and scheme rather than an individual API path or port. Previous grants can remain when you change an AI address; review or revoke site access in Chrome's extension settings. An upgrade does not promise to remove previously granted access.

@@ -1,3 +1,4 @@
+import { runFavoriteBloggersFeature } from '../content-scripts/features/favorite-bloggers'
 import { startOwnPostSync } from '../content-scripts/options/own-post-library-client'
 import { applyChangedStaticFeatures } from '../content-scripts/features/static'
 import { initializeExtension } from '../content-scripts/initialize'
@@ -31,6 +32,8 @@ import {
   KeyQuickListNavEnabled,
   KeyQuickListNavPosition,
   KeyQuickLists,
+  KeyFavoriteBloggers,
+  KeyFavoriteBloggersEnabled,
   KeyJumpToReplies,
   KeySortRepliesByTime,
   KeyRepliesSortOrder,
@@ -192,6 +195,10 @@ export default defineContentScript({
       if (tweetFilterChanged) {
         invalidateTweetFilterCache()
         void runTweetFilter(true)
+      }
+
+      if (changes[KeyFavoriteBloggers] || changes[KeyFavoriteBloggersEnabled]) {
+        void runFavoriteBloggersFeature()
       }
 
       if (

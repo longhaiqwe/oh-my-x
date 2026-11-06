@@ -67,6 +67,7 @@ import {
   KeySortRepliesByTime,
   KeyRepliesSortOrder,
   KeyAutoLikeOnReply,
+  KeyFavoriteBloggersEnabled,
   KeyQuickInteraction,
   KeyQuickInteractionDock,
   KeyUserFollowerCount,
@@ -164,6 +165,7 @@ export interface ExtensionSettings {
   [KeySortRepliesByTime]: ToggleValue
   [KeyRepliesSortOrder]: 'default' | 'newest' | 'oldest'
   [KeyAutoLikeOnReply]: ToggleValue
+  [KeyFavoriteBloggersEnabled]: ToggleValue
   [KeyQuickInteraction]: ToggleValue
   [KeyQuickInteractionDock]: ToggleValue
   [KeyBookmarkCount]: ToggleValue
@@ -228,6 +230,7 @@ const TOGGLE_KEYS = new Set<string>([
   KeyJumpToReplies,
   KeySortRepliesByTime,
   KeyAutoLikeOnReply,
+  KeyFavoriteBloggersEnabled,
   KeyQuickInteraction,
   KeyQuickInteractionDock,
   KeyBookmarkCount,

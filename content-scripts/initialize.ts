@@ -1,3 +1,4 @@
+import { initGifClipboardPaste } from './features/gif-clipboard'
 import { runDynamicFeatures, type DynamicFeatureScope } from './features/dynamic'
 import { applyStaticFeatures } from './features/static'
 import addStyleSheet from './utilities/addStyleSheet'
@@ -46,6 +47,7 @@ export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<Dynami
     if (el.closest('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]') || contains('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]')) {
       scopes.add('tweet')
     }
+    if (el.closest('[data-testid="UserName"]') || contains('[data-testid="UserName"]')) scopes.add('tweet')
     if (
       el.closest('[role="dialog"], [data-testid="composer"], [data-testid="composerRichTextInputContainer"], [data-testid="twitterArticleRichTextView"], [data-testid="twitterArticleReadView"]') ||
       contains('[role="dialog"], [data-testid="composer"], [data-testid="composerRichTextInputContainer"], [data-testid="twitterArticleRichTextView"], [data-testid="twitterArticleReadView"]')
@@ -91,6 +93,7 @@ export async function initializeExtension() {
   listenForScheduledTweetsApi()
   listenForBookmarkMetricsApi()
   initAutoLikeOnReply()
+  initGifClipboardPaste()
   void initMentionByName()
   void initSearchTools()
   void initSearchMenu()

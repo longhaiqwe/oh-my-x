@@ -230,7 +230,7 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
             type: 'XF_GET_TWEET_MEDIA',
             tweetId: info!.tweetId,
           })
-          const videoItem = res?.media?.videos?.[0]
+          const videoItem = res?.media?.videos?.[0] || res?.media?.gifs?.[0]
           const mp4Url = videoItem?.bestMp4Url
           if (!mp4Url) {
             btnTextEl.textContent = menuText('mediaPage.videoUrlMissing')
@@ -238,12 +238,12 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           }
           btnTextEl.textContent = menuText('mediaPage.downloading')
           const filename = `x_${info!.authorHandle || 'video'}_${info!.tweetId || Date.now()}.mp4`
-          await browser.runtime.sendMessage({
+          const download = await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.textContent = menuText('mediaPage.started')
+          btnTextEl.textContent = menuText(download?.ok ? 'mediaPage.started' : 'mediaPage.failed')
         } catch {
           btnTextEl.textContent = menuText('mediaPage.failed')
         }
@@ -273,15 +273,36 @@ function injectMediaDownloadOptions(dropdown: Element, info: DomTweetInfo | null
           }
           btnTextEl.textContent = menuText('mediaPage.downloading')
           const filename = `x_${info!.authorHandle || 'gif'}_${info!.tweetId || Date.now()}.mp4`
-          await browser.runtime.sendMessage({
+          const download = await browser.runtime.sendMessage({
             type: 'XF_DOWNLOAD_MEDIA',
             url: mp4Url,
             filename,
           })
-          btnTextEl.textContent = menuText('mediaPage.started')
+          btnTextEl.textContent = menuText(download?.ok ? 'mediaPage.started' : 'mediaPage.failed')
         } catch {
           btnTextEl.textContent = menuText('mediaPage.failed')
         }
+      },
+    })
+  }
+
+  // 导出也覆盖只识别到 videoPlayer 的 GIF；实际媒体类型由接口解析。
+  if (info.hasVideo || info.hasGif) {
+    let opening = false
+    createDownloadOption({
+      id: 'xf-export-gif-btn', dropdown, template,
+      label: menuText('mediaPage.exportGif'),
+      onClick: async (textEl) => {
+        if (opening) return
+        opening = true
+        try {
+          const result = await browser.runtime.sendMessage({
+            type: 'XF_EXPORT_GIF', tweetId: info!.tweetId, locale: isZh ? 'zh-CN' : 'en',
+          })
+          textEl.textContent = menuText(result?.ok ? 'mediaPage.exportOpened' : 'mediaPage.exportFailed')
+        } catch {
+          textEl.textContent = menuText('mediaPage.exportFailed')
+        } finally { opening = false }
       },
     })
   }

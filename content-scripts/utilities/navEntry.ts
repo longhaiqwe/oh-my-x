@@ -37,7 +37,13 @@ export function isNavExpanded(refLink: HTMLElement): boolean {
     return false
   }
 
-  // 2. 检查侧边栏真实容器宽度（展开时约为 275px，收起时约为 68px ~ 88px）
+  // 优先 检查原生参考项中的文字是否处于显示状态
+  const cs = window.getComputedStyle(textInfo.container)
+  if (cs.display === 'none' || cs.visibility === 'hidden') return false
+  const ss = window.getComputedStyle(textInfo.textSpan)
+  if (ss.display === 'none' || ss.visibility === 'hidden') return false
+
+  // 文字未被隐藏时，再检查侧边栏真实容器宽度（展开时约为 275px，收起时约为 68px ~ 88px）
   const banner = document.querySelector('header[role="banner"]') as HTMLElement | null
   const nav = (banner?.querySelector('nav[role="navigation"]') || document.querySelector('nav[role="navigation"]')) as HTMLElement | null
   const sidebarWidth =
@@ -48,11 +54,6 @@ export function isNavExpanded(refLink: HTMLElement): boolean {
     if (sidebarWidth >= 200) return true
   }
 
-  // 3. 检查原生参考项中的文字是否处于显示状态
-  const cs = window.getComputedStyle(textInfo.container)
-  if (cs.display === 'none' || cs.visibility === 'hidden') return false
-  const ss = window.getComputedStyle(textInfo.textSpan)
-  if (ss.display === 'none' || ss.visibility === 'hidden') return false
   const r = textInfo.container.getBoundingClientRect()
   if (r.width > 0 && r.height > 0) return true
   // 若尚未完成 layout 测量（width=0），只要未被样式隐藏且非移动端极窄屏幕即认定为展开

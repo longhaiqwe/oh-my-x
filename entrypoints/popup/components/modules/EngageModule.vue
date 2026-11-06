@@ -7,6 +7,7 @@ import {
   KeyAutoLikeOnReply,
   KeyHighlightNonFollowers,
   KeyMediaDownload,
+  KeyFavoriteBloggersEnabled,
 } from '../../../../storage-keys'
 import { useI18n } from '../../composables/useI18n'
 import ModuleHeader from '../ui/ModuleHeader.vue'
@@ -71,6 +72,11 @@ const shortcutKeys = computed(() => [
    </template>
   </FeatureCard>
 
+  <FeatureCard feature-id="favoriteBloggers">
+   <template #control>
+    <FeatureSwitch :storage-key="KeyFavoriteBloggersEnabled" :label="featureText('favoriteBloggers', 'label')" />
+   </template>
+  </FeatureCard>
   <QuickListCard />
  </section>
 </template>

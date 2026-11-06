@@ -1,0 +1,15 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; color: light-dark(#17212b, #e7e9ea); background: light-dark(#f5f7f9, #101317); }
+body { margin: 0; padding: 48px 20px; }
+main { max-width: 640px; margin: auto; }
+.brand { font-size: 14px; font-weight: 650; color: #718399; }
+h1 { font-size: 30px; margin: 18px 0; }
+p { line-height: 1.7; }
+#note { color: light-dark(#526271, #a8b6c4); }
+#status { margin-top: 30px; overflow-wrap: anywhere; }
+progress { width: 100%; height: 12px; accent-color: #1d9bf0; }
+#preview { display: block; max-width: 100%; max-height: 480px; margin: 24px auto; border-radius: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+button, .primary, .secondary { border: 1px solid #82909c; border-radius: 8px; padding: 10px 18px; font: inherit; cursor: pointer; text-decoration: none; color: inherit; background: transparent; }
+.primary { background: #1479b9; color: white; border-color: #1479b9; }
+button:focus-visible, a:focus-visible { outline: 3px solid #1d9bf0; outline-offset: 3px; }
+[hidden], #preview[hidden] { display: none; }

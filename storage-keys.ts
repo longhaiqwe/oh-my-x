@@ -60,6 +60,10 @@ export const KeyAutoLikeOnReply = 'autoLikeOnReply'
 export const KeyQuickInteraction = 'quickInteraction'
 export const KeyQuickInteractionDock = 'quickInteractionDock'
 
+// Favorite bloggers
+export const KeyFavoriteBloggersEnabled = 'favoriteBloggersEnabled'
+export const KeyFavoriteBloggers = 'favoriteBloggers'
+
 // Quick List storage keys
 export const KeyQuickListAdderEnabled = 'quickListAdderEnabled'
 export const KeyQuickListNavEnabled = 'quickListNavEnabled'
@@ -191,6 +195,7 @@ export const allSettingsKeys = [
   KeyTweetFilterEnabled,
   KeyTweetFilterAction,
   KeyTweetFilterKeywords,
+  KeyFavoriteBloggersEnabled,
   KeyQuickListAdderEnabled,
   KeyQuickListNavEnabled,
   KeyQuickListNavPosition,
@@ -445,6 +450,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyTweetFilterEnabled]: 'on',
   [KeyTweetFilterAction]: 'collapse',
   [KeyTweetFilterKeywords]: defaultTweetFilterKeywords.join('\n'),
+  [KeyFavoriteBloggersEnabled]: 'on',
   [KeyQuickListAdderEnabled]: 'on',
   [KeyQuickListNavEnabled]: 'on',
   [KeyQuickListNavPosition]: 'top',

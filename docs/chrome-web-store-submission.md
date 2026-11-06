@@ -1,6 +1,6 @@
 # Chrome 应用商店提交资料
 
-更新：2026-10-26，对应版本 2.5.0（2.3.1 的提交记录见第九节，2.5.0 见第十节）。
+更新：2026-11-06，当前准备版本 2.6.0；商店线上版本已核对为 2.5.1。历史提交记录保留原日期与状态。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
 
@@ -107,6 +107,7 @@ After the user clicks "Save to X drafts" in the right-click menu, the extension 
 
 ```text
 x.com, twitter.com, mobile.twitter.com, pro.x.com: content scripts change the page layout, hide spam replies, and add badges and tools on X pages; the extension calls X's web API on these hosts with the user's session.
+video.twimg.com: fetch the selected post’s MP4 for local GIF conversion in an extension page, only after the user chooses Export GIF. No media is sent to an external conversion service.
 abs.twimg.com: the background script downloads X's public web client script as text and reads the current GraphQL query ID from it. The script is not executed.
 Optional hosts (https://*/*, http://localhost/*, http://127.0.0.1/*): requested at runtime only for the AI service address the user enters, after the user clicks "Authorize and test connection". Remote AI services must use HTTPS; HTTP is accepted only for local services on localhost and 127.0.0.1. No access to other sites is requested at install.
 ```

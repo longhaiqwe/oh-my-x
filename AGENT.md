@@ -58,6 +58,8 @@ oh-my-x/
 │   ├── i18n/                    # 界面语言：zh-CN.ts / en.ts 文案表 + t() 取文案、语言设置读取
 │   ├── tweet-filter-rules.ts    # 正文关键词过滤规则
 │   ├── tweet-media.ts           # 从推文 DOM 和接口数据提取图片/视频地址（下载用）
+│   ├── gif-export.ts            # GIF 导出：源地址校验、流式大小限制、逐帧取样与 gifenc 编码
+│   ├── gif-clipboard.ts         # 用 HTML 剪贴板保留完整 GIF，粘贴到 X 时还原文件，无剪贴板读取权限
 │   ├── own-post-library*.ts     # 帖子库：IndexedDB 存储 + 同步调度
 │   ├── ai-repost.ts             # AI 转发提示词：通用规则 + 用户的转发风格
 │   ├── ai-request.ts            # AI 请求的 Port 生命周期与超时
@@ -87,7 +89,7 @@ oh-my-x/
 │   │   ├── quick-interaction.ts # 快捷键 1-4 + 底部悬浮条
 │   │   ├── reply-assistant.ts   # 直达回复区胶囊（可拖动，位置存 jumpRepliesPosition）
 │   │   ├── auto-like-reply.ts   # 回复后自动点赞
-│   │   ├── quick-list.ts        # Lists：资料卡「+ List」+ 导航栏「我的列表」入口
+│   │   ├── quick-list.ts        # Lists：主页和资料卡昵称旁「加列表」+ 导航栏「我的列表」入口
 │   │   ├── scheduled-sidebar.ts # 右侧栏搜索框下的排期面板（按天分组、刷新、收起）
 │   │   ├── mention-by-name.ts   # 按名字艾特：@ 后输入非英文名字时列出账号，选中后换成 @用户名
 │   │   ├── selection-draft.ts   # 右键存草稿：把拦截器抓到的新建草稿接口编号写进存储
@@ -134,6 +136,7 @@ oh-my-x/
 │   ├── content.ts               # isolated content script 入口（storage.onChanged、总开关）
 │   ├── interceptor.content.ts   # MAIN world 脚本：hook fetch/XHR 拦截排期 API
 │   ├── background.ts            # Service Worker：默认词库同步、帖子库、Lists/媒体请求、创作者奖励、AI 请求
+│   ├── gif-export/              # GIF 导出独立页：获取媒体、本地转换、取消、预览和保存
 │   ├── popup/                   # 设置面板（Vue 3 SPA，6 个模块标签，只挂载当前模块）
 │   └── options/                 # 完整设置页（新标签页整页打开，复用 popup 的模块页）
 │       ├── App.vue / main.ts / style.css / index.html
@@ -165,7 +168,7 @@ oh-my-x/
 - 负责本地帖子库 RPC、同步唤醒、Lists/媒体请求、创作者奖励定时刷新，以及可取消的 AI 请求与权限检查。
 
 ### 4. Popup（`entrypoints/popup/`）
-- Vue 3 SPA，6 个模块标签（界面 / 过滤 / 数据 / 创作 / 互动），只挂载当前模块页。
+- Vue 3 SPA，6 个模块标签（界面 / 过滤 / 数据 / 创作 / 互动 / 设置），只挂载当前模块页。
 
 ## 发帖框多图排版与排序（`options/composer-media.ts` + `shared/composer-media-bridge.ts`）
 
@@ -330,9 +333,9 @@ npm run build     # → build/chrome-mv3/
 npm run zip       # 构建 + 打包
 ```
 
-Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`、`scripting`、`contextMenus`、`activeTab`。默认主机权限仅 X 域名与 `abs.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
+Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`、`scripting`、`contextMenus`、`activeTab`。默认主机权限仅 X 域名、`abs.twimg.com` 与 GIF 导出所需的 `video.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
 
-AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；第一段数据 25 秒内要到，之后 15 秒没有新数据或总共 90 秒才算超时（`shared/ai-deadline.ts`），Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
+AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；总结生成不设扩展侧等待上限，其余请求第一段数据 25 秒内要到，之后 15 秒没有新数据或总共 90 秒才算超时（`shared/ai-deadline.ts`），Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
 
 转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用默认风格。转发文案按插件界面语言生成：X 页面的 AI 面板在请求里带上 `locale`，后台按它选中文或英文的提示词、默认风格（`DEFAULT_REPOST_STYLE` / `DEFAULT_REPOST_STYLE_EN`）和禁用词替换表；请求没带语言时按后台读到的插件语言。中英两套提示词结构保持一致，改一套时同步改另一套。提示词里不要写入具体某个人的人设或账号。
 

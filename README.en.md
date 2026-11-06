@@ -47,7 +47,8 @@ The settings popup has five tabs. The names below match the popup:
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
 | [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
 | [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
-| [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
+| [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, Favorites, X Lists |
+| **Settings** | AI service configuration |
 
 ---
 
@@ -256,7 +257,7 @@ In post, quote, and reply editors, click the AI draft button. It appears to the 
 
 - Works with OpenAI-compatible APIs. Under Settings → AI service, enter the base URL, API key, and default model, then click Authorize and test connection. The extension asks for access to that service address only; if you decline, no request is sent. Quote drafts and reply checks share this service, with independent model overrides; leave an override empty to follow the default. Existing connection settings migrate automatically.
 - Set your own writing style: describe it under Style description, and paste 2 to 5 quote posts you wrote under Sample posts, separated by a line containing only `---`. If both are empty, a plain default style is used.
-- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Requests allow 25 seconds for the first data, 15 seconds of subsequent inactivity, and 90 seconds overall. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
+- Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Summary generation waits for the complete result without an extension-imposed deadline. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. The browser's background lifecycle, network, or provider can still interrupt the request. Connection tests and original-post retrieval retain a 25-second timeout. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
 
 #### Schedule overview
 
@@ -280,23 +281,37 @@ After you reply to someone's post, likes that post. It waits a random 0.3 to 0.7
 
 #### Media download
 
-Adds options to download images, GIFs, and videos (MP4) to a post's share menu, styled like the other menu items and in the same language as X's menu. For your own videos, X's menu already has Download video, so no duplicate is added.
+Adds image downloads, MP4 downloads, and **Export GIF** to a post's share menu, using X's menu style and language. **Download GIF (MP4)** saves an MP4 file. To get a `.gif` file, choose **Export GIF**; conversion runs in a new extension tab where you can preview the result, select **Copy GIF for X** and paste into an X composer, or select **Save GIF**. If X already provides Download video for your own video, no duplicate MP4 option is added.
+
+- Conversion runs on your device without uploading media. It supports GIF posts and short videos, using the first GIF or, if none exists, the first video.
+- Output uses 10 frames per second, up to 480 pixels on the longest edge and 256 colors, looping without audio. Small images are not enlarged.
+- Sources are limited to 60 seconds and 50 MiB; output is limited to 64 MiB. Oversized media shows an error suggesting MP4 download instead of truncating it.
+- Keep the export tab open while converting. You can cancel or retry.
+- Copy supports GIFs up to 15 MiB. Pasting into X requires oh-my-x to be enabled. The extension only handles GIFs copied by this feature, restores the full animation as a file attachment, and never publishes automatically. No clipboard-read permission is requested; compatibility with other applications is not guaranteed.
 
 #### Non-follower marker
 
 In your Following list, marks accounts that don't follow you in red.
 
+#### Favorites
+
+- Adds Favorites above Home in the left navigation. Search saved bloggers by name or username, then click a name to open their profile.
+- Click Save beside the display name on a profile or hover card to save it; click Saved again to remove it.
+- Drag the handle beside a blogger to reorder favorites; changes are saved automatically. You can also focus the handle and use the up/down arrow keys. Reordering search results keeps all other saved bloggers.
+- Add a blogger by entering an `@username` or X / Twitter profile link in the panel. Use the remove button beside a blogger to remove them.
+- Favorites stay in this browser, separate from X follows and Lists. Turning off Engage → Favorites keeps saved bloggers.
+
 #### X Lists
 
 - Adds a My Lists entry to the left navigation that opens all your Lists. Put it Above Home or In Lists; the change applies right away.
-- When you hover over an avatar or username, the profile hover card shows a "+ List" button. Click it and pick a List, without opening the profile.
+- Profiles and profile hover cards show "+ List" and Save beside the display name, with matching text-only pill buttons. Click + List to choose a List. The Chinese UI labels this button “加列表”.
 - Sync your account's existing Lists in the settings, or add one by link or ID.
 
 ---
 
 ## Settings popup and full settings page
 
-Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pixels wide). It has 5 tabs (modules are defined in `shared/feature-registry.ts`):
+Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pixels wide). It has 6 tabs (modules are defined in `shared/feature-registry.ts`):
 
 | Tab (module) | Features |
 |------|------|
@@ -304,13 +319,14 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
 | **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
 | **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
-| **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, X Lists |
+| **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, Favorites, X Lists |
+| **Settings** | AI service configuration |
 
 The Filter tab has two levels: the first shows each feature's switch and status; click Settings, Manage muted words, Manage lists, or All records at the bottom right of a card to open the second level, and use the back button at the top left to return.
 
 **Language**: the globe button at the top of the popup (at the top of the sidebar on the full settings page) switches between Browser default, 中文, and English. Browser default uses Chinese when the browser language starts with zh and English otherwise. Extension UI already shown on an open X page switches language after you reload that page.
 
-**Full settings page**: the Full settings button at the top right of the popup opens the settings in a new tab, at the module the popup was showing. You can also open it from Extension options in the extension's details at `chrome://extensions`. It has the same content as the popup and shares the same settings, with more room for word lists, account lists, and AI service settings. `#layout`, `#filter`, `#insight`, `#create`, and `#engage` at the end of the address open the five modules.
+**Full settings page**: the Full settings button at the top right of the popup opens the settings in a new tab, at the module the popup was showing. You can also open it from Extension options in the extension's details at `chrome://extensions`. It has the same content as the popup and shares the same settings, with more room for word lists, account lists, and AI service settings. `#layout`, `#filter`, `#insight`, `#create`, `#engage`, and `#settings` at the end of the address open the six modules.
 
 ---
 
@@ -318,8 +334,8 @@ The Filter tab has two levels: the first shows each feature's switch and status;
 
 - **Stored locally**: settings, word lists, the block log, and your AI API key are stored in `browser.storage.local`; the post library is stored in the extension's local IndexedDB. The extension does not encrypt the API key; masking in the settings only hides it on screen.
 - **Requests to X**: post sync, Lists, user metrics, creator rewards, and interaction helpers use your existing signed-in session to talk to X. The developer does not receive this data and collects no telemetry.
-- **Optional AI requests**: content is sent only when you generate or test, and only to a service address you authorized; that provider's data and billing terms apply. AI requests carry no browser cookies.
-- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`, `contextMenus`, `activeTab` (the last two are for Save selection to drafts: after you click the menu item, the selected text on the current page is read once); default host access is limited to X domains and `abs.twimg.com`. Your AI host is granted on demand through optional permissions and can be managed in Chrome's extension settings.
+- **Optional AI requests**: generation, connection tests, AI search, and reply checks within the scope you enable send the relevant content only to a service address you authorized; that provider's data and billing terms apply. AI requests carry no browser cookies.
+- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`, `contextMenus`, `activeTab` (the last two are for Save selection to drafts: after you click the menu item, the selected text on the current page is read once); default host access is limited to X domains, `abs.twimg.com`, and `video.twimg.com` (to load media for GIF export). Your AI host is granted on demand through optional permissions and can be managed in Chrome's extension settings.
 - **Where scripts run**: page scripts are injected only on `twitter.com`, `mobile.twitter.com`, `x.com`, and `pro.x.com`.
 
 See the [privacy policy](PRIVACY.md).

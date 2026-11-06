@@ -1,3 +1,4 @@
+import { placeProfileAction, cleanupProfileActions, getCurrentProfileActionTarget } from '../utilities/profileActions'
 import {
   KeyQuickListAdderEnabled,
   KeyQuickListNavEnabled,
@@ -513,67 +514,53 @@ function escapeHtml(str: string): string {
   }[c] || c))
 }
 
+function injectListButton(root: Element, handle: string, followBtn: Element | null) {
+  const existing = root.querySelector<HTMLButtonElement>(`.${BTN_CLASS}`)
+  if (existing?.dataset.handle === handle) {
+    existing.title = t('qlPage.addButtonTitle', { handle })
+    if (existing.textContent !== t('qlPage.addButtonLabel')) existing.textContent = t('qlPage.addButtonLabel')
+    placeProfileAction(root, handle, existing, 1)
+    return
+  }
+  existing?.remove()
+  const btn = document.createElement('button')
+  btn.className = BTN_CLASS
+  btn.title = t('qlPage.addButtonTitle', { handle })
+  btn.type = 'button'
+  btn.dataset.handle = handle
+  btn.textContent = t('qlPage.addButtonLabel')
+  btn.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const currentUserId = extractUserIdFromCard(root, followBtn)
+    void toggleQuickListMenu(btn, handle, currentUserId)
+  })
+  placeProfileAction(root, handle, btn, 1)
+}
+
+// 保留原有入口名称；同时处理资料卡与博主主页。
 export function scanAndInjectHoverCards(enabled = true) {
   if (!enabled) {
     document.querySelectorAll(`.${BTN_CLASS}`).forEach((el) => el.remove())
+    cleanupProfileActions()
+    closeQuickListMenu()
     return
   }
-
   ensureStyles()
-  document.querySelectorAll('div[data-testid="HoverCard"]').forEach((card) => {
-    if (card.querySelector(`.${BTN_CLASS}`)) return
+  document.querySelectorAll('div[data-testid="HoverCard"]').forEach(card => {
     const handle = extractHandleFromCard(card)
-    if (!handle) return
-
-    const followBtn =
-      card.querySelector('[data-testid$="-unfollow"]') ||
-      card.querySelector('[data-testid$="-follow"]')
-    if (!followBtn) return
-
-    const btn = document.createElement('button')
-    btn.className = BTN_CLASS
-    btn.title = t('qlPage.addButtonTitle', { handle })
-    btn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
-        <path d="M12 5v14M5 12h14"/>
-      </svg>
-      <span>List</span>
-    `
-
-    btn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const currentUserId = extractUserIdFromCard(card, followBtn)
-      toggleQuickListMenu(btn, handle, currentUserId)
-    })
-
-    // X 的字体写在按钮内部的文字节点上，外层 button 只有浏览器默认字体
-    const labelEl = followBtn.querySelector('span') || followBtn
-    const cs = window.getComputedStyle(labelEl)
-    const theme = getThemeColors()
-    Object.assign(btn.style, {
-      height: `${(followBtn as HTMLElement).offsetHeight || 32}px`,
-      paddingLeft: '14px',
-      paddingRight: '14px',
-      fontFamily: cs.fontFamily || 'TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-      fontSize: cs.fontSize,
-      fontWeight: cs.fontWeight,
-      lineHeight: cs.lineHeight,
-      borderColor: theme.isDark ? 'rgb(83, 100, 113)' : 'rgb(207, 217, 222)',
-      color: theme.isDark ? 'rgb(239, 243, 244)' : 'rgb(15, 20, 25)',
-    })
-    btn.style.setProperty('--xf-ql-hover-bg', theme.hoverBg)
-
-    const parent = followBtn.parentElement
-    if (parent) {
-      const pcs = window.getComputedStyle(parent)
-      if (pcs.display !== 'flex') parent.style.display = 'flex'
-      parent.style.flexDirection = 'row'
-      parent.style.alignItems = 'center'
-      parent.style.gap = '8px'
-      parent.insertBefore(btn, followBtn.nextSibling)
-    }
+    if (handle) injectListButton(card, handle, card.querySelector('[data-testid$="-unfollow"], [data-testid$="-follow"]'))
   })
+  const profile = getCurrentProfileActionTarget()
+  if (profile) {
+    const follow = [...profile.primary.querySelectorAll('[data-testid$="-unfollow"], [data-testid$="-follow"]')]
+      .find(el => !el.closest('article, [data-testid="HoverCard"]')) || null
+    injectListButton(profile.root, profile.handle, follow)
+  } else {
+    const primary = document.querySelector('[data-testid="primaryColumn"]')
+    primary?.querySelectorAll(`.${BTN_CLASS}`).forEach(button => button.remove())
+    if (primary) cleanupProfileActions(primary)
+  }
 }
 
 // ---------- 侧边栏 Lists 入口 ----------

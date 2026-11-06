@@ -1,3 +1,4 @@
+import { runFavoriteBloggersFeature } from './favorite-bloggers'
 import {
   KeyCommunitiesButton,
   KeyListsButton, KeyNavigationButtonsLabels,
@@ -140,6 +141,10 @@ export const dynamicFeatures = {
           }
           changeHighlightNonFollowers(s.highlightNonFollowers)
           void runQuickListFeature()
+        }
+
+        if (includesScope(scopes, 'tweet') || includesScope(scopes, 'navigation')) {
+          void runFavoriteBloggersFeature()
         }
 
         if (includesScope(scopes, 'composer')) {

@@ -56,6 +56,8 @@ import {
   KeyQuickListNavEnabled,
   KeyQuickListNavPosition,
   KeyQuickLists,
+  KeyFavoriteBloggers,
+  KeyFavoriteBloggersEnabled,
   KeyRadarWidth,
   KeyRepliesSortOrder,
   KeyScheduledPanorama,
@@ -373,6 +375,11 @@ export const FEATURES: readonly FeatureDefinition[] = [
     id: 'nonFollowers',
     module: 'engage',
     storageKeys: [KeyHighlightNonFollowers],
+  },
+  {
+    id: 'favoriteBloggers',
+    module: 'engage',
+    storageKeys: [KeyFavoriteBloggersEnabled, KeyFavoriteBloggers],
   },
   {
     id: 'quickLists',

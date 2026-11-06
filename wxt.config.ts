@@ -44,6 +44,8 @@ export default defineConfig({
       'https://x.com/*',
       'https://pro.x.com/*',
       'https://abs.twimg.com/*',
+      // GIF 导出页读取 MP4 后在本地逐帧编码
+      'https://video.twimg.com/*',
     ],
     // AI 服务地址：远程只允许 HTTPS，HTTP 只给本机服务（见 shared/ai-request.ts）
     optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
