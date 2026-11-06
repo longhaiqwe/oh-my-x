@@ -1,6 +1,6 @@
 # Chrome 应用商店提交资料
 
-更新：2026-11-06，当前准备版本 2.6.0；商店线上版本已核对为 2.5.1。历史提交记录保留原日期与状态。
+更新：2026-11-06，2.6.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.5.1。历史提交记录保留原日期与状态。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
 
@@ -294,3 +294,21 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 - 审核被拒或收到政策警告（`status` 会显示警告），要看具体原因。
 
 按比例放量要求 7 天活跃用户超过 1 万（官方文档），目前用不了。
+
+## 十二、2.6.0 提交（2026-11-06）
+
+商店线上版本与上一个 GitHub Release 均为 2.5.1。本次发布标签 `v2.6.0` 对应提交 `5438afaabb61536b3ecaa3ca5894c18b88cf8dc6`，相较 `v2.5.1` 共 18 个提交、66 个文件变更。主要包括博主收藏及拖拽排序、本地 GIF 导出和复制、推文指标展示，以及 AI 总结和奖励统计修正。
+
+| 项目 | 结果 |
+|------|------|
+| 本地验证 | 在发版提交的干净目录运行 `npm ci`、`npm run check`、`npm run zip`；107 个测试文件、1305 项测试、类型检查和生产构建全部通过 |
+| GitHub | `main` 与 `v2.6.0` 已推送到 `longhaiqwe/oh-my-x`；Check 和 Release 工作流成功；[GitHub Release](https://github.com/longhaiqwe/oh-my-x/releases/tag/v2.6.0) 已发布 |
+| 商店安装包 | `build/oh-my-x-2.6.0-chrome.zip`，590119 字节，manifest 位于 ZIP 根目录；后台识别版本为 2.6.0 |
+| SHA-256 | `e9054820e095447be54b7c516e637c7e29c7c28881d0a0d0973893cc57858b5a` |
+| 商品详情 | 中英文说明均已保存，补充收藏排序、本地 GIF 导出与复制，修正可选 AI 请求的触发方式；保留原有图片 |
+| 隐私权 | 更新 storage 与主机权限理由，说明收藏及顺序保存在本机，以及 `https://video.twimg.com/` 用于获取媒体并在本地转换 GIF；原有 7 项 API 权限不变 |
+| 审核提交 | 已勾选“通过审核后自动发布”；点击提交后后台显示“已将您的扩展程序提交送审” |
+
+本次通过开发者后台完成提交。浏览器扩展接口无法操作商店域名，改用 Chrome 原生界面操作；未使用远程调试。商店 API 凭据尚未配置，本次没有通过发布脚本调用真实商店 API。
+
+审核提交成功不代表已上架；2.6.0 将在审核通过后自动发布。
