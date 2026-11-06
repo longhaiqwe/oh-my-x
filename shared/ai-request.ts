@@ -119,8 +119,10 @@ export function sendAiRequest(message: AiRequest, signal: AbortSignal, onProgres
         finish(response as AiResponse)
       }
     }
-    // 后台最长 90 秒一定会回复；这里只防后台没有回应
-    const timer = setTimeout(() => finish(undefined, new AppError('error.requestTimeout')), AI_MAX_DURATION_MS + 5_000)
+    // 总结生成不设等待上限；其他请求保留后台未回应时的兜底超时。
+    const timer = message.type === 'XF_GENERATE_REPOST_OPTIONS'
+      ? undefined
+      : setTimeout(() => finish(undefined, new AppError('error.requestTimeout')), AI_MAX_DURATION_MS + 5_000)
     // 后台在读模型的流式返回时不算有事件，隔一会儿发一条消息让它保持运行；后台收到后不处理
     const keepAlive = setInterval(() => {
       try { port.postMessage({ type: AI_KEEPALIVE }) } catch {}

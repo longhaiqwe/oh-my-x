@@ -86,9 +86,9 @@ describe('AI background requests', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('中文转发总结选项')
   })
 
-  it.each(['XF_GENERATE_REPOST_OPTIONS', 'XF_TEST_AI_CONNECTION'])('times out and aborts a stalled %s fetch', async type => {
+  it.each(['XF_BUILD_SEARCH_QUERY', 'XF_TEST_AI_CONNECTION'])('times out and aborts a stalled %s fetch', async type => {
     fetchMock.mockImplementation(() => new Promise(() => {}))
-    const { server } = start({ ...generate, type, config: { apiKey: 'test-key', baseUrl: 'https://ai.example/v1', model: 'model' } })
+    const { server } = start({ ...generate, type, text: 'Claude', config: { apiKey: 'test-key', baseUrl: 'https://ai.example/v1', model: 'model' } })
     await flushMicrotasks()
     await vi.advanceTimersByTimeAsync(25_000)
     expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'error.aiTimeout' }) }))
@@ -97,11 +97,30 @@ describe('AI background requests', () => {
 
   it('also times out while reading the response body', async () => {
     fetchMock.mockResolvedValue({ ok: true, text: () => new Promise(() => {}) })
-    const { server } = start()
+    const { server } = start({ type: 'XF_TEST_AI_CONNECTION', config: { apiKey: 'test-key', baseUrl: 'https://ai.example/v1', model: 'model' } })
     await flushMicrotasks()
     await vi.advanceTimersByTimeAsync(25_000)
     expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'error.aiTimeout' }) }))
     expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true)
+  })
+
+  it.each(['headers', 'body'])('allows a summary to complete after 120 seconds waiting for %s', async stage => {
+    const payload = JSON.stringify({ choices: [{ message: { content: '{"optionA":"总结一","optionB":"总结二"}' } }] })
+    let complete!: () => void
+    if (stage === 'headers') {
+      fetchMock.mockImplementation(() => new Promise(resolve => { complete = () => resolve(new Response(payload)) }))
+    } else {
+      fetchMock.mockResolvedValue({ ok: true, text: () => new Promise(resolve => { complete = () => resolve(payload) }) })
+    }
+    const { server } = start()
+    await flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(false)
+    expect(server.postMessage).not.toHaveBeenCalled()
+    complete()
+    await flushMicrotasks()
+    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, optionA: '总结一', optionB: '总结二' })
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('aborts when the requesting panel disconnects, without delivering late results', async () => {

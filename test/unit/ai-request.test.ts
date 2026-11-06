@@ -62,6 +62,27 @@ it('sends a keep-alive message every 10 seconds while waiting, and stops after t
   expect(vi.getTimerCount()).toBe(0)
 })
 
+it.each(['reply', 'cancel', 'disconnect'])('keeps a summary pending past 95 seconds and cleans up on %s', async ending => {
+  const controller = new AbortController()
+  const result = sendAiRequest({ type: 'XF_GENERATE_REPOST_OPTIONS', source: { text: '原文内容' } }, controller.signal)
+  const settled = vi.fn()
+  void result.then(settled, settled)
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(settled).not.toHaveBeenCalled()
+  expect(pair.client.disconnect).not.toHaveBeenCalled()
+  expect(pair.client.postMessage.mock.calls.filter(([message]: any[]) => message?.type === AI_KEEPALIVE)).toHaveLength(12)
+  if (ending === 'reply') {
+    pair.server.postMessage({ ok: true, optionA: '总结一', optionB: '总结二' })
+    await expect(result).resolves.toMatchObject({ ok: true })
+  } else {
+    const check = expect(result).rejects.toThrow()
+    if (ending === 'cancel') controller.abort()
+    else pair.server.disconnect()
+    await check
+  }
+  expect(vi.getTimerCount()).toBe(0)
+})
+
 it('keeps cancellation isolated to the requesting panel', async () => {
   const first = pair
   const second = portPair()

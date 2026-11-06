@@ -939,8 +939,8 @@ export default defineBackground(() => {
       const aborted = new Promise<never>((_, reject) => {
         controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
       })
-      // 超时按多久没有新数据算，见 shared/ai-deadline.ts
-      stopDeadline = startAiDeadline(controller)
+      // 总结生成等待完整结果，由面板取消或断开连接中止；其他请求保留超时。
+      if (message.type !== 'XF_GENERATE_REPOST_OPTIONS') stopDeadline = startAiDeadline(controller)
       void Promise.race([executeAiRequest(message, controller.signal, progress => {
         if (!closed && !controller.signal.aborted) {
           try { port.postMessage(progress) } catch { onDisconnect() }
