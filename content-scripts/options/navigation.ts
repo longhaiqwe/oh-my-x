@@ -1,5 +1,5 @@
 import { t } from '../../shared/i18n'
-import type { NavIconId } from '../../shared/navItems'
+import { NAV_ITEMS, type NavIconId } from '../../shared/navItems'
 import { STATIC_NAV_ITEMS } from '../../shared/staticNavIcons'
 import selectors from '../selectors'
 import addStyles, { removeStyles } from '../utilities/addStyles'
@@ -68,6 +68,14 @@ let tm1: ReturnType<typeof setTimeout>
 export function addXPremiumButton() {
   clearTimeout(tm1)
   tm1 = setTimeout(() => {
+    const nav = document.querySelector(selectors.leftSidebarLinks)
+    const selector = NAV_ITEMS.find((item) => item.id === 'xPremium')!.selector
+    const entries = Array.from(nav?.querySelectorAll(selector) ?? [])
+    // 原生入口可能显示为「订阅」等本地化名称，按链接 / testid 识别，不能按英文名称去重。
+    if (entries.some((entry) => !entry.classList.contains('xf-sidebar-button'))) {
+      entries.filter((entry) => entry.classList.contains('xf-sidebar-button')).forEach((entry) => entry.remove())
+      return
+    }
     addSidebarButtonFromPage('Premium', 'xPremium', { href: '/settings/premium' })
   }, 100)
 }
