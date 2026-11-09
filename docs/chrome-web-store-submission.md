@@ -1,6 +1,6 @@
 # Chrome 应用商店提交资料
 
-更新：2026-11-06，2.6.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.5.1。历史提交记录保留原日期与状态。
+更新：2026-11-09，2.7.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.6.0。历史提交记录保留原日期与状态。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
 
@@ -282,7 +282,7 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 
 ### 每次发版
 
-1. 按 AGENT.md 的发版流程升版本号、打标签、推送（GitHub Release 由 release.yml 发布）。
+1. 同步更新 package.json、package-lock.json 和中英文 CHANGELOG，验证后提交并推送匹配版本的 v* 标签（GitHub Release 由 .github/workflows/release.yml 发布）。
 2. 在干净目录打包：主目录常有没提交的改动，要在只含发版提交的目录里跑 `npm run zip`。
 3. `npm run store -- release <包路径>`：上传并提交审核，审核通过后上线。加 `--staged` 则通过后先暂存，再到后台手动发布。
 4. `npm run store -- wait`：默认每 10 分钟查一次，审核有结果后退出；被拒时退出码为 2。
@@ -312,3 +312,24 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 本次通过开发者后台完成提交。浏览器扩展接口无法操作商店域名，改用 Chrome 原生界面操作；未使用远程调试。商店 API 凭据尚未配置，本次没有通过发布脚本调用真实商店 API。
 
 审核提交成功不代表已上架；2.6.0 将在审核通过后自动发布。
+
+
+## 十三、2.7.0 提交（2026-11-09）
+
+本次新增 XChat 引用我的帖子：点击输入框旁的图标，或在空输入框按 `/`，打开居中的帖子选择器。选中帖子后在光标处插入链接，保留原有草稿，不自动发送。适配 XChat 的 Shadow DOM，并修复点击闪退和弹层偏出屏幕的问题。
+
+| 项目 | 结果 |
+|------|------|
+| 发布提交 | `44717a5d1e0f2bbf0adf47b1a3384125f242dbf0`，功能提交 `4dd39e5`；`main` 与 `v2.7.0` 已推送 |
+| 本地验证 | 独立干净 worktree 运行 `npm ci`、`npm run check`、`npm run zip`；108 个测试文件、1319 项测试、类型检查与生产构建通过 |
+| GitHub | Check、Release 工作流成功；[v2.7.0 Release](https://github.com/longhaiqwe/oh-my-x/releases/tag/v2.7.0) 已发布 |
+| 商店安装包 | `build/oh-my-x-2.7.0-chrome.zip`，591655 字节，manifest 位于 ZIP 根目录 |
+| SHA-256 | `c43b75542434cf4ce3836d930fb4b9b2f3813aa49b90eb39e731b9c103b7d1ce` |
+| 权限 | 与 2.6.0 比对，7 项 API 权限、6 项主机权限均未增加 |
+| 审核提交 | 2026-11-09 提交，勾选“通过审核后自动发布”；后台明确显示“已将您的扩展程序提交送审” |
+
+本次继续通过 Chrome 原生界面的开发者后台提交，商店 API 凭据仍未配置。商店原有 GitHub 链接校验出现连接超时，已改为同一仓库的可访问入口：主页 `https://github.com/longhaiqwe/oh-my-x/`，支持页为该主页的“反馈与交流”章节，隐私政策为 `https://raw.githubusercontent.com/longhaiqwe/oh-my-x/main/PRIVACY.md`。隐私政策正文、权限声明及商店图片未变。
+
+送审成功不代表已经上架；2.7.0 将在审核通过后自动发布。上传包使用独立发布目录构建，未包含工作区其他未提交功能。
+
+发版文档曾引用不存在的 `AGENT.md`，本次已根据现有 package.json 与 release.yml 改为实际操作步骤。
