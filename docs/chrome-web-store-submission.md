@@ -1,6 +1,6 @@
 # Chrome 应用商店提交资料
 
-更新：2026-11-09，2.7.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.6.0。历史提交记录保留原日期与状态。
+更新：2026-11-09，2.8.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.7.0。历史提交记录保留原日期与状态。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
 
@@ -333,3 +333,24 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 送审成功不代表已经上架；2.7.0 将在审核通过后自动发布。上传包使用独立发布目录构建，未包含工作区其他未提交功能。
 
 发版文档现直接列出 package.json 与 release.yml 对应的实际操作步骤；仓库中也保留 `AGENT.md` 开发指南。
+
+
+## 十四、2.8.0 提交（2026-11-09）
+
+提交前在开发者后台确认 2.7.0 已发布。本次主要新增收藏按昵称查找，统一主页、资料卡和侧栏面板的字体及操作，并修复重复 Premium 入口和账号每日分析请求。
+
+| 项目 | 结果 |
+|------|------|
+| 发布提交 | `19e4a886864f354e2b692202030415ae183ab803`；`main` 与 `v2.8.0` 已推送；相较 `v2.7.0` 共 5 个提交、29 个文件变更 |
+| 本地验证 | 从发布提交导出的干净目录运行 `npm ci`、`npm run check`、`npm run zip`；110 个测试文件、1350 项测试、类型检查与生产构建全部通过 |
+| 商店安装包 | `build/oh-my-x-2.8.0-chrome.zip`，594139 字节，manifest 位于 ZIP 根目录；后台识别草稿版本 2.8.0，线上版本 2.7.0 |
+| 商店包 SHA-256 | `c545825e64c1a11b6c81ec389514697aab029a9eadc54cfa9b5ce7f989aa466d` |
+| GitHub | [v2.8.0 Release](https://github.com/longhaiqwe/oh-my-x/releases/tag/v2.8.0) 使用已通过本地完整验证的同一构建，顶层增加 `chrome-mv3/` 目录；逐文件比较确认 30 个文件内容与商店包一致 |
+| GitHub 包 SHA-256 | `098e640ed685946729bd5d72838b521fda989e5a485cbdd3adc3f9497e0bf495`，595716 字节 |
+| 权限与隐私 | 与 2.7.0 比对，API 权限、主机权限及可选主机权限均未变化；隐私政策补充昵称查询使用既有 X 会话，选定账号保存在本机 |
+| 商品详情 | 中英文说明均已保存，补充按昵称查找收藏及 XChat 引用帖子；保留原有图片和链接 |
+| 审核提交 | 已勾选“通过审核后自动发布”；后台显示“已将您的扩展程序提交送审” |
+
+GitHub 标签的 Check 与 Release 工作流在 `npm ci` 阶段遇到第三方镜像站错误：下载 `xmlchars-2.2.0.tgz` 返回 HTTP 500（镜像站数据库缺表）。同一依赖的 npm 官方地址返回 HTTP 200。已通过后续提交 `9e2dab5` 将锁文件中 94 个镜像下载地址改为 npm 官方源，依赖版本与完整性校验值均未改变；保留已发布标签，未移动标签。GitHub Release 由本次已验证构建直接上传。修复后的 [Check 工作流](https://github.com/longhaiqwe/oh-my-x/actions/runs/42644104580) 已成功完成，依赖安装、类型检查、测试和构建均通过。
+
+本次通过 Chrome 原生界面的开发者后台完成送审。提交审核成功不代表已经上架；2.8.0 将在审核通过后自动发布。
