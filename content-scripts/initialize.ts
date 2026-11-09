@@ -55,7 +55,7 @@ export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<Dynami
       scopes.add('composer')
       scopes.add('scheduled')
     }
-    const inlineComposerSelector = '[data-xf-inline-composer], [data-testid^="tweetTextarea"], [data-testid="toolBar"], [data-testid="tweetButtonInline"], [data-testid="attachments"]'
+    const inlineComposerSelector = '[data-xf-inline-composer], [data-testid^="tweetTextarea"], [data-testid="toolBar"], [data-testid="tweetButtonInline"], [data-testid="attachments"], [data-testid="dm-composer-form"], [data-testid="dm-composer-textarea"], [data-testid="xchatEmbedRoute"]'
     if (el.closest(inlineComposerSelector) || contains(inlineComposerSelector)) scopes.add('composer')
     if (el.closest('nav[role="navigation"]') || contains('nav[role="navigation"]')) {
       scopes.add('navigation')

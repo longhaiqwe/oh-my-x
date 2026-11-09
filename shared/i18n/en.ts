@@ -855,6 +855,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   'tweetFilterPage.shownTemporarily': 'Shown for now (matched "{keyword}")',
   'tweetFilterPage.collapseAgain': 'Collapse again',
   'composerPage.ownPostsTitle': 'Search and quote my posts or articles',
+  'composerPage.chatOwnPostsTitle': 'Quote my posts (press / in an empty message)',
   'composerPage.markdownLabel': 'Convert Markdown to post format',
   'composerPage.markdownTitle': 'Convert Markdown to post format [⌘⇧M / Ctrl+Shift+M]',
   'composerMedia.dragHint': 'Drag to reorder',

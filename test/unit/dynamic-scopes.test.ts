@@ -16,6 +16,17 @@ function record(target: Node, addedNodes: Node[] = []): MutationRecord {
 }
 
 describe('dynamic feature scope routing', () => {
+  it('routes an XChat shadow host mount to composer discovery', () => {
+    const host = document.createElement('div')
+    host.dataset.testid = 'xchatEmbedRoute'
+    expect(getDynamicFeatureScopes([record(document.body, [host])])).toEqual(new Set(['composer']))
+  })
+  it('routes XChat input mount and replacement to composer', () => {
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML = '<form data-testid="dm-composer-form"><textarea data-testid="dm-composer-textarea"></textarea></form>'
+    expect(getDynamicFeatureScopes([record(document.body, [wrapper])])).toEqual(new Set(['composer']))
+    expect(getDynamicFeatureScopes([record(wrapper.querySelector('textarea')!)])).toEqual(new Set(['composer']))
+  })
   it('does not scan the whole document for an unrelated mutation target', () => {
     document.body.innerHTML = '<article data-testid="tweet"></article><div id="unrelated"></div>'
     const scopes = getDynamicFeatureScopes([record(document.body)])

@@ -877,6 +877,7 @@ export const zhCN = {
   'tweetFilterPage.shownTemporarily': '已临时展开（命中「{keyword}」）',
   'tweetFilterPage.collapseAgain': '重新收起',
   'composerPage.ownPostsTitle': '搜索并引用我的帖子或文章',
+  'composerPage.chatOwnPostsTitle': '引用我的帖子（空输入框按 / 打开）',
   'composerPage.markdownLabel': '转为推文格式 (Markdown to Post)',
   'composerPage.markdownTitle': '转为推文格式 (Markdown to Post) [快捷键 ⌘⇧M / Ctrl+Shift+M]',
   'composerMedia.dragHint': '拖动可调整顺序',

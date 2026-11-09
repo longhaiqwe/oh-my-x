@@ -7,12 +7,15 @@ import { getLocale, t } from '../../shared/i18n'
 import { errorText } from '../../shared/errors'
 
 
-function ensureStyles() {
-  if (stylesExist('ownPostPicker')) return
+function ensureStyles(root: Document | ShadowRoot) {
+  if (stylesExist('ownPostPicker', root)) return
   // Refactoring UI: hierarchy §2.1/2.8, grouped spacing §3.6, quieter borders §8.5.
   // Images §7.4.1/7.4.2: article covers stay uncropped; other thumbnails fill their frame. Text-only rows use the full width.
   // Content > metadata > utility actions. Use existing X theme tokens and a 4/8/12/16/24 spacing scale.
   addStyles('ownPostPicker', `
+    .xf-own-post-dialog{position:fixed;inset:0;margin:auto;padding:0;border:0;border-radius:16px;width:min(560px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);background:transparent;color:inherit;overflow:auto;box-shadow:0 16px 64px rgba(0,0,0,.2)}
+    .xf-own-post-dialog::backdrop{background:rgba(0,0,0,.3)}
+    .xf-own-post-dialog>.xf-own-post-picker{margin:0}
     .xf-own-post-picker{box-sizing:border-box;container-type:inline-size;min-width:0;margin:12px 0;padding:16px;border:1px solid var(--xf-own-border);border-radius:16px;color:var(--xf-own-fg);background:var(--xf-own-bg);font-family:inherit;font-size:14px;line-height:1.5}
     .xf-own-post-picker *{box-sizing:border-box}
     .xf-own-post-picker [hidden]{display:none!important}
@@ -66,13 +69,14 @@ function ensureStyles() {
     .xf-own-post-picker [data-action="previous"]{color:var(--xf-own-muted);margin-left:auto;font-weight:400}
     @container (max-width:360px){.xf-own-post-picker .xf-own-post{padding:12px 4px;gap:12px}.xf-own-post-picker .xf-own-post.xf-own-has-cover{grid-template-columns:72px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover{width:72px;height:72px}.xf-own-post-picker .xf-own-post:has(> .xf-own-cover[data-article="true"]){grid-template-columns:112px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover[data-article="true"]{width:112px;height:auto}.xf-own-post-picker .xf-own-quote span{display:none}.xf-own-post-picker [data-action="previous"]{margin-left:0}.xf-own-post-picker .xf-own-search-field svg{display:none}.xf-own-post-picker .xf-own-summary{align-items:flex-start}}
 
-  `)
+  `, root)
 }
 
-export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement, insert: (url: string) => void) {
+export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement, insert: (url: string) => void, options: { presentation?: 'dialog'; onClose?: () => void } = {}) {
   const existing = modal.querySelector<HTMLElement>('[data-testid="xf-own-post-picker"]')
   if (existing) { existing.querySelector<HTMLInputElement>('input')?.focus(); return }
-  ensureStyles()
+  const root = modal.getRootNode() as Document | ShadowRoot
+  ensureStyles(root)
   const handle = getOwnHandle()
   const panel = document.createElement('section')
   panel.className = 'xf-own-post-picker'
@@ -106,6 +110,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   let debounce: ReturnType<typeof setTimeout> | undefined
   let polling: ReturnType<typeof setInterval> | undefined
   let query = ''
+  let dialog: HTMLDialogElement | undefined
 
   const posts = new Map<string, OwnPost>()
   const close = (focus = true) => {
@@ -114,11 +119,14 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
     clearInterval(polling)
     window.removeEventListener('xf-own-library-updated', refresh)
     controller.abort()
+    if (dialog?.open) dialog.close()
+    dialog?.remove()
     panel.remove()
     trigger.setAttribute('aria-expanded', 'false')
     if (focus && trigger.isConnected) trigger.focus()
+    options.onClose?.()
   }
-  const observer = new MutationObserver(() => { if (!panel.isConnected) close(false) })
+  const observer = new MutationObserver(() => { if (!panel.isConnected || !trigger.isConnected) close(false) })
   panel.querySelector<HTMLButtonElement>('.xf-own-close')!.onclick = () => close()
   panel.addEventListener('keydown', event => {
     event.stopPropagation()
@@ -271,9 +279,22 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   const publish = modal.querySelector('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')
   let toolbar: HTMLElement | null = trigger.parentElement
   while (toolbar && toolbar !== modal && (!publish || !toolbar.contains(publish))) toolbar = toolbar.parentElement
-  if (toolbar && toolbar !== modal) toolbar.insertAdjacentElement('beforebegin', panel)
+  if (options.presentation === 'dialog') {
+    // XChat's translated composer changes the containing block of position:fixed.
+    // A native modal uses the viewport's top layer and keeps focus inside the picker.
+    dialog = document.createElement('dialog')
+    dialog.className = 'xf-own-post-dialog'
+    dialog.setAttribute('aria-label', t('ownPage.title'))
+    dialog.append(panel)
+    dialog.addEventListener('cancel', event => { event.preventDefault(); close() })
+    dialog.addEventListener('click', event => { if (event.target === dialog) close() })
+    ;(root instanceof ShadowRoot ? root : document.body).append(dialog)
+    dialog.showModal()
+  }
+  else if (toolbar && toolbar !== modal) toolbar.insertAdjacentElement('beforebegin', panel)
   else modal.append(panel)
   observer.observe(document.body, { childList: true, subtree: true })
+  if (root instanceof ShadowRoot) observer.observe(root, { childList: true, subtree: true })
   trigger.setAttribute('aria-expanded', 'true')
   input.focus()
   if (handle) {
@@ -286,4 +307,5 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
     status.textContent = t('ownPage.noAccount')
     submit.disabled = recent.disabled = syncButton.disabled = true
   }
+  return () => close(false)
 }

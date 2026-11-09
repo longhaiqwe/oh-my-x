@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XChat 帖子选择器 · 布局回归验证</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#fff;color:#0f1419;font:15px/1.5 system-ui,sans-serif}
+  header{padding:20px 24px;border-bottom:1px solid #8884}h1{font-size:20px;margin:0 0 8px}p{margin:0;color:#536471}
+  body.dark{background:#000;color:#f7f9f9}body.dark p{color:#8b98a5}
+  button{cursor:pointer}#theme{margin-top:12px}
+</style>
+<body>
+<header><h1>XChat 帖子选择器 · 布局验证</h1><p>模拟 Shadow DOM、聊天区域位移与输入框。使用实际功能代码和本地示例数据，不发送消息。</p><button id="theme">切换明暗</button></header>
+<a data-testid="AppTabBar_Profile_Link" href="/demo" hidden></a>
+<div data-testid="xchatEmbedRoute"></div>
+<script type="module">
+import { updateChatOwnPosts } from '/content-scripts/options/chat-own-posts.ts'
+document.cookie = 'twid=u%3D123'
+const samples = [
+  {id:'1001',handle:'demo',title:'一次界面问题的排查记录',text:'测试帖子：检查图标入口、搜索、链接插入与原有文字保留。',timestamp:1794182400000},
+  {id:'1002',handle:'demo',title:'',text:'测试帖子：选择器应位于屏幕中央，关闭后返回原输入框。',timestamp:1794096000000},
+  {id:'1003',handle:'demo',title:'',text:'测试帖子：空输入框按 / 打开选择器，按 Esc 关闭。',timestamp:1794009600000},
+]
+window.browser = {
+  i18n: { getUILanguage: () => 'zh-CN' },
+  storage: { local: { get: async () => ({ownPostAutoSync:'off'}) } },
+  runtime: { sendMessage: async request => {
+    const posts = samples.filter(post => (post.text + post.title).includes(request.query || ''))
+    return {ok:true,result:{posts,total:posts.length,count:samples.length,meta:{historyDone:true,syncing:false,paused:false}}}
+  } },
+}
+const root = document.querySelector('[data-testid="xchatEmbedRoute"]').attachShadow({mode:'open'})
+root.innerHTML = `<style>
+  *{box-sizing:border-box}.layout{display:grid;grid-template-columns:28% 72%;height:calc(100dvh - 160px);font:15px/1.5 system-ui,sans-serif}
+  aside{padding:24px;border-right:1px solid #8884}main{position:relative;overflow:hidden;min-width:0}.messages{padding:24px}
+  [data-testid="dm-composer-container"]{position:absolute;bottom:0;left:50%;translate:-50%;width:100%;padding:16px}
+  .grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}form{min-width:0;margin:0}
+  [data-testid="dm-composer-input-container"]{border-radius:24px;background:#8881;padding:8px}.row{display:flex;align-items:end}.field{flex:1;min-width:0}
+  textarea{box-sizing:border-box;display:block;width:100%;min-height:32px;resize:none;border:0;background:transparent;color:inherit;font:inherit;padding:4px;outline:none}
+  .grid>button{border:0;background:#8881;border-radius:50%;width:48px;color:inherit}output{display:block;margin:20px 0;color:#536471}
+  @media(max-width:600px){.layout{grid-template-columns:1fr}aside{display:none}}
+</style><div class="layout"><aside>聊天列表<br><br>示例对话</aside><main><div class="messages">这里是模拟聊天区域。<output id="sent" data-count="0">发送次数：0</output></div>
+<div data-testid="dm-composer-container"><div class="grid"><button type="button" aria-label="添加附件">＋</button><form data-testid="dm-composer-form"><div data-testid="dm-composer-input-container"><div class="row"><div class="field"><div><textarea data-testid="dm-composer-textarea" aria-label="私信" placeholder="私信" rows="1"></textarea></div></div></div></div></form></div></div></main></div>`
+root.querySelector('form').addEventListener('submit', event => {event.preventDefault(); const out=root.querySelector('output');out.dataset.count=String(Number(out.dataset.count)+1);out.textContent='发送次数：'+out.dataset.count})
+document.querySelector('#theme').onclick=()=>document.body.classList.toggle('dark')
+updateChatOwnPosts()
+</script>
+</body>
+</html>

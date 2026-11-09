@@ -221,6 +221,8 @@ Shows the bookmark count next to a post's Bookmark button. Turn it off under Ins
 
 Adds a button to the post, quote, and reply editors. Search your own posts and articles and click a result to insert its link into the draft, without opening another tab.
 
+XChat also has a quote-my-posts icon beside the message input. Press `/` in an empty message to open the same picker. Selecting a post inserts its link at the cursor while keeping the surrounding text; send it using the chat's usual controls. Press `Esc` to close the picker.
+
 - Post text, article titles, dates, and links are stored per account in the extension's local IndexedDB (a database built into the browser).
 - When you open X while signed in, older posts sync in batches (up to 20 pages per batch, 2.5 seconds between pages; progress is saved, so closing the page resumes next time), then new posts are checked about every 30 minutes. Tabs share one sync lock, and sync can be paused and resumed.
 - Turn off Sync while X is open under Create → Quote my posts. Cached posts stay searchable, and you can still sync manually.
