@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.7.0 - 2026-11-09
+
+### Features
+
+- Add a Quote my posts icon to XChat. Press `/` in an empty message to search and select your own posts and articles.
+- Insert the selected link at the cursor while preserving surrounding text; send the message using XChat's normal controls.
+
+### Fixes and validation
+
+- Support XChat's Shadow DOM, delayed mounting, and replacement inputs; dispose stale bindings when conversations change.
+- Open the picker as a centered native dialog so the composer's CSS translation cannot push it outside the viewport.
+- Cover IME input, selection replacement, closing and reopening, with a browser layout fixture for regression checks.
+
+### Permissions and privacy
+
+- Reuse the local post library without adding extension permissions or automatically sending messages.
+
 ## 2.6.0 - 2026-11-06
 
 Compared with v2.5.1:
