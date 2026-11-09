@@ -40,8 +40,8 @@ const REWARDS_HISTORY_LIMIT = 120
 const IMPRESSIONS_CACHE_LIMIT = 30
 
 export const ACCOUNT_OVERVIEW_OPERATION = 'accountOverviewDailyQuery'
-/** 2026-10-18 在 x.com/i/account_analytics 抓到的接口编号；X 换编号后由页面拦截器记下新的 */
-export const FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID = '2hqAR3h2xhN1cUrUBZypyg'
+/** 2026-11-09 在 x.com/i/account_analytics 验证的接口编号；X 换编号后由页面拦截器记下新的 */
+export const FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID = 'sklI2pXJvdvnG7seZKtivg'
 
 export function utcDateKey(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10)
@@ -181,6 +181,8 @@ export function buildAccountOverviewVariables(now = Date.now()) {
   const prevFrom = from - 14 * DAY_MS
   const iso = (t: number) => new Date(t).toISOString()
   return {
+    // 2026-11-09 实测：缺此必填变量会返回 GRAPHQL_VALIDATION_FAILED（HTTP 422）。
+    include_previous: true,
     current_from: from,
     current_from_iso: iso(from),
     current_to: to,

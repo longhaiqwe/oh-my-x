@@ -125,6 +125,11 @@ describe('parseAccountOverviewDaily 汇总账号分析的每日曝光', () => {
     expect(parseAccountOverviewDaily(null)).toBeNull()
   })
 
+  it('包含 X 新接口必填的 include_previous，避免 HTTP 422', () => {
+    expect(buildAccountOverviewVariables(utc('2026-11-09T06:30:00')))
+      .toHaveProperty('include_previous', true)
+  })
+
   it('请求参数覆盖最近 14 天（含今天）', () => {
     const vars = buildAccountOverviewVariables(utc('2026-10-18T06:35:00'))
     expect(vars.current_to_iso).toBe('2026-10-19T00:00:00.000Z')
