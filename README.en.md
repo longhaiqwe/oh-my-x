@@ -101,6 +101,8 @@ Two switches; on means hidden. The right sidebar includes search, Who to follow,
 
 Hide any of these 10 buttons: Explore, Notifications, Chat, Grok, Premium, History, Articles, Profile, More, and X Money. Items that X moves into the More menu are hidden there too. Navigation labels can be shown never, on hover, or always.
 
+Premium preserves X's native entry, whose label may vary by language, and removes duplicate entries added by the extension. The extension only attempts to add an entry when the native entry is absent and an icon is available from the page.
+
 Two more buttons, Radar and Inspiration (the top posts list in Creator Studio), are not in X's navigation. The extension adds them; both are off by default. Radar requires Premium+. When on, they appear above Profile, and clicking them does not reload the page. In a short window the navigation grows by these two items, and you scroll the left column to reach the account button at the bottom.
 
 #### Article outline
@@ -300,13 +302,13 @@ In your Following list, marks accounts that don't follow you in red.
 - Adds Favorites above Home in the left navigation. Search saved bloggers by name or username, then click a name to open their profile.
 - Click Save beside the display name on a profile or hover card to save it; click Saved again to remove it.
 - Drag the handle beside a blogger to reorder favorites; changes are saved automatically. You can also focus the handle and use the up/down arrow keys. Reordering search results keeps all other saved bloggers.
-- Add a blogger by entering an `@username` or X / Twitter profile link in the panel. Use the remove button beside a blogger to remove them.
+- Search by display name in the panel using the same X user lookup as Mention by Name. Results show avatars, names, and usernames; click a result or select it with the arrow keys and press Enter to save. Direct entry of an `@username` or X / Twitter profile link still works; usernames entered without @ also offer an explicit Save by username option. Use the remove button beside a blogger to remove them.
 - Favorites stay in this browser, separate from X follows and Lists. Turning off Engage → Favorites keeps saved bloggers.
 
 #### X Lists
 
 - Adds a My Lists entry to the left navigation that opens all your Lists. Put it Above Home or In Lists; the change applies right away.
-- Profiles and profile hover cards show "+ List" and Save beside the display name, with matching text-only pill buttons. Click + List to choose a List. The Chinese UI labels this button “加列表”.
+- Profiles and profile hover cards show "+ List" and Save beside the display name, with matching compact, softly filled text buttons that size to their labels and close the gap when either feature is disabled. Buttons, navigation entries, and List panels use the font of X’s native text. The Lists and saved-blogger navigation panels have no separate close button; click outside, click the entry again, or press Esc to close. Click + List to choose a List. The Chinese UI labels this button “加列表”.
 - Sync your account's existing Lists in the settings, or add one by link or ID.
 
 ---

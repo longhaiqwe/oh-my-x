@@ -332,4 +332,4 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 
 送审成功不代表已经上架；2.7.0 将在审核通过后自动发布。上传包使用独立发布目录构建，未包含工作区其他未提交功能。
 
-发版文档曾引用不存在的 `AGENT.md`，本次已根据现有 package.json 与 release.yml 改为实际操作步骤。
+发版文档现直接列出 package.json 与 release.yml 对应的实际操作步骤；仓库中也保留 `AGENT.md` 开发指南。

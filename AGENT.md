@@ -298,7 +298,7 @@ oh-my-x/
 - 测试默认按中文跑（`test/setup.ts` 里 `getUILanguage` 和 `navigator.language` 都是 `zh-CN`）。`test/unit/page-i18n.test.ts` 检查错误代号、命中说明和几块 X 页面界面的英文。
 - 默认垃圾词库和推文屏蔽词按插件界面语言：`storage-keys.ts` 的 `getDefaultSpamKeywords(locale)` / `getDefaultTweetFilterKeywords(locale)`（中文 `defaultSpamKeywords`，英文 `defaultSpamKeywordsEn`）。首次安装时 `migrateSpamStorage` 按当时的插件语言写入；老用户的词库不自动换语言，弹窗里「补充默认词」「恢复默认」按当前界面语言。存储兜底的 `defaultPreferences` 仍是中文。词会先去掉空格和标点再匹配，英文默认词不要收太短的词。
 - 打分规则：「评论过短」对含中日韩文字或纯 emoji、符号的回复按 8 个字符算，其他回复按词数算（少于 2 个词）；「矩阵引流」的前缀包括英文 visit @ / go to @。
-- 进度：设置弹窗、完整设置页、X 页面上注入的界面、后台和拦截器的报错、AI 转发提示词、英文默认词库和打分规则都已接入。README 英文版（`README.en.md`）、双语发布说明、GitHub 仓库简介和标签已完成。还没做：英文截图、Chrome 商店英文资料，清单见 `docs/english-launch-checklist.md`。改了功能或文案时，`README.md` 和 `README.en.md` 要一起改。
+- 进度：设置弹窗、完整设置页、X 页面上注入的界面、后台和拦截器的报错、AI 转发提示词、英文默认词库和打分规则都已接入。README 英文版（`README.en.md`）、双语发布说明、GitHub 仓库简介和标签已完成。Chrome 商店中英文资料已提交，历史准备清单见 `docs/english-launch-checklist.md`，实际发布状态见 `docs/chrome-web-store-submission.md`。改了功能或文案时，`README.md` 和 `README.en.md` 要一起改。
 
 ## 工具函数（`content-scripts/utilities/`）
 

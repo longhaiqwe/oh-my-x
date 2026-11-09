@@ -1,4 +1,5 @@
 // 插件克隆到左侧导航栏的入口（「我的列表」、Radar、灵感）共用：照着旁边的原生项排版，导航收起 / 展开时跟着切换
+import { getXFontFamily } from './xTypography'
 
 export function findNavTextNode(entry: HTMLElement): { container: HTMLElement; textSpan: HTMLElement } | null {
   const spans = Array.from(entry.querySelectorAll('span')).filter(
@@ -128,6 +129,7 @@ export function syncNavEntryLayout(
       textInfo.container.style.visibility = ''
       // 文字相同时不重写：重写会换掉文字节点，触发页面变化监听再跑一轮
       if (textInfo.textSpan.textContent !== label) textInfo.textSpan.textContent = label
+      textInfo.textSpan.style.fontFamily = getXFontFamily(refLink ? findNavTextNode(refLink)?.textSpan : null)
       textInfo.textSpan.style.fontWeight = active ? '700' : '400'
     } else {
       textInfo.container.style.display = 'none'

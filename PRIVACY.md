@@ -1,6 +1,6 @@
 # Privacy Policy for oh-my-x
 
-Last updated: November 6, 2026
+Last updated: November 9, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
@@ -16,6 +16,7 @@ Last updated: November 6, 2026
 ## 2. Requests to X
 
 - With an X page open and automatic synchronization enabled, the extension uses your existing X session to synchronize your own posts. Other features request Lists, post content/media, profile activity, and creator rewards data from X. Creator rewards may refresh in the background while you are signed in.
+- Favorites name lookup: typing a display name in the add-blogger field sends the query (up to 30 characters) to the same X user-search endpoint using your existing X session. Candidate names, usernames, and X-hosted avatars are displayed for selection; only the chosen name and username are saved locally. Entering an explicit @username or profile link can add a favorite without this search.
 - The extension reads X cookies such as `ct0` (CSRF token) and `twid` (account identification) for authenticated X requests and account isolation. X session credentials are not sent to AI services.
 - The extension can load X's public client script from `abs.twimg.com` to resolve current API identifiers. Post thumbnails load from X's image CDN; the database stores their URLs, not image files.
 - Mention by name: when you type a name containing non-English characters after @ in a post, quote, or reply editor, that name (up to 30 characters) is sent with your X session to X's user search, the same endpoint X's editor uses for @ suggestions. The results (names, usernames, profile image URLs, and whether you follow the account) are kept in the page's memory and discarded when the page is closed or reloaded.

@@ -1,5 +1,6 @@
 import { parseBloggerHandle } from '../../shared/favorite-bloggers'
 import { ACCENT, getThemeColors } from './colors'
+import { getXFontFamily } from './xTypography'
 
 const LAYOUT = 'xf-profile-name-layout'
 const NAME = 'xf-profile-name-content'
@@ -10,38 +11,43 @@ function ensureStyles() {
   const style = document.createElement('style')
   style.id = 'xf-profile-actions-style'
   style.textContent = `
-    .${LAYOUT} { display: grid !important; grid-template-columns: minmax(0, max-content) max-content; column-gap: 8px; align-items: center; justify-content: start; min-width: 0; max-width: 100%; }
+    /* §3.6：名字与操作组的间距大于组内间距。 */
+    .${LAYOUT} { display: grid !important; grid-template-columns: minmax(0, max-content) max-content; column-gap: 12px; align-items: center; justify-content: start; min-width: 0; max-width: 100%; }
     .${LAYOUT} > * { grid-column: 1 / -1; min-width: 0; }
     .${LAYOUT} > .${NAME} { grid-column: 1; grid-row: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .${LAYOUT} > .${ACTIONS} { grid-column: 2; grid-row: 1; display: flex; flex-flow: row nowrap; gap: 6px; align-items: center; justify-self: start; width: max-content; }
-    .${ACTIONS} > button { flex: none; align-self: center; width: max-content; margin: 0; box-sizing: border-box; }
-    .${ACTIONS} > button:hover { background: var(--xf-profile-action-hover); }
+    .${LAYOUT} > .${ACTIONS} { grid-column: 2; grid-row: 1; display: flex; flex-flow: row nowrap; gap: 4px; align-items: center; justify-self: start; width: max-content; }
+    /* §2.4、§8.5：辅助操作用浅底区分，避免描边与名字争夺注意力。 */
+    .${ACTIONS} > button { flex: none; align-self: center; width: max-content; margin: 0; box-sizing: border-box; background: var(--xf-profile-action-bg); cursor: pointer; }
+    .${ACTIONS} > button:hover:not(:disabled) { background: var(--xf-profile-action-hover); }
     .${ACTIONS} > button:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 2px; }
   `
   document.documentElement.append(style)
 }
 
 /** 两种入口共用尺寸与主题，不受主页和资料卡原生按钮差异影响。 */
-export function styleProfileAction(button: HTMLButtonElement) {
+export function styleProfileAction(button: HTMLButtonElement, reference?: Element | null) {
   const theme = getThemeColors()
+  const name = button.closest(`.${LAYOUT}`)?.querySelector(`.${NAME}`)
   Object.assign(button.style, {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     whiteSpace: 'nowrap',
-    height: '32px',
-    minHeight: '32px',
-    minWidth: '68px',
+    // §3.3：按文字和内边距定宽，不为较短的标签保留空位。
+    height: '28px',
+    minHeight: '28px',
+    minWidth: '0',
     padding: '0 12px',
-    fontFamily: 'inherit',
-    fontSize: '14px',
+    fontFamily: getXFontFamily(reference || name?.querySelector('span') || name),
+    fontSize: '12px',
     fontWeight: '600',
     lineHeight: '20px',
-    border: `1px solid ${theme.isDark ? 'rgb(83, 100, 113)' : 'rgb(207, 217, 222)'}`,
-    borderRadius: '9999px',
-    color: button.getAttribute('aria-pressed') === 'true' ? ACCENT : theme.fg,
+    border: 'none',
+    borderRadius: '8px',
+    color: theme.fg,
   })
-  button.style.setProperty('--xf-profile-action-hover', theme.hoverBg)
+  button.style.setProperty('--xf-profile-action-bg', button.getAttribute('aria-pressed') === 'true' ? theme.accentBg : theme.hoverBg)
+  button.style.setProperty('--xf-profile-action-hover', theme.border)
 }
 
 /** SPA 切页时先验证页面上的用户名，避免把旧资料的操作发给新路由用户。 */
@@ -89,7 +95,7 @@ export function placeProfileAction(root: Element, handle: string, button: HTMLBu
   }
   if (branch.nextElementSibling !== actions) branch.insertAdjacentElement('afterend', actions)
   button.dataset.profileActionOrder = String(order)
-  styleProfileAction(button)
+  styleProfileAction(button, name)
   const next = [...actions.children].find(child => child !== button && Number((child as HTMLElement).dataset.profileActionOrder) > order)
   if (button.parentElement !== actions || button.nextElementSibling !== (next || null)) actions.insertBefore(button, next || null)
   return true

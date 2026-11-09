@@ -6,6 +6,8 @@ import { t } from '../../shared/i18n'
 import { ACCENT, getThemeColors } from '../utilities/colors'
 import { isNavExpanded, stripNavBadges, syncNavEntryLayout } from '../utilities/navEntry'
 import { computeNavPanelPosition, getNavAnchorRect } from './quick-list'
+import { getXFontFamily } from '../utilities/xTypography'
+import { createFavoriteBloggerLookup } from './favorite-blogger-lookup'
 
 const NAV = 'xf-favorites-nav'
 const BUTTON = 'xf-favorite-blogger-button'
@@ -20,6 +22,7 @@ let search: HTMLInputElement | null = null
 let status: HTMLElement | null = null
 let draggedHandle: string | null = null
 let moving = false
+let disposeLookup: (() => void) | null = null
 let navReference: HTMLElement | null = null
 let navLayoutObserver: MutationObserver | null = null
 
@@ -64,6 +67,15 @@ function ensureStyles() {
     .xf-favorites-panel input::placeholder { color: var(--xf-fav-muted); }
     .xf-favorites-form { display: flex; gap: 8px; padding: 8px 16px; }
     .xf-favorites-form button { flex: none; color: ${ACCENT}; }
+    .xf-favorites-lookup { margin: 0 16px 12px; border: 1px solid var(--xf-fav-border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .xf-favorites-lookup [role="listbox"] { max-height: 240px; overflow-y: auto; }
+    .xf-favorites-lookup-message { padding: 8px 12px; font-size: 13px; color: var(--xf-fav-muted); }
+    .xf-favorites-panel .xf-favorites-candidate { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: 0; border-radius: 0; text-align: start; }
+    .xf-favorites-candidate[aria-selected="true"] { background: var(--xf-fav-hover); }
+    .xf-favorites-candidate-avatar { width: 32px; height: 32px; flex: none; border-radius: 50%; object-fit: cover; background: var(--xf-fav-hover); }
+    .xf-favorites-candidate-text { display: flex; flex-direction: column; min-width: 0; }
+    .xf-favorites-candidate-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .xf-favorites-panel .xf-favorites-direct { width: 100%; border: 0; border-top: 1px solid var(--xf-fav-border); border-radius: 0; padding: 8px 12px; text-align: start; font-size: 13px; }
     .xf-favorites-search { padding: 0 16px 8px; }
     .xf-favorites-body { overflow-y: auto; min-height: 0; max-height: 360px; flex-shrink: 0; }
     .xf-favorites-row { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
@@ -88,6 +100,7 @@ function ensureStyles() {
 
 function theme(el: HTMLElement) {
   const colors = getThemeColors()
+  el.style.fontFamily = getXFontFamily()
   for (const [key, value] of Object.entries({ bg: colors.bg, fg: colors.fg, border: colors.border, hover: colors.hoverBg, muted: colors.fgSecondary })) {
     el.style.setProperty(`--xf-fav-${key}`, value)
   }
@@ -136,6 +149,8 @@ function positionPanel() {
 }
 
 export function closeFavoriteBloggersPanel(restoreFocus = false) {
+  disposeLookup?.()
+  disposeLookup = null
   clearDrag()
   panel?.remove()
   anchor?.setAttribute('aria-expanded', 'false')
@@ -310,12 +325,7 @@ async function openPanel(entry: HTMLElement) {
   header.className = 'xf-favorites-header'
   const title = document.createElement('span')
   title.textContent = t('favorites.title')
-  const close = document.createElement('button')
-  close.type = 'button'
-  close.textContent = '×'
-  close.setAttribute('aria-label', t('favorites.close'))
-  close.addEventListener('click', () => closeFavoriteBloggersPanel(true))
-  header.append(title, close)
+  header.append(title)
   const form = document.createElement('form')
   form.className = 'xf-favorites-form'
   const input = document.createElement('input')
@@ -327,16 +337,26 @@ async function openPanel(entry: HTMLElement) {
   add.textContent = t('favorites.add')
   form.append(input, add)
   const ownedPanel = panel
-  form.addEventListener('submit', async event => {
-    event.preventDefault()
-    if (add.disabled) return
-    const handle = parseBloggerHandle(input.value)
-    if (!handle) { notice(t('favorites.invalid')); return }
-    if (isSaved(handle)) { notice(t('favorites.exists')); return }
+  async function saveBlogger(blogger: FavoriteBlogger) {
+    if (add.disabled) return false
+    if (isSaved(blogger.handle)) { notice(t('favorites.exists')); return false }
     add.disabled = true
-    const added = await changeFavorite('add', { handle, name: handle })
+    const added = await changeFavorite('add', blogger)
     if (added && panel === ownedPanel) { input.value = ''; input.focus() }
     add.disabled = false
+    return added
+  }
+  const lookup = createFavoriteBloggerLookup(input, saveBlogger, positionPanel)
+  disposeLookup = lookup.dispose
+  form.addEventListener('submit', async event => {
+    event.preventDefault()
+    if (add.disabled || lookup.isComposing()) return
+    // 未带 @ 的文字也可能是英文昵称，先确认候选，不能直接收藏同名用户名。
+    if (lookup.searchNow()) return
+    const handle = parseBloggerHandle(input.value)
+    if (!handle) { notice(t('favorites.invalid')); return }
+    lookup.clear()
+    await saveBlogger({ handle, name: handle })
   })
   const searchWrap = document.createElement('div')
   searchWrap.className = 'xf-favorites-search'
@@ -354,7 +374,7 @@ async function openPanel(entry: HTMLElement) {
   const foot = document.createElement('div')
   foot.className = 'xf-favorites-footer'
   foot.textContent = t('favorites.local')
-  panel.append(header, form, searchWrap, status, body, foot)
+  panel.append(header, form, lookup.element, searchWrap, status, body, foot)
   document.body.append(panel)
   anchor = entry
   entry.setAttribute('aria-expanded', 'true')

@@ -5,6 +5,7 @@ import { KeyFavoriteBloggers, KeyFavoriteBloggersEnabled } from '../../storage-k
 import { ensureQuickListNavEntry } from '../../content-scripts/features/quick-list'
 import { applyLanguageSetting } from '../../shared/i18n'
 import { getDynamicFeatureScopes } from '../../content-scripts/initialize'
+import { MENTION_SEARCH_MESSAGE } from '../../shared/mention-search'
 
 let stored: Record<string, unknown>
 let get: Mock<() => Promise<Record<string, unknown>>>
@@ -38,11 +39,61 @@ beforeEach(() => {
 })
 afterEach(() => {
   closeFavoriteBloggersPanel()
+  document.body.style.removeProperty('font-family')
   vi.unstubAllGlobals()
   applyLanguageSetting('zh-CN')
 })
 
 describe('收藏界面', () => {
+  it.each(['乔木', 'Chris'])('输入昵称 %s 后选择候选，保存名字并可在已有收藏中搜索；重复选择不重复添加', async query => {
+    const save = send.getMockImplementation()! as (message: unknown) => Promise<unknown>
+    send.mockImplementation(async message => message.type === MENTION_SEARCH_MESSAGE ? {
+      ok: true, users: [{ id: '123', name: '向阳乔木', handle: 'vista8', avatar: '', following: true, verified: false }],
+    } : save(message))
+    await runFavoriteBloggersFeature()
+    nav().click()
+    await flush()
+    const form = document.querySelector<HTMLFormElement>('.xf-favorites-form')!
+    const input = form.querySelector('input')!
+    for (let attempt = 0; attempt < 2; attempt++) {
+      input.value = query
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await flush()
+      if (attempt === 0) expect(stored[KeyFavoriteBloggers]).toBeUndefined()
+      document.querySelector<HTMLButtonElement>('.xf-favorites-candidate')!.click()
+      await flush()
+      expect(stored[KeyFavoriteBloggers]).toEqual([{ name: '向阳乔木', handle: 'vista8' }])
+    }
+    expect(document.querySelector('.xf-favorites-status')!.textContent).toContain('已收藏这个博主')
+    const filter = document.querySelector<HTMLInputElement>('input[type="search"]')!
+    filter.value = '乔木'
+    filter.dispatchEvent(new Event('input'))
+    expect(rows()).toHaveLength(1)
+    expect(rows()[0].querySelector('a')!.href).toBe('https://x.com/vista8')
+  })
+
+  it('导航入口及挂到 body 的列表、收藏面板沿用 X 导航文字字体', async () => {
+    document.body.style.fontFamily = '"Comic Sans MS", cursive'
+    const native = document.querySelector<HTMLElement>('[data-testid="AppTabBar_Home_Link"] span')!
+    native.style.fontFamily = '"TwitterChirp", Arial, sans-serif'
+    const expected = getComputedStyle(native).fontFamily
+    ensureQuickListNavEntry(true, 'top')
+    const listNav = document.querySelector<HTMLElement>('.xf-quick-list-nav-entry')!
+    expect(listNav.querySelector('span')!.style.fontFamily).toBe(expected)
+    listNav.click()
+    await flush()
+    const listPanel = document.querySelector<HTMLElement>('.xf-ql-nav-panel')!
+    expect(listPanel.parentElement).toBe(document.body)
+    expect(listPanel.style.fontFamily).toBe(expected)
+    document.body.click()
+    await runFavoriteBloggersFeature()
+    nav().click()
+    await flush()
+    const favoritesPanel = document.querySelector<HTMLElement>('.xf-favorites-panel')!
+    expect(favoritesPanel.parentElement).toBe(document.body)
+    expect(favoritesPanel.style.fontFamily).toBe(expected)
+  })
+
   it.each([true, false])('收藏放在昵称右侧，不挤占关注与 List 按钮行（名称标记：%s）', async marked => {
     const card = document.querySelector('[data-testid="HoverCard"]')!
     card.innerHTML = `
@@ -103,20 +154,22 @@ describe('收藏界面', () => {
     expect(favorite.closest('a, button') === favorite).toBe(true)
   })
 
-  it('资料卡收藏按钮使用统一的紧凑文字胶囊，不受原生按钮字号影响', async () => {
+  it('资料卡收藏按钮使用统一的紧凑文字按钮，不受原生按钮字号影响', async () => {
+    const nativeName = document.querySelector<HTMLElement>('[data-testid="HoverCard"] [data-testid="User-Name"] span')!
+    nativeName.style.fontFamily = 'Arial, sans-serif'
     const follow = document.querySelector<HTMLElement>('[data-testid="123-follow"]')!
     follow.style.cssText = 'height:36px;border:1px solid rgb(83, 100, 113);border-radius:9999px'
     follow.innerHTML = '<span style="font-family:Arial;font-size:15px;font-weight:700;line-height:20px">正在关注</span>'
     Object.defineProperty(follow, 'offsetHeight', { value: 36 })
     await runFavoriteBloggersFeature()
-    expect(button().style.height).toBe('32px')
-    expect(button().style.minWidth).toBe('68px')
+    expect(button().style.height).toBe('28px')
+    expect(button().style.minWidth).toBe('0px')
     expect(button().querySelector('svg')).toBeNull()
-    expect(button().style.fontSize).toBe('14px')
+    expect(button().style.fontSize).toBe('12px')
     expect(button().style.fontWeight).toBe('600')
-    expect(button().style.fontFamily).toBe('inherit')
-    expect(button().style.borderColor).toBe('rgb(83, 100, 113)')
-    expect(button().style.borderRadius).toBe('9999px')
+    expect(button().style.fontFamily).toBe(getComputedStyle(nativeName).fontFamily)
+    expect(button().style.borderStyle).toBe('none')
+    expect(button().style.borderRadius).toBe('8px')
   })
 
   it('导航面板支持链接添加、搜索和移除，使用正确的主页地址', async () => {
@@ -182,6 +235,7 @@ describe('收藏界面', () => {
     nav().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     await flush()
     expect(nav().getAttribute('aria-expanded')).toBe('true')
+    expect(document.querySelector('.xf-favorites-header button')).toBeNull()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(document.querySelector('.xf-favorites-panel')).toBeNull()
     expect(document.activeElement).toBe(nav())
@@ -189,6 +243,29 @@ describe('收藏界面', () => {
     await flush()
     document.body.click()
     expect(nav().getAttribute('aria-expanded')).toBe('false')
+    nav().click()
+    await flush()
+    nav().click()
+    expect(document.querySelector('.xf-favorites-panel')).toBeNull()
+  })
+
+  it('我的列表同样支持 Escape 返回入口焦点、再次点击入口和点击外部关闭', async () => {
+    ensureQuickListNavEntry(true, 'top')
+    const entry = document.querySelector<HTMLElement>('.xf-quick-list-nav-entry')!
+    for (const method of ['escape', 'toggle', 'outside']) {
+      entry.click()
+      await flush()
+      const panel = document.querySelector('.xf-ql-nav-panel')!
+      expect(panel).not.toBeNull()
+      if (method === 'escape') {
+        panel.querySelector<HTMLElement>('button')?.focus()
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        expect(document.activeElement).toBe(entry)
+      } else if (method === 'toggle') entry.click()
+      else document.body.click()
+      expect(document.querySelector('.xf-ql-nav-panel')).toBeNull()
+      expect(entry.getAttribute('aria-expanded')).toBe('false')
+    }
   })
 
   it.each(['top', 'sidebar'])('收藏固定在主页上方，与我的列表（%s）不互相移动，窄导航只显示图标', async position => {

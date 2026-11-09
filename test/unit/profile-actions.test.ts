@@ -16,9 +16,26 @@ beforeEach(() => {
   document.body.innerHTML = `<div data-testid="HoverCard"><div class="native"><a href="/bob"><span>B</span></a><button data-testid="123-follow"><span>正在关注</span></button></div><div data-testid="User-Name"><div class="name"><a href="/bob"><span>Bob</span></a><svg aria-label="认证账号"></svg></div><div><span>@bob</span></div></div></div>`
   applyLanguageSetting('zh-CN')
 })
-afterEach(() => { vi.unstubAllGlobals(); applyLanguageSetting('zh-CN') })
+afterEach(() => { vi.unstubAllGlobals(); applyLanguageSetting('zh-CN'); document.body.style.removeProperty('font-family') })
 
 describe('昵称右侧的扩展操作', () => {
+  it('按钮使用昵称文字的原生字体，避免继承 body 字体，并在重新扫描时跟随更新', async () => {
+    document.body.style.fontFamily = '"Comic Sans MS", cursive'
+    const name = document.querySelector<HTMLElement>('.name span')!
+    name.style.fontFamily = '"TwitterChirp", Arial, sans-serif'
+    scanAndInjectHoverCards()
+    await runFavoriteBloggersFeature()
+    for (const button of [list(), favorite()]) {
+      expect(button.style.fontFamily).toBe(getComputedStyle(name).fontFamily)
+      expect(button.style.fontFamily).not.toBe(getComputedStyle(document.body).fontFamily)
+    }
+    name.style.fontFamily = 'Helvetica, sans-serif'
+    scanAndInjectHoverCards()
+    await runFavoriteBloggersFeature()
+    expect(list().style.fontFamily).toBe(getComputedStyle(name).fontFamily)
+    expect(favorite().style.fontFamily).toBe(getComputedStyle(name).fontFamily)
+  })
+
   it('博主主页也显示两个纯文字按钮，无关注按钮时仍能打开列表', async () => {
     window.history.replaceState({}, '', '/alice')
     document.body.innerHTML = '<main data-testid="primaryColumn"><div data-testid="UserName"><div class="name"><span>Alice</span><svg aria-label="认证账号"></svg></div><div><span>@alice</span></div></div></main>'

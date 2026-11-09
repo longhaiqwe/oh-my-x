@@ -17,6 +17,7 @@ import { ACCENT, ACCENT_TEXT, getThemeColors } from '../utilities/colors'
 import { isNavExpanded, stripNavBadges, syncNavEntryLayout } from '../utilities/navEntry'
 import { t } from '../../shared/i18n'
 import { errorText } from '../../shared/errors'
+import { getXFontFamily } from '../utilities/xTypography'
 
 const BTN_CLASS = 'xf-quick-list-btn'
 const NAV_CLASS = 'xf-quick-list-nav-entry'
@@ -283,6 +284,7 @@ function ensureStyles() {
 
 function applyPanelTheme(panel: HTMLElement) {
   const theme = getThemeColors()
+  panel.style.fontFamily = getXFontFamily()
   panel.style.backgroundColor = theme.bg
   panel.style.color = theme.fg
   panel.style.border = `1px solid ${theme.border}`
@@ -308,6 +310,7 @@ function showQuickListToast(text: string, ok: boolean) {
   const theme = getThemeColors()
   toast = document.createElement('div')
   toast.className = 'xf-ql-toast'
+  toast.style.fontFamily = getXFontFamily()
   toast.style.backgroundColor = theme.isDark ? 'rgb(239, 243, 244)' : 'rgb(15, 20, 25)'
   toast.style.color = theme.isDark ? 'rgb(15, 20, 25)' : 'rgb(255, 255, 255)'
   toast.style.boxShadow = theme.shadow
@@ -608,15 +611,24 @@ function onNavResize() {
   positionNavPanel()
 }
 
-function closeNavPanel() {
+function closeNavPanel(restoreFocus = false) {
   if (navPanelEl) {
     navPanelEl.remove()
     navPanelEl = null
   }
   setNavEntryActive(navPanelAnchor, false)
+  if (restoreFocus) navPanelAnchor?.focus()
   navPanelAnchor = null
   document.removeEventListener('click', onNavDocClick, true)
+  document.removeEventListener('keydown', onNavKeydown)
   window.removeEventListener('resize', onNavResize)
+}
+
+function onNavKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeNavPanel(true)
+  }
 }
 
 function onNavDocClick(e: MouseEvent) {
@@ -665,6 +677,7 @@ async function toggleNavPanel(entryEl: HTMLElement) {
   setNavEntryActive(entryEl, true)
   positionNavPanel()
   document.addEventListener('click', onNavDocClick, true)
+  document.addEventListener('keydown', onNavKeydown)
   window.addEventListener('resize', onNavResize)
 
   const lists = await getSavedLists()
