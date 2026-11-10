@@ -1,5 +1,18 @@
 # Chrome 应用商店提交资料
 
+## 2026-11-10：2.9.0 发布准备，尚未送审
+
+- 新增回看、本地图片文字识别及通知用户卡片，代码与标签已推送 GitHub。
+- 本地类型检查、118 个测试文件中的 1398 项测试和生产构建通过；GitHub Check 与 Release 工作流通过。
+- 后台实测线上版本为 2.8.0；README 中“审核中”的过期安装说明已替换为商店链接。
+- 商店包：`build/oh-my-x-2.9.0-chrome.zip`，41 个文件，manifest 版本 2.9.0。
+- 商店包 SHA-256：`bf00fc72cf9ca98a29ace5d26de88bedd96ca037277bbac60864c6e79e2a41bc`。
+- 尚未上传或提交审核：浏览器自动化明确禁止当前网址并终止会话；发布脚本缺少 clientId、clientSecret、refreshToken。没有撤回或更改既有线上版本。
+- 后续提交时须补充 offscreen 权限理由（在扩展离屏文档中运行随包 OCR worker），更新 alarms 理由以包含 OCR 任务恢复，说明可选图片与语言数据来源权限；下载的是语言数据，运行代码与 WASM 随扩展打包。
+
+文档与实现差异：早期回看设计建议独立 OCR 表及复合时间索引；实际采用账号索引，并将 OCR 文本保存在媒体记录中，验收记录已说明。保留实际代码结构。
+
+
 更新：2026-11-09，2.8.0 已提交审核，设置为审核通过后自动发布；提交前商店线上版本已核对为 2.7.0。历史提交记录保留原日期与状态。
 
 规则来自 developer.chrome.com（2026-10-19 查阅）：[注册](https://developer.chrome.com/docs/webstore/register)、[商品详情](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)、[隐私权规范](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)、[用户数据常见问题](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)、[审核流程](https://developer.chrome.com/docs/webstore/review-process)。
