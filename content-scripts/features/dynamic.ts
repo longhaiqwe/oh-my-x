@@ -1,3 +1,5 @@
+import { updateNotificationCards } from './notification-cards'
+import { runRewind } from './rewind'
 import { runFavoriteBloggersFeature } from './favorite-bloggers'
 import {
   KeyCommunitiesButton,
@@ -49,7 +51,7 @@ import { scanCreatorRewardsFromDom } from './creator-rewards'
 import { updateScheduledSidebar } from './scheduled-sidebar'
 import { updateSearchTools } from './search-tools'
 
-export type DynamicFeatureScope = 'tweet' | 'composer' | 'scheduled' | 'navigation' | 'all'
+export type DynamicFeatureScope = 'tweet' | 'composer' | 'scheduled' | 'navigation' | 'notifications' | 'all'
 
 // 单飞期间到达的新任务会合并到 pendingScopes，并在本轮结束后补跑，避免遗漏最后一次变更。
 let generalInFlight = false
@@ -115,6 +117,7 @@ export const dynamicFeatures = {
 
         // 用户在 X 设置里换了强调色后，页面上的浮层跟着变
         syncXAccentColor()
+        if (includesScope(scopes, 'tweet') || includesScope(scopes, 'navigation')) runRewind()
 
         if (includesScope(scopes, 'tweet')) {
           // 先读开关再注入，关闭状态下不会先画出来再移除
@@ -180,6 +183,7 @@ export const dynamicFeatures = {
         void updateScheduledSidebar()
         // 搜索页换搜索词时路径不变，不会补跑 all，所以每轮都看一次地址
         updateSearchTools()
+        void updateNotificationCards()
       }
     } finally {
       generalInFlight = false

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>回看 · oh-my-x 设计预览</title><link rel="stylesheet" href="./style.css"></head>
+<body>
+<header class="reviewbar">
+  <div class="review-title"><img src="../../../public/icons/128.png" alt=""><strong>oh-my-x</strong><span>回看 · 设计预览</span></div>
+  <nav aria-label="预览场景"><button data-scene="x" aria-pressed="true">X 页面</button><button data-scene="popup" aria-pressed="false">插件弹窗</button><button data-scene="settings" aria-pressed="false">详细设置</button></nav>
+  <div class="preview-controls"><label>主题 <select id="theme"><option value="light">浅色</option><option value="dim">暗蓝</option><option value="dark">深色</option></select></label><label id="accent-control">X 强调色 <select id="accent"><option value="blue">蓝色</option><option value="orange">橙色</option></select></label><button id="reset-demo">重置示例</button></div>
+</header>
+<div class="reviewnote">交互原型 · 虚构记录 · 搜索、筛选和开关可试用，未连接 X 或图片识别服务。</div>
+<main id="stage" data-theme="light"></main>
+<div id="toast" role="status" hidden></div>
+<dialog id="confirm"><h2>清空当前账号的回看记录？</h2><p>将删除 <span id="clear-count"></span> 条记录及图片文字索引，无法撤销。其他账号的数据不受影响。</p><div><button id="cancel-clear">取消</button><button id="confirm-clear" class="danger">确认清空</button></div></dialog>
+<script src="./prototype.js"></script>
+</body></html>

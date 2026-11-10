@@ -1,6 +1,6 @@
 # Privacy Policy for oh-my-x
 
-Last updated: November 9, 2026
+Last updated: November 10, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
@@ -12,6 +12,12 @@ Last updated: November 9, 2026
 - AI reply scores are cached in extension-local IndexedDB for up to 7 days, with a maximum of 5,000 entries. Manual bot/human labels, including the reply and its context, remain until removed and can be exported as JSONL. Marked bot accounts and daily AI usage counters are stored in `chrome.storage.local`.
 - Cached posts may remain after editing or deletion on X. You can pause synchronization or disable automatic synchronization in settings. Removing the extension removes its local storage and database.
 - The extension has no developer telemetry, advertising trackers, or analytics service. The developer does not receive your post library, API key, X credentials, or browsing history.
+
+### Rewind history and image text
+
+Rewind recording is off by default. When enabled, it records visible Home posts: account and post IDs, author snapshots, text, quotes, repost context, first-seen/publication dates, and X-hosted media URLs. Records stay in extension-local IndexedDB, isolated by account, with a limit of 3,000 posts and approximately 20 MB per account. Oldest records are removed at the limit. Pausing does not delete history. Clearing removes the current account’s records and associated OCR text; other accounts and the own-post library are not affected. Remote images may become unavailable, and saved text can outlive a deleted original.
+
+Optional OCR runs locally in a bundled Tesseract worker. It downloads versioned language data from `cdn.jsdelivr.net` and images from `pbs.twimg.com` without credentials. These providers receive ordinary network request metadata, including the IP address; the extension does not send saved post text or recognition output to them or to an AI service. Language data remains cached locally after history is cleared. Turning OCR off stops work and excludes cached image text from search. Removing the extension removes the databases and language cache. Browser local storage holds feature switches, the last selected Rewind filter, progress and an invalidation marker; temporary pending-open state uses session storage.
 
 ## 2. Requests to X
 
@@ -40,17 +46,22 @@ Last updated: November 9, 2026
 | --- | --- |
 | `storage` | Store settings, configuration, caches, and local statistics. |
 | `cookies` | Read X session/account cookies for X requests and account isolation. The code does not read AI-provider cookies. |
-| `alarms` | Schedule post-library checks in eligible open X tabs and creator rewards refresh checks. |
+| `alarms` | Schedule post-library checks, creator rewards refresh checks, and resumable local OCR work. |
+| `offscreen` | Run the bundled OCR worker in an extension-owned document without opening a tab. |
 | `downloads` | Save media when you select a download action. |
 | `scripting` | When you click Scan last 7 days in the popup on an X profile page and the page's content script does not respond (for example, after the extension was updated), run the extension's own scan function in that X tab, so the page does not need a reload. It is used only on the active X tab and only after that click. It also reads the selected text after you choose Save to X drafts (see `activeTab`). |
 | `contextMenus` | Show the Save to X drafts item in the right-click menu when text is selected. |
 | `activeTab` | After you choose Save to X drafts, read the selected text in that tab once, keeping line breaks. It gives no access to other tabs, and no access to that tab before the click. |
 | Required host access | `x.com`, `pro.x.com`, `twitter.com`, `mobile.twitter.com` for X features; `abs.twimg.com` for X's public client script; `video.twimg.com` to fetch media for local GIF export. |
-| Optional host access | The HTTPS host of your chosen AI service, or http://localhost / http://127.0.0.1 for a local service, requested at runtime for the configured host. No blanket access to all websites is requested at installation. |
+| Optional host access | The HTTPS host of your chosen AI service, or http://localhost / http://127.0.0.1 for a local service, requested at runtime for the configured host. OCR separately requests `https://pbs.twimg.com/*` and `https://cdn.jsdelivr.net/*` when enabled. No blanket access to all websites is requested at installation. |
 
 Chrome site grants apply to a host and scheme rather than an individual API path or port. Previous grants can remain when you change an AI address; review or revoke site access in Chrome's extension settings. An upgrade does not promise to remove previously granted access.
 
 Content scripts run only on `x.com`, `pro.x.com`, `twitter.com`, and `mobile.twitter.com`. Granting an AI host does not inject content scripts there. Save to X drafts runs a function that returns the current selection once on the page where you chose it; it does not add a content script to that site.
+
+## Notification cards
+
+Notification cards read already-rendered notifications on X and group them locally. Notification text and avatar URLs stay in the current page's memory (up to 500 entries per notification category). They are not sent to an AI service or an extension server. The extension stores an account-specific first-use timestamp, hashed notification identifiers, participant handles, viewing timestamps, and the selected view in `browser.storage.local` to maintain local unviewed badges across visits. Viewing receipts are limited to 20 accounts and 2000 receipts per account. The feature does not change X's official read state or make additional notification API requests.
 
 ## 5. Changes and contact
 

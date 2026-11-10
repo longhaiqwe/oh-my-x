@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
+  KeyNotificationCardsEnabled,
   KeyQuickInteraction,
   KeyQuickInteractionDock,
   KeyJumpToReplies,
@@ -32,6 +33,12 @@ const shortcutKeys = computed(() => [
   <ModuleHeader module-id="engage" />
 
   <GroupLabel>{{ t('engage.groupInteract') }}</GroupLabel>
+  <FeatureCard feature-id="notificationCards">
+   <template #control>
+    <FeatureSwitch :storage-key="KeyNotificationCardsEnabled" :label="featureText('notificationCards', 'label')" />
+   </template>
+  </FeatureCard>
+
   <FeatureCard feature-id="quickInteraction">
    <template #control>
     <FeatureSwitch :storage-key="KeyQuickInteraction" :label="featureText('quickInteraction', 'label')" />

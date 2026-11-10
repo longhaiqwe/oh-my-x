@@ -2,6 +2,7 @@ import { normalizeOwnPostThumbnail, getOwnHandle, type OwnPost } from '../../sha
 import addStyles, { stylesExist } from '../utilities/addStyles'
 import { getPrecomposeUrl } from './precompose'
 import { getThemeColors } from '../utilities/colors'
+import { getXFontFamily } from '../utilities/xTypography'
 import { searchLibrary, syncLibrary, pauseLibrary } from './own-post-library-client'
 import { getLocale, t } from '../../shared/i18n'
 import { errorText } from '../../shared/errors'
@@ -80,6 +81,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   const handle = getOwnHandle()
   const panel = document.createElement('section')
   panel.className = 'xf-own-post-picker'
+  panel.style.fontFamily = getXFontFamily()
   panel.dataset.testid = 'xf-own-post-picker'
   panel.setAttribute('aria-label', t('ownPage.title'))
   const theme = getThemeColors()

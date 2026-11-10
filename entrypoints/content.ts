@@ -1,3 +1,6 @@
+import { setNotificationCardsEnabled } from '../content-scripts/features/notification-cards'
+import { KeyNotificationCardsEnabled } from '../storage-keys'
+import { startRewind } from '../content-scripts/features/rewind'
 import { runFavoriteBloggersFeature } from '../content-scripts/features/favorite-bloggers'
 import { startOwnPostSync } from '../content-scripts/options/own-post-library-client'
 import { applyChangedStaticFeatures } from '../content-scripts/features/static'
@@ -126,6 +129,9 @@ export default defineContentScript({
         currentSettings = mergeSettings(currentSettings, newData)
         applyChangedStaticFeatures(currentSettings, changedSettingKeys)
         invalidateDynamicSettingsCache()
+        if (changedSettingKeys.includes(KeyNotificationCardsEnabled)) {
+          setNotificationCardsEnabled(currentSettings[KeyNotificationCardsEnabled] !== 'off')
+        }
 
         if (
           changedSettingKeys.some(
@@ -220,6 +226,7 @@ export default defineContentScript({
       await initI18n()
       await initializeExtension()
       startOwnPostSync()
+      startRewind()
       currentSettings = normalizeSettings(await getStorage([...allSettingsKeys]))
 
       const spamEnabled = (await getStorage(KeySpamFilterEnabled)) === 'on'

@@ -1,3 +1,9 @@
+export const KeyRewindEnabled = 'rewindEnabled'
+export const KeyRewindNav = 'rewindNav'
+export const KeyRewindOcr = 'rewindOcr'
+export const KeyRewindFilter = 'rewindFilter'
+export const KeyRewindRevision = 'rewindRevision'
+export const KeyRewindOcrState = 'rewindOcrState'
 // Individual key exports (matching original storage-keys.js)
 export const KeyExtensionStatus = 'extensionStatus'
 export const KeyUiLanguage = 'uiLanguage' // 界面语言：auto（跟随浏览器）/ zh-CN / en
@@ -57,6 +63,9 @@ export const KeyRepliesSortOrder = 'repliesSortOrder' // 'default' | 'newest' | 
 export const KeyAutoLikeOnReply = 'autoLikeOnReply'
 
 // Quick interaction storage keys
+export const KeyNotificationCardsEnabled = 'notificationCardsEnabled'
+export const KeyNotificationCardsView = 'notificationCardsView'
+
 export const KeyQuickInteraction = 'quickInteraction'
 export const KeyQuickInteractionDock = 'quickInteractionDock'
 
@@ -131,6 +140,8 @@ export const KeyAiRepostStylePrompt = 'aiRepostStylePrompt' // 转发风格描�
 export const KeyAiRepostStyleSamples = 'aiRepostStyleSamples' // 自己写过的转发样本，每条之间用单独一行 --- 隔开（单段样本也可只空一行）
 
 export const allSettingsKeys = [
+  KeyNotificationCardsEnabled,
+  KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyExtensionStatus,
   KeyUiLanguage,
   KeyTimelineWidth,
@@ -386,6 +397,10 @@ export function getDefaultTweetFilterKeywords(locale: string): string[] {
 
 // 存储里还没有词库时的兜底值是中文；英文界面的新用户在安装时由 shared/spam-migration.ts 写入英文词库
 export const defaultPreferences: Record<string, string | number | boolean> = {
+  [KeyNotificationCardsEnabled]: 'on',
+  [KeyRewindEnabled]: 'off',
+  [KeyRewindNav]: 'off',
+  [KeyRewindOcr]: 'off',
   [KeyExtensionStatus]: 'on',
   [KeyUiLanguage]: 'auto',
   [KeyTimelineWidth]: 700,

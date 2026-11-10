@@ -1,3 +1,4 @@
+import { initNotificationCards } from './features/notification-cards'
 import { initGifClipboardPaste } from './features/gif-clipboard'
 import { runDynamicFeatures, type DynamicFeatureScope } from './features/dynamic'
 import { applyStaticFeatures } from './features/static'
@@ -57,6 +58,7 @@ export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<Dynami
     }
     const inlineComposerSelector = '[data-xf-inline-composer], [data-testid^="tweetTextarea"], [data-testid="toolBar"], [data-testid="tweetButtonInline"], [data-testid="attachments"], [data-testid="dm-composer-form"], [data-testid="dm-composer-textarea"], [data-testid="xchatEmbedRoute"]'
     if (el.closest(inlineComposerSelector) || contains(inlineComposerSelector)) scopes.add('composer')
+    if (el.closest('article[data-testid="notification"]') || contains('article[data-testid="notification"]')) scopes.add('notifications')
     if (el.closest('nav[role="navigation"]') || contains('nav[role="navigation"]')) {
       scopes.add('navigation')
     }
@@ -100,6 +102,8 @@ export async function initializeExtension() {
   listenForUserFollowerMetricsApi()
   listenForCreatorRewardsApi()
   listenForCreateDraftQueryId()
+
+  void initNotificationCards()
 
   const settings = await getSettings()
 

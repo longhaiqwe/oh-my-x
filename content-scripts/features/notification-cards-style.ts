@@ -1,0 +1,66 @@
+import addStyles, { stylesExist } from '../utilities/addStyles'
+import { ACCENT, ACCENT_TEXT, accentAlpha } from '../utilities/colors'
+
+export function ensureNotificationStyles() {
+  if (stylesExist('notificationCards')) return
+  addStyles('notificationCards', `
+    [data-xf-notification-hidden="true"]{display:none!important}
+    #xf-notification-cards{container-type:inline-size;color:var(--xf-nc-fg);background:var(--xf-nc-bg);font-size:14px;line-height:1.5}
+    #xf-notification-cards *{box-sizing:border-box}
+    #xf-notification-cards [hidden]{display:none!important}
+    #xf-notification-cards button,#xf-notification-cards input{font:inherit}
+    #xf-notification-cards button{cursor:pointer;color:inherit}
+    #xf-notification-cards button:focus-visible,#xf-notification-cards a:focus-visible{outline:2px solid ${ACCENT};outline-offset:3px}
+    #xf-notification-cards svg{width:16px;height:16px;flex-shrink:0;vertical-align:middle}
+    #xf-notification-cards a{color:${ACCENT};text-decoration:none}
+    #xf-notification-cards a:hover{text-decoration:underline}
+    .xf-nc-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--xf-nc-border)}
+    .xf-nc-modes{display:flex;gap:4px;padding:3px;border-radius:9999px;background:var(--xf-nc-hover)}
+    .xf-nc-modes button{display:flex;gap:6px;align-items:center;min-height:32px;padding:5px 12px;border:0;border-radius:9999px;background:transparent;font-size:13px!important}
+    .xf-nc-modes button[aria-pressed="true"]{background:var(--xf-nc-bg);font-weight:700}
+    .xf-nc-filter{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--xf-nc-secondary);cursor:pointer;min-height:32px}
+    .xf-nc-filter input{accent-color:${ACCENT};margin:0;width:14px;height:14px}
+    .xf-nc-content{padding:18px 16px 12px}
+    .xf-nc-heading{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .xf-nc-heading h2{margin:0;font-size:17px;font-weight:700}
+    .xf-nc-heading p{margin:4px 0 0;color:var(--xf-nc-secondary);font-size:12px}
+    .xf-nc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .xf-nc-card{position:relative;min-width:0;display:flex;flex-direction:column;align-items:stretch;text-align:left;min-height:174px;padding:16px;border:1px solid var(--xf-nc-border);border-radius:16px;background:var(--xf-nc-bg);transition:background .15s,border-color .15s}
+    .xf-nc-card:first-child{grid-column:span 2}
+    .xf-nc-card:hover{background:var(--xf-nc-hover)}
+    .xf-nc-card[data-new="true"]{background:${accentAlpha(.06)}}
+    .xf-nc-card[aria-expanded="true"]{border-color:${ACCENT};box-shadow:0 0 0 1px ${ACCENT}}
+    .xf-nc-identity{display:flex;gap:10px;align-items:center;min-width:0}
+    .xf-nc-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--xf-nc-hover);display:grid;place-items:center;color:var(--xf-nc-secondary)}
+    .xf-nc-user{min-width:0;display:flex;flex-direction:column}
+    .xf-nc-user b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+    .xf-nc-user small{color:var(--xf-nc-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .xf-nc-badge{position:absolute;top:-7px;right:10px;min-width:23px;text-align:center;background:${ACCENT};color:${ACCENT_TEXT};border:3px solid var(--xf-nc-bg);border-radius:9999px;padding:0 5px;font-size:11px;font-weight:700;line-height:18px}
+    .xf-nc-excerpt{margin-top:15px;font-size:14px;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+    .xf-nc-card:first-child .xf-nc-excerpt{font-size:16px}
+    .xf-nc-types{display:flex;flex-wrap:wrap;gap:6px 10px;color:var(--xf-nc-secondary);font-size:11px;margin-top:12px}
+    .xf-nc-types span{display:flex;align-items:center;gap:4px}
+    .xf-nc-types svg{width:13px!important;height:13px!important}
+    .xf-nc-bottom{display:flex;gap:6px;align-items:center;justify-content:space-between;padding-top:16px;margin-top:auto;color:var(--xf-nc-secondary);font-size:11px}
+    .xf-nc-detail{grid-column:1/-1;border:1px solid var(--xf-nc-border);border-radius:16px;padding:16px;min-width:0}
+    .xf-nc-detail-heading{display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--xf-nc-border)}
+    .xf-nc-detail-heading h3{font-size:15px;margin:0;overflow-wrap:anywhere}
+    .xf-nc-close{margin-left:auto;border:0;border-radius:50%;padding:8px;background:var(--xf-nc-hover);display:grid;place-items:center;flex-shrink:0}
+    .xf-nc-event{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;padding-top:18px}
+    .xf-nc-event>svg{color:var(--xf-nc-secondary);margin-top:3px}
+    .xf-nc-event-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:12px}
+    .xf-nc-time{color:var(--xf-nc-secondary);font-size:11px;white-space:nowrap}
+    .xf-nc-event p{margin:7px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+    .xf-nc-event .xf-nc-note{font-size:12px;color:var(--xf-nc-secondary)}
+    .xf-nc-link{display:inline-block;margin-top:8px;font-size:12px}
+    .xf-nc-other{margin-top:20px;padding-top:16px;border-top:1px solid var(--xf-nc-border)}
+    .xf-nc-other summary{cursor:pointer;color:var(--xf-nc-secondary);font-size:13px}
+    .xf-nc-footer{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;padding:18px 0 4px;color:var(--xf-nc-secondary);font-size:12px}
+    .xf-nc-text-button{padding:6px 0;border:0;background:none;color:${ACCENT}!important;font-size:12px!important}
+    .xf-nc-empty{padding:24px 0;text-align:center;color:var(--xf-nc-secondary);font-size:13px}
+    .xf-nc-status{margin:8px 0 0;font-size:12px;color:var(--xf-nc-secondary)}
+    @container (min-width:660px){.xf-nc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @container (max-width:380px){.xf-nc-card{padding:12px}.xf-nc-identity{gap:7px}.xf-nc-avatar{width:28px;height:28px}.xf-nc-user b{font-size:12px}.xf-nc-user small{font-size:11px}.xf-nc-bottom{flex-wrap:wrap}.xf-nc-modes button{padding:5px 9px}}
+    @media (prefers-reduced-motion:reduce){.xf-nc-card{transition:none}}
+  `)
+}

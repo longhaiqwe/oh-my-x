@@ -81,7 +81,7 @@ Then turn on Developer mode in `chrome://extensions`, click Load unpacked, and s
 
 ### Option 3: Chrome Web Store
 
-> Under review. The install link will be added after approval.
+[从 Chrome 网上应用店安装 oh-my-x](https://chromewebstore.google.com/detail/ehnedndgpdkclhddhgdkdadhbiafaend)
 
 ---
 
@@ -108,6 +108,18 @@ Two more buttons, Radar and Inspiration (the top posts list in Creator Studio), 
 #### Article outline
 
 On long posts, article pages, and the article editor, builds an outline from level 1 and 2 headings in a side panel. Click a heading to jump to it. It recognizes Markdown headings (`#`, `##`), Chinese numbering such as 「一、」 and 「第一章」, number prefixes such as "1." and "(1)", and paragraphs that are entirely bold.
+
+#### Rewind
+
+Enable recording under **Layout → Reading → Rewind** to save visible posts from Home’s For you and Following timelines. Recording is off by default. A post counts as seen when the visible height reaches half the post or 40% of the viewport, whichever is smaller. Ads, detail pages, profiles and filtered hidden posts are excluded.
+
+- Open Rewind from X navigation, extension settings, or `Alt+Shift+R`. On narrow screens, use the More menu.
+- Search post text, authors and quotes; filter images, videos, quotes and reposts. Posts are deduplicated and ordered by the first time they were seen.
+- Open originals in a new tab without refreshing Home. Pausing keeps saved posts readable. Clearing removes only the current account’s history and image-text index.
+- Optional local image-text recognition uses no AI service or API key. First use requests media/language-data permissions and downloads language data. Turning it off stops recognition and image-text search.
+- Extension-local IndexedDB isolates accounts, with up to 3,000 posts and approximately 20 MB per account. The oldest records are removed when either limit is reached. Media URLs are saved, not offline media copies. X Pro is excluded from capture.
+
+Search tolerates spaces next to CJK text (for example, `AI 工具` matches `AI工具`), and the selected type filter survives page reloads. OCR includes post images, video posters and link thumbnails; it selects Chinese, English, Japanese or Korean data from the browser language and skips unavailable individual images.
 
 #### Open search on Latest
 
@@ -270,6 +282,16 @@ In the schedule dialog and drafts, lists every scheduled post with its time, how
 There is also a schedule panel below the search box in the right sidebar. It lists upcoming scheduled posts by day, with each post's time and opening text, the gap between neighboring posts, and gaps across days on the date line. The refresh button reads the schedule from X again without opening drafts; it also reloads after you create, edit, or delete a scheduled post. The panel can be collapsed, or turned off under Create → Schedule overview → Sidebar panel.
 
 ### 05 Engage & Lists
+
+#### Notification cards
+
+The Notifications page keeps X's All / Priority / Mentions tabs and adds User cards / Original list. Expand a user card to see loaded replies, mentions, likes, reposts, and follows. Typography, theme, and accent color follow X. Turn it off under Engage → Notification cards.
+
+- Only notifications already loaded in the current tab are grouped, with up to 500 entries held in page memory. Switching accounts or notification categories clears this batch. To load older records, switch to the original list, scroll, then return to cards.
+- Badges track local unviewed notifications, not X's official unread count. First use establishes a time baseline without marking historical records new. Opening a card marks its loaded notifications viewed; grouped notices keep separate viewing records for each user.
+- A grouped notice counts as one notification. Only identifiable users and available summaries are shown; missing posts or participants are not inferred. System notices and new-post alerts appear under Other notifications.
+- Baselines and per-user viewing receipts are stored by signed-in account in `browser.storage.local`, for up to 20 accounts and 2000 receipts per account. Notification text and avatar URLs remain in page memory. This feature makes no additional notification API requests.
+
 
 #### Keyboard shortcuts and bottom bar
 

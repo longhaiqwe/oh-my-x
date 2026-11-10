@@ -1,4 +1,6 @@
 import {
+  KeyNotificationCardsEnabled,
+  KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyArticlesButton,
   KeyBookmarksButton,
   KeyCommunitiesButton,
@@ -97,6 +99,10 @@ export type UserFollowerCountMode = 'all' | 'list' | 'off'
 export type SpamAiAutoScope = 'own' | 'all' | 'off'
 
 export interface ExtensionSettings {
+  [KeyNotificationCardsEnabled]: ToggleValue
+  [KeyRewindEnabled]: ToggleValue
+  [KeyRewindNav]: ToggleValue
+  [KeyRewindOcr]: ToggleValue
   [KeyExtensionStatus]: ToggleValue
   [KeyUiLanguage]: LanguageSetting
   [KeyTimelineWidth]: number
@@ -184,6 +190,8 @@ export interface ExtensionSettings {
 export type SettingsPatch = Partial<Record<keyof ExtensionSettings, unknown>>
 
 const TOGGLE_KEYS = new Set<string>([
+  KeyNotificationCardsEnabled,
+  KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyExtensionStatus,
   KeyTweetButton,
   KeyHomeButton,

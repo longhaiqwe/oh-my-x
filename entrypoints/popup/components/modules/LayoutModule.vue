@@ -1,4 +1,18 @@
 <script setup lang="ts">
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { getScrollContainer, useSettingsSurface } from '../../modules'
+import SubPage from '../ui/SubPage.vue'
+import RewindCard from '../sections/RewindCard.vue'
+import RewindDetail from '../sections/RewindDetail.vue'
+const surface=useSettingsSurface()
+const rewindPage=ref(surface==='options' && location.hash==='#layout/rewind')
+let overviewScroll=0
+const syncHash=()=>{if(surface==='options')rewindPage.value=location.hash==='#layout/rewind'}
+onMounted(()=>window.addEventListener('hashchange',syncHash))
+onBeforeUnmount(()=>window.removeEventListener('hashchange',syncHash))
+async function openRewind(){overviewScroll=getScrollContainer()?.scrollTop ?? 0;rewindPage.value=true;if(surface==='options')history.replaceState(null,'','#layout/rewind');await nextTick();const el=getScrollContainer();if(el)el.scrollTop=0}
+async function back(){rewindPage.value=false;if(surface==='options')history.replaceState(null,'','#layout');await nextTick();const el=getScrollContainer();if(el)el.scrollTop=overviewScroll;document.querySelector<HTMLElement>('[data-details-for="rewind"]')?.focus({preventScroll:true})}
+
 import {
  KeyTweetButton, KeySidebarColumn, KeyArticleToc, KeyTimelineWidth, KeyNavigationWidth,
  KeySearchDefaultLatest, KeySearchFilterBar, KeySearchAskGrok, KeySearchEnterGrok, KeySearchAiQuery,
@@ -13,11 +27,12 @@ import FeatureSwitch from '../ui/FeatureSwitch.vue'
 import NavigationCard from '../sections/NavigationCard.vue'
 import SubRow from '../ui/SubRow.vue'
 
-const { t, featureText } = useI18n()
+const { t, featureText, moduleText } = useI18n()
 </script>
 
 <template>
- <section class="flex flex-col gap-4">
+ <SubPage v-if="rewindPage" :parent-title="moduleText('layout','title')" :title="t('feature.rewind.label')" @back="back"><RewindDetail /></SubPage>
+ <section v-else class="flex flex-col gap-4">
   <ModuleHeader module-id="layout" />
 
   <GroupLabel>{{ t('layout.groupLayout') }}</GroupLabel>
@@ -53,6 +68,8 @@ const { t, featureText } = useI18n()
     </template>
    </FeatureCard>
   </FeatureList>
+
+  <RewindCard @open="openRewind" />
 
   <GroupLabel>{{ t('layout.groupSearch') }}</GroupLabel>
   <FeatureList>

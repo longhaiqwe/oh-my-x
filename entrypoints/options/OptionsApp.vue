@@ -21,7 +21,7 @@ const version = pkg.version
 const { t, locale, moduleText } = useI18n()
 
 function readHash(): FeatureModuleId | null {
-  return resolvePopupModule(window.location.hash.replace(/^#/, ''))
+  return resolvePopupModule(window.location.hash.replace(/^#/, '').split('/')[0])
 }
 
 const active = ref<FeatureModuleId>(readHash() ?? DEFAULT_FEATURE_MODULE)
@@ -57,7 +57,7 @@ function onHashChange() {
 
 onMounted(() => {
   syncTitle(active.value)
-  if (window.location.hash !== `#${active.value}`) history.replaceState(null, '', `#${active.value}`)
+  if (window.location.hash !== `#${active.value}` && !(active.value === 'layout' && window.location.hash === '#layout/rewind')) history.replaceState(null, '', `#${active.value}`)
   window.addEventListener('hashchange', onHashChange)
   revealActiveNav()
 })

@@ -1,3 +1,5 @@
+import { createNotificationStateWriter, NOTIFICATION_STATE_MESSAGE } from '../shared/notification-cards'
+import { registerRewindBackground } from '../shared/rewind-background'
 import { createFavoriteBloggerWriter, FAVORITE_BLOGGER_MESSAGE } from '../shared/favorite-bloggers'
 import { readChatCompletionStream } from '../shared/ai-stream'
 import { startAiDeadline } from '../shared/ai-deadline'
@@ -907,6 +909,14 @@ async function saveSelectionAsDraft(info: Browser.contextMenus.OnClickData, tab?
 }
 
 export default defineBackground(() => {
+  const writeNotificationState = createNotificationStateWriter(browser.storage.local)
+  browser.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== NOTIFICATION_STATE_MESSAGE) return
+    if (sender.id !== browser.runtime.id || !/^https:\/\/(x\.com|twitter\.com|mobile\.twitter\.com)\//.test(sender.url || '')) return
+    void writeNotificationState(message).then(state => respond({ ok: true, state }), () => respond({ ok: false }))
+    return true
+  })
+  registerRewindBackground()
   const writeFavoriteBlogger = createFavoriteBloggerWriter(browser.storage.local)
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== FAVORITE_BLOGGER_MESSAGE) return

@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'wxt'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
@@ -12,6 +13,18 @@ export default defineConfig({
     },
   },
   modules: [],
+  hooks: {
+    'build:publicAssets'(_wxt, files) {
+      for (const [source, destination] of [
+        ['tesseract.js/dist/worker.min.js', 'worker.min.js'],
+        ['tesseract.js/dist/worker.min.js.LICENSE.txt', 'worker.min.js.LICENSE.txt'],
+        ['tesseract.js/LICENSE.md', 'LICENSE-tesseract.md'],
+        ['tesseract.js-core/tesseract-core-simd.js', 'tesseract-core-simd.js'],
+        ['tesseract.js-core/tesseract-core-simd.wasm', 'tesseract-core-simd.wasm'],
+        ['tesseract.js-core/LICENSE', 'LICENSE-core'],
+      ]) files.push({ absoluteSrc: resolve('node_modules', source), relativeDest: `ocr/${destination}` })
+    },
+  },
   vite: () => ({
     plugins: [vue(), tailwindcss()],
     customLogger: {
@@ -37,7 +50,7 @@ export default defineConfig({
     default_locale: 'en',
     // scripting：插件更新后已打开的页面收不到弹窗消息，博主活动度扫描要把抓取请求直接注入页面
     // contextMenus + activeTab：右键「存为 X 草稿」；点菜单项后只在当前页面读一次选中的文字
-    permissions: ['storage', 'cookies', 'alarms', 'downloads', 'scripting', 'contextMenus', 'activeTab'],
+    permissions: ['storage', 'cookies', 'alarms', 'downloads', 'scripting', 'contextMenus', 'activeTab', 'offscreen'],
     host_permissions: [
       'https://twitter.com/*',
       'https://mobile.twitter.com/*',
@@ -49,6 +62,8 @@ export default defineConfig({
     ],
     // AI 服务地址：远程只允许 HTTPS，HTTP 只给本机服务（见 shared/ai-request.ts）
     optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
+    content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
+    commands: { 'open-rewind': { suggested_key: { default: 'Alt+Shift+R' }, description: '__MSG_rewindCommand__' } },
     action: {
       default_title: 'oh-my-x',
       default_popup: 'popup.html',

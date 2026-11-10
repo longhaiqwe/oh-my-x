@@ -1,6 +1,8 @@
 // 功能清单：弹窗按模块分组、功能名称与说明的唯一来源。
 // 默认值仍以 storage-keys.ts 的 defaultPreferences 为准，这里只记录归属与文案。
 import {
+  KeyNotificationCardsEnabled, KeyNotificationCardsView,
+  KeyRewindEnabled, KeyRewindNav, KeyRewindOcr, KeyRewindRevision, KeyRewindOcrState, KeyRewindFilter,
   KeyAiServiceApiKey,
   KeyAiServiceBaseUrl,
   KeyAiServiceModel,
@@ -135,6 +137,8 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
 ]
 
 export const FEATURES: readonly FeatureDefinition[] = [
+  { id: 'notificationCards', module: 'engage', storageKeys: [KeyNotificationCardsEnabled, KeyNotificationCardsView, 'notificationCardsReadState'] },
+  { id: 'rewind', module: 'layout', storageKeys: [KeyRewindEnabled, KeyRewindNav, KeyRewindOcr, KeyRewindRevision, KeyRewindOcrState, KeyRewindFilter] },
   { id: 'aiService', module: 'settings', storageKeys: [KeyAiServiceBaseUrl, KeyAiServiceApiKey, KeyAiServiceModel] },
   // 界面与阅读
   {
