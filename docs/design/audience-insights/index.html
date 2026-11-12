@@ -1,0 +1,55 @@
+<!-- Refactoring UI v2：已逐张核对原文11张图片。
+先以灰阶确定：范围信息 → 三个累计阈值 → 分布与名单并排 → 导出及继续浏览。
+三个阈值是包含关系；分档是互斥区间。主操作是返回原列表继续加载。
+沿用X主题及现有设置语义变量；桌面模态宽1040px，≤700px全屏并分“分布/名单”。
+所有数据为合成演示，不连接X，不保存设置。 -->
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>oh-my-x · 粉丝与关注分析 · 第二版</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="review"><div><strong>oh-my-x · 粉丝与关注分析</strong><p>第二版设计 · 已对照原文图片 · 2026-11-11</p></div><div class="tools">
+<label>查看<select id="scene"><option value="followers">粉丝构成</option><option value="following">关注分析</option><option value="settings">设置归属</option></select></label>
+<label>主题<select id="theme"><option value="light">亮色</option><option value="dark">暗色</option><option value="dim">深蓝</option></select></label>
+<label>状态<select id="state"><option value="sample">已有样本</option><option value="partial">部分缺失</option><option value="empty">尚无记录</option><option value="unknown">资料缺失</option><option value="thirdparty">他人关注列表</option></select></label>
+<label><input id="gray" type="checkbox">灰阶</label></div></header>
+<p class="review-note">设计原型 · 全部账号与数据均为演示。粉丝构成沿用原图的分档人数，便于比较布局。</p>
+<main id="stage" data-theme="light">
+<div id="x-scene" class="shell"><aside class="nav" aria-hidden="true"><p>𝕏</p><p>首页</p><p>探索</p><p>通知</p><p>私信</p><p>收藏</p><p>我的列表</p><p>回看</p><p>个人资料</p><p>更多</p></aside>
+<section class="native"><header class="native-head"><h1 id="native-name">示例创作者</h1><p class="muted small" id="native-handle">@demo_author</p></header>
+<div class="native-tabs" role="tablist" aria-label="名单类型"><button role="tab" data-kind="followers" aria-selected="true">关注者</button><button role="tab" data-kind="following" aria-selected="false">正在关注</button></div>
+<section class="entry"><div><strong id="loaded">已记录 264 / 总粉丝 18,600</strong><p class="small muted">仅统计已加载名单 · 不代表全部粉丝</p></div><button id="open" class="primary" aria-controls="analysis" aria-expanded="false">查看粉丝构成</button></section>
+<div id="native-list"></div></section><aside class="aside"><strong>从名单进入分析</strong><p>统计入口放在原生标签栏下。</p><p>打开宽窗口，分布与账号名单同屏展示。</p><p>关闭分析后，继续在原始列表加载账号。</p></aside></div>
+<div id="overlay" class="overlay" hidden><section id="analysis" class="modal" role="dialog" aria-modal="true" aria-labelledby="panel-title" aria-describedby="scope-caption" data-mobile="overview">
+<header class="modal-head"><div class="avatar" aria-hidden="true">例</div><div class="heading"><h2 id="panel-title">粉丝构成</h2><p id="panel-subtitle">示例创作者 · @demo_author</p></div><span class="demo-label">oh-my-x · 演示数据</span><button id="close" class="icon" aria-label="关闭分析">×</button></header>
+<div class="scope"><strong id="scope-title">已记录 264 / 总粉丝 18,600</strong><small id="scope-caption">264 位有粉丝数资料 · 仅为已加载样本</small></div>
+<div class="mobile-tabs" id="mobile-tabs" role="tablist" aria-label="分析视图"><button role="tab" data-mobile-tab="overview" aria-selected="true">分布概览</button><button role="tab" data-mobile-tab="list" aria-selected="false">账号名单</button></div>
+<div class="body-scroll" id="body-scroll">
+<div id="empty" class="empty" hidden><h3>还没有可分析的名单</h3><p>回到原始列表向下浏览，再打开分析。只会统计本次已经加载的账号。</p><button class="primary" id="empty-continue">返回列表继续加载</button></div>
+<div id="follower-panel">
+<div class="unknown-info" id="unknown-info" hidden><strong>粉丝数资料尚未获取</strong><p>已记录账号名单，但无法计算分布。未知值不会计入最低档。</p></div>
+<div class="stats" id="stats"></div>
+<div class="workspace">
+<section class="distribution" id="distribution"><div class="section-heading"><h3>粉丝数分布</h3><span>人数 / 占比</span></div><div class="chart" id="chart"></div>
+<p class="scale-note">六档互不重叠。上方三个汇总条件相互包含，人数不能相加。</p><button id="unknown-filter" class="plain">粉丝数未获取</button>
+<div class="sample-note" id="sample-note">占比以264位有资料的账号为分母。已加载顺序并非随机，不能据此推算全部粉丝。</div>
+<button class="mobile-accounts" id="mobile-accounts">查看符合条件的账号</button></section>
+<section class="results"><div class="section-heading"><div class="result-title"><h3>具体账号</h3><span id="result-count">264 位</span><span class="active-filter" id="filter-name">全部账号</span></div><button id="reset" class="plain">重置筛选</button></div>
+
+<div class="search-sort"><input id="search" type="search" placeholder="搜索名字或用户名" aria-label="搜索粉丝名单"><select id="sort" aria-label="粉丝名单排序"><option value="desc">粉丝数从高到低</option><option value="asc">粉丝数从低到高</option></select></div>
+<div class="people-grid" id="people"></div><div class="pagination" id="follower-pagination"><button id="prev">上一页</button><span class="muted" id="page-info"></span><button id="next">下一页</button></div></section>
+</div></div>
+<div class="following-panel" id="following-panel" hidden>
+<p class="following-intro" id="following-intro">“未关注我”以当前登录账号 @demo_me 为准；关系未获取的账号单独列出。</p>
+<div class="relation-tabs" id="relation-tabs"></div>
+<div class="attribute-tabs" id="attribute-tabs"><span>叠加筛选</span></div>
+<div class="following-tools"><div class="result-title"><h3>关注名单</h3><span id="following-count"></span></div><div class="search-sort"><input id="following-search" type="search" placeholder="搜索名字或用户名" aria-label="搜索关注名单"><select id="following-sort" aria-label="关注名单排序"><option value="followers">粉丝数从高到低</option><option value="ratio">粉丝/关注比从高到低</option></select><button id="following-reset" class="plain">重置</button></div></div>
+<div class="table-head"><span>账号</span><span>粉丝</span><span>关注</span><span>粉丝/关注比</span><span>与我的关系</span></div><div class="following-scroll" id="following-people"></div>
+<div class="pagination" id="following-pagination"><button id="following-prev">上一页</button><span id="following-page-info" class="muted"></span><button id="following-next">下一页</button></div>
+<p class="following-limit">注册未满90天仅表示账号年龄；粉丝数和关注比不代表账号质量。</p>
+</div>
+</div>
+<footer class="modal-foot" id="modal-foot"><p>仅本机 · 演示采集于 11月11日 09:42<br>导出当前筛选的全部结果，不限当前页</p><div class="footer-actions"><button id="export" class="secondary">导出 CSV</button><button id="continue" class="primary">返回列表继续加载</button></div></footer>
+</section></div>
+<section id="settings" class="page-settings" hidden><div class="settings-wrap"><nav class="settings-nav" aria-label="设置模块"><h2>oh-my-x</h2><p>界面</p><p>过滤</p><p class="selected">数据</p><p>创作</p><p>互动</p><p>设置</p></nav><div class="settings-main"><h1>数据洞察</h1><p class="small">查看账号数据与页面上的统计标注。</p><div class="group">看板</div><article class="card"><h3>原创内容奖励计划</h3><p>现有功能，保持原位。</p></article><article class="card"><h3>博主活动度</h3><p>现有功能，保持原位。</p></article><article class="card"><div class="row between"><h3>粉丝与关注分析</h3><span class="tag">拟新增</span></div><p>整理已加载的名单，查看粉丝数分布与具体账号。</p><label class="toggle"><input type="checkbox" id="record-toggle">记录已加载名单</label><p>在哪用：X 的关注者和正在关注列表</p><footer><p id="setting-status">尚未开启 · 仅本机记录</p><div class="row"><button id="back-x">查看 X 入口演示</button><button id="details-button" aria-expanded="false">详细设置</button></div><div id="settings-details" class="settings-details" hidden><h3>记录与保存</h3><p>开启后整理用户在原始列表加载的账号；本功能不自动滚动、不新增 X 接口请求。</p><p>保存上限、历史名单与清理入口放在此处。正式版使用已有的二级设置页。</p><p>暂停后仍可查看与导出已有记录。原型不实际保存设置或名单。</p></div></footer></article><div class="group">页面标注</div><article class="card"><h3>爆款雷达 · 数据比例徽章</h3><p>原有功能保持原位。</p></article><article class="card"><h3>用户粉丝数 · 收藏量</h3><p>粉丝徽章的显示开关继续独立控制。</p></article><p class="settings-note">设置页沿用现有米白／深蓝与橙色语义变量；X 内的入口与分析面板沿用 X 的主题。此处仅展示融合位置，尚未接入产品。</p></div></div></section>
+
+</main><div id="toast" class="toast" role="status" hidden></div><script src="prototype.js"></script></body></html>

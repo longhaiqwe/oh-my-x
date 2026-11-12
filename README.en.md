@@ -39,13 +39,13 @@ oh-my-x is built on [X Focus](https://x.com/star_flow_ai/status/2097583620936585
 
 ## Features at a glance
 
-The settings popup has five tabs. The names below match the popup:
+The settings popup has five feature tabs and one Settings tab. The names below match the popup:
 
 | Module | Features |
 |------|------|
 | [01 Layout & Reading](#01-layout--reading) | Timeline width, hide the right sidebar and Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar, Ask Grok, AI search operators |
 | [02 Content Filter](#02-content-filter) | Spam reply filter (9 rules + spam words), account exceptions, block log, keyword filter |
-| [03 Insights](#03-insights) | Original Content Rewards, account activity, viral radar, ratio badges, follower counts, bookmark counts |
+| [03 Insights](#03-insights) | Original Content Rewards, account activity, audience insights, viral radar, ratio badges, follower counts, bookmark counts |
 | [04 Create & Publish](#04-create--publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
 | [05 Engage & Lists](#05-engage--lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, Favorites, X Lists |
 | **Settings** | AI service configuration |
@@ -211,7 +211,17 @@ Below it is one day's impression conversion: all impressions, verified impressio
 
 #### Account activity
 
-On a profile page, click Scan last 7 days to count that account's posts and replies for each of the last 7 days, to see whether it mostly posts or mostly replies. X limits how often its API can be called; scanning too often in a short time shows a message to try again later.
+Open a profile page, then click Scan last 7 days under Insights → Account activity in the extension popup to count that account's posts and replies for each of the last 7 days, to see whether it mostly posts or mostly replies. X limits how often its API can be called; scanning too often in a short time shows a message to try again later.
+
+#### Audience insights
+
+Enable Insights → Dashboards → Audience insights (off by default). An entry appears below the native tabs on ordinary followers and following pages. Only entries already loaded by X are recorded; the extension does not auto-scroll or make additional X API requests. Refresh once if the list was already open before enabling.
+
+- **Follower composition:** six exclusive follower-count bins, three overlapping cumulative thresholds, account search and pagination. Percentages use entries with known follower counts and do not describe the entire audience.
+- **Following analysis:** follower-count and follower/following-ratio sorting; filters for 10K+ followers, accounts under 90 days old, and fewer than 100 followers. Follows me / Does not follow me / Unknown filters are available only for your own following list and use explicit relationship fields.
+- **Local records:** separated by signed-in account, target account and list kind. Settings can view, export or confirm deletion even when capture is disabled and no X tab is open. CSV exports include all filtered results, not just the current page.
+
+Limits: 3 targets per signed-in account, 20K followers or 10K following per list, and 100K entries or about 30 MiB of record content globally. New entries stop at capacity without silently removing old records. Records stop merging across days or after 24 hours; starting a new record explicitly replaces the old one. If sign-in identity cannot be confirmed, entries remain only in current-page memory and are cleared on navigation.
 
 #### Viral radar
 
@@ -241,6 +251,16 @@ XChat also has a quote-my-posts icon beside the message input. Press `/` in an e
 - When you open X while signed in, older posts sync in batches (up to 20 pages per batch, 2.5 seconds between pages; progress is saved, so closing the page resumes next time), then new posts are checked about every 30 minutes. Tabs share one sync lock, and sync can be paused and resumed.
 - Turn off Sync while X is open under Create → Quote my posts. Cached posts stay searchable, and you can still sync manually.
 - X's API does not always return the full history; the local copy may keep deleted posts or earlier versions of edited posts. It never posts anything automatically.
+
+#### Lists in posts
+
+Select text in a post, quote, or reply editor to use bullet and numbered lists alongside X’s native bold and italic buttons. The bottom toolbar has the same controls. Applying a list preserves the selection and restores the native toolbar; click again to remove it without selecting the text again. Applied lists show a selected button state.
+
+- Bullets use `• ` and numbered lists use `1. `, `2. ` text prefixes. Actual line breaks define items; visual wrapping does not. Blank lines and indentation are preserved. With no text selected, these controls handle the current line.
+- Bullet and numbered lists can be converted into each other. Clicking removes a list when all selected lines have it; mixed selections have the list filled in.
+- Only list prefixes are changed. Existing bold, italic, and links are preserved.
+
+Block quotes, underline, and strikethrough controls are not provided for ordinary posts: character-based approximations cannot guarantee consistent fonts and lines, and local styling is not saved with the post.
 
 #### Image grid and ordering
 
@@ -272,7 +292,10 @@ Select text on any web page, right-click, and choose "Save to X drafts". The sel
 In post, quote, and reply editors, click the AI draft button. It appears to the right of Everyone, or above the input in reply dialogs and inline reply boxes without an audience selector. The extension reads the original post and uses your model to write two drafts. Inline replies use the post on the current detail page as their source. Pick one to put in the editor, then edit it yourself. Drafts are written in the interface language: English with the English interface, Chinese with the Chinese interface.
 
 - Works with OpenAI-compatible APIs. Under Settings → AI service, enter the base URL, API key, and default model, then click Authorize and test connection. The extension asks for access to that service address only; if you decline, no request is sent. Quote drafts and reply checks share this service, with independent model overrides; leave an override empty to follow the default. Existing connection settings migrate automatically.
-- Set your own writing style: describe it under Style description, and paste 2 to 5 quote posts you wrote under Sample posts, separated by a line containing only `---`. If both are empty, a plain default style is used.
+- Defaults to Summary - detailed and Summary - short. Follow-up - detailed and Follow-up - short are also available. Both detailed types retain the original prompts and default style with no added length limits; short-form requirements apply only to short options. The user message starts with an explicit summary and draft-writing task description so intent routers can distinguish it from sentence-by-sentence translation. Short summaries extract one main conclusion or concrete fact in 1–2 conversational sentences, aiming for 30 words or fewer, with optional light wit. Length and relevance are prompt instructions; review before posting.
+- Under Model and style → Manage styles, add, copy, edit, or delete custom styles. Each has its own name, reference type, writing requirements, and samples. Click Save style after editing. Separate samples with a line containing only `---`; up to 5 are used for expression, not copied facts or experiences. Explicit custom tone, structure, and length requirements override the reference type defaults.
+- Each draft can use any built-in or custom style. Selections save automatically for future generations. Deleting a selected custom style restores the corresponding draft default. Built-in styles remain available and can be copied to customize. The former Short reply selection maps to Summary - short.
+- Previous descriptions and samples remain under Shared preferences for built-in styles and apply only to built-in options. Custom styles use their own requirements and samples. Extra instructions still apply to both drafts in a generation.
 - Generating sends the original post, author info, article title, writing style, and extra instructions to your service; the connection test sends only a short test message. Summary generation waits for the complete result without an extension-imposed deadline. Canceling or closing the panel stops the request, but the provider may already have processed and billed it. The browser's background lifecycle, network, or provider can still interrupt the request. Connection tests and original-post retrieval retain a 25-second timeout. Remote services must use HTTPS; HTTP works only for localhost and 127.0.0.1 on this computer (for example a local proxy or Ollama).
 
 #### Schedule overview
@@ -285,11 +308,18 @@ There is also a schedule panel below the search box in the right sidebar. It lis
 
 #### Notification cards
 
-The Notifications page keeps X's All / Priority / Mentions tabs and adds User cards / Original list. Expand a user card to see loaded replies, mentions, likes, reposts, and follows. Typography, theme, and accent color follow X. Turn it off under Engage → Notification cards.
+When card mode is selected, entering Notifications shows a loading placeholder before the cards, instead of briefly showing the original list while local state loads. You can switch to the original list during loading. If state loading fails or exceeds three seconds, the original list is restored.
 
+The Notifications page keeps X's All / Priority / Mentions tabs and adds User cards / Original list. The view mode is saved locally, restored directly after reloads, navigation, or re-enabling the feature, and synchronized across open X tabs. The two filter preferences are retained independently. Expand a user card to see loaded replies, mentions, likes, reposts, and follows. Typography, theme, and accent color follow X. Turn it off under Engage → Notification cards.
+
+Cards with replies or mentions use an accent edge, an icon, and a bold type label. They preview the latest unviewed reply, or the latest reply when all have been viewed. Likes, reposts, and follows use neutral styling. Cards keep recent-activity order, with no oversized first card and a single column on narrow screens. Badges count unviewed notifications within the current type filter and always use the theme accent color. Type labels show no counts. A new like does not mark an old reply as new.
+
+- User cards provide independent Replies only and Unviewed only checkboxes. Both filters are unchecked on first use and restore the last selection afterward. Checking Replies only shows only replies and mentions, including card details and badges; clearing it restores all types. With both checked, only users with unviewed replies or mentions appear: a new like does not surface an old reply. Opening a card shows only the selected types but marks all interactions loaded for that user at click time viewed, including hidden likes, reposts, and follows. Switching filters does not restore their badges; other users and notifications arriving after the click are unaffected. Each filter is saved separately in browser local storage, restored after reloads, navigation, account changes, and notification category changes, and synchronized across open X tabs. Filters are hidden in Original list.
 - Only notifications already loaded in the current tab are grouped, with up to 500 entries held in page memory. Switching accounts or notification categories clears this batch. To load older records, switch to the original list, scroll, then return to cards.
-- Badges track local unviewed notifications, not X's official unread count. First use establishes a time baseline without marking historical records new. Opening a card marks its loaded notifications viewed; grouped notices keep separate viewing records for each user.
-- A grouped notice counts as one notification. Only identifiable users and available summaries are shown; missing posts or participants are not inferred. System notices and new-post alerts appear under Other notifications.
+- Badges track local unviewed notifications, not X's official unread count. First use establishes a time baseline without marking historical records new. Opening a card marks all interactions loaded for that user at click time viewed, regardless of the type filter; grouped notices keep separate viewing records for each user.
+- While this feature is enabled, opening a notification in Original list also saves its viewed state. Its card badge updates when switching views or returning from the post. Opening a grouped notice marks all identifiable participants in that notice viewed, regardless of card filters; opening a new-post alert also hides it from cards. Clicking an avatar, profile link, or action button such as Like does not mark the whole notice viewed. Clicks that older versions did not record cannot be recovered; reopen those notifications or use Mark all as read.
+- Likes and reposts store viewing state per user, target post, and interaction type. Added participants, updated group timestamps, and revised summaries do not mark previously viewed participants as unviewed again. Matching prefers the post URL, then its text excerpt; timestamps remain the fallback when both are absent. Different posts with identical excerpts cannot be reliably distinguished. Legacy receipts migrate when their original notification still matches; changed, unmatched legacy records need to be viewed once again. Concurrent responses and cross-tab updates merge read receipts instead of replacing newer state.
+- A grouped notice counts as one notification. Only identifiable users and available summaries are shown; missing posts or participants are not inferred. Mark all as read beside Recent activity applies to loaded activity in the current filter, excluding new-post alerts and notifications arriving during the operation. With Replies only selected, it marks replies and mentions only. Entering notifications or returning to its browser tab activates the current native notification tab to refresh; cards update as X supplies the native results. Only the latest alert from accounts with post notifications enabled is cached, and it is displayed only while unviewed. Opening it hides it and saves its timestamp per account. Returning, disabling Unviewed only, or loading older notifications cannot restore it; only a newer unviewed alert appears again. It appears above Recent activity with time and viewing status beside the heading and up to seven avatars on one line below, followed by +N for additional identified users. The summary is vertically centered beside the avatars (below them on narrow screens), with the action on its own row, without a fixed count, separately from user activity. Clicking the alert directly activates the native notification and opens its posts timeline without switching view modes. Avatars in alerts, user cards, and details open profiles independently and reuse X’s profile hover cards while the native source remains loaded. Recycled alerts prompt a refresh and remain unviewed; profile links still work. Viewed alerts stay hidden independently of Unviewed only; system notices remain under Other notifications.
 - Baselines and per-user viewing receipts are stored by signed-in account in `browser.storage.local`, for up to 20 accounts and 2000 receipts per account. Notification text and avatar URLs remain in page memory. This feature makes no additional notification API requests.
 
 
@@ -317,7 +347,7 @@ Adds image downloads, MP4 downloads, and **Export GIF** to a post's share menu, 
 
 #### Non-follower marker
 
-In your Following list, marks accounts that don't follow you in red.
+On Following pages, marks accounts whose Following button is present but whose Follows you indicator is absent. This older feature uses rendered page indicators and does not verify who owns the list. Use Following analysis for explicit relationship data.
 
 #### Favorites
 
@@ -343,7 +373,7 @@ Click the oh-my-x icon in the browser toolbar to open the settings popup (400 pi
 |------|------|
 | **Layout** (Layout & Reading) | Timeline width, right sidebar, Post button, navigation buttons and labels, article outline, open search on Latest, search filter bar, Ask Grok, AI search operators |
 | **Filter** (Content Filter) | Spam reply filter (blocked today, hide threshold, debug mode, 9 detection rules, spam words), keyword filter and muted words, account exceptions (allowlist / blocklist), block log |
-| **Insights** (Insights) | Dashboards: Original Content Rewards, account activity; page badges: viral radar, ratio badges, follower counts, bookmark counts |
+| **Insights** (Insights) | Dashboards: Original Content Rewards, account activity, audience insights; page badges: viral radar, ratio badges, follower counts, bookmark counts |
 | **Create** (Create & Publish) | Quote my posts, image grid and ordering, mention by name, save selection to drafts, AI quote drafts, schedule overview |
 | **Engage** (Engage & Lists) | Keyboard shortcuts and bottom bar, jump to replies, like when replying, media download, non-follower marker, Favorites, X Lists |
 | **Settings** | AI service configuration |
@@ -361,7 +391,7 @@ The Filter tab has two levels: the first shows each feature's switch and status;
 - **Stored locally**: settings, word lists, the block log, and your AI API key are stored in `browser.storage.local`; the post library is stored in the extension's local IndexedDB. The extension does not encrypt the API key; masking in the settings only hides it on screen.
 - **Requests to X**: post sync, Lists, user metrics, creator rewards, and interaction helpers use your existing signed-in session to talk to X. The developer does not receive this data and collects no telemetry.
 - **Optional AI requests**: generation, connection tests, AI search, and reply checks within the scope you enable send the relevant content only to a service address you authorized; that provider's data and billing terms apply. AI requests carry no browser cookies.
-- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`, `contextMenus`, `activeTab` (the last two are for Save selection to drafts: after you click the menu item, the selected text on the current page is read once); default host access is limited to X domains, `abs.twimg.com`, and `video.twimg.com` (to load media for GIF export). Your AI host is granted on demand through optional permissions and can be managed in Chrome's extension settings.
+- **Permissions**: `storage`, `cookies`, `alarms`, `downloads`, `scripting`, `contextMenus`, `activeTab` (these two support Save selection to drafts: after you click the menu item, the selected text on the current page is read once), and `offscreen` (to run local image text recognition in an offscreen document); default host access is limited to X domains, `abs.twimg.com`, and `video.twimg.com` (to load media for GIF export). Your AI host is granted on demand through optional permissions. Image text recognition separately requests image and language-data hosts when enabled. These grants can be managed in Chrome's extension settings.
 - **Where scripts run**: page scripts are injected only on `twitter.com`, `mobile.twitter.com`, `x.com`, and `pro.x.com`.
 
 See the [privacy policy](PRIVACY.md).

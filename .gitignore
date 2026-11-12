@@ -8,3 +8,10 @@ coverage
 
 # crapper / dryer / mutator 生成的结果
 .metrics/
+
+# 本机工具会话和宣传演示的可重新生成文件
+.uml-viewer/
+__pycache__/
+docs/promo/v2.8.0-stageshow/out/
+docs/promo/v2.8.0-stageshow/dist/
+docs/promo/v2.8.0-stageshow/.library-helpers-*/

@@ -1,0 +1,9 @@
+{:title "oh-my-x"
+ :src "/Users/longhai/Projects/X 运营/oh-my-x/shared"
+ :prefix "shared"
+ :lang :typescript
+ :out "/Users/longhai/Projects/X 运营/oh-my-x/.metrics/uml-viewer.edn"
+ :hierarchical true
+ :foreign [wxt vue vitest]
+ :order [shared]
+ :levels [[shared]]}

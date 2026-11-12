@@ -1,12 +1,12 @@
 # Privacy Policy for oh-my-x
 
-Last updated: November 10, 2026
+Last updated: November 12, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
 ## 1. Local storage and developer access
 
-- Settings, keyword lists, allow/block lists, interception logs and statistics, Lists metadata, saved bloggers and their display order, creator rewards data, and AI configuration (including your API key) are stored in `chrome.storage.local`. The API key is not encrypted by the extension; password masking in the settings is only a display feature.
+- Settings, keyword lists, allow/block lists, interception logs and statistics, Lists metadata, saved bloggers, their X-hosted avatar URLs and display order, creator rewards data, and AI configuration (including your API key) are stored in `chrome.storage.local`. The API key is not encrypted by the extension; password masking in the settings is only a display feature.
 - The popup and settings page also keep copies of a few settings (interface language, the last opened tab, the spam word list, collapsed sections) in the extension's own `localStorage`, so they open without waiting for `chrome.storage.local`. On X pages, the schedule panel saves the query ID and query parameters of X's scheduled-posts request in that page's `localStorage` so it can refresh the list; it does not save cookies or credentials there.
 - The own-post library stores account IDs, post IDs and text, article titles/previews, X-hosted thumbnail URLs, dates, and synchronization checkpoints in extension-local IndexedDB. It does not store session cookies or credentials in this database.
 - AI reply scores are cached in extension-local IndexedDB for up to 7 days, with a maximum of 5,000 entries. Manual bot/human labels, including the reply and its context, remain until removed and can be exported as JSONL. Marked bot accounts and daily AI usage counters are stored in `chrome.storage.local`.
@@ -29,6 +29,8 @@ Optional OCR runs locally in a bundled Tesseract worker. It downloads versioned 
 - Save selection to drafts: when you choose "Save to X drafts" from the right-click menu, the extension reads the selected text on that page once and sends it, followed by the page's link (http and https pages only), to X with your X session to create a draft in your account. If that fails, it opens `x.com/intent/post` with the same text in the address so you can save the draft yourself. Nothing is read or sent before you click the menu item.
 - GIF export downloads the selected post’s MP4 from `video.twimg.com` without cookies and converts it to GIF locally in an extension page. The extension does not upload media to a conversion service. Clicking Copy GIF writes the animation to the clipboard as HTML. When you paste this marked content into X’s editor, the extension restores it as a GIF attachment for X to upload; it does not publish the post. It does not request clipboard-read permission or read the clipboard in the background.
 - User actions can add a member to an X List, download media, or use interaction helpers. If enabled, the reply helper can like a post after a successful reply. These actions communicate with X or its media CDN.
+
+Opening Favorites can look up saved usernames through the existing X user-search endpoint to fill missing avatars. Only still-saved entries without an avatar are updated; names and order are preserved.
 
 ## 3. Optional AI service
 
@@ -61,7 +63,13 @@ Content scripts run only on `x.com`, `pro.x.com`, `twitter.com`, and `mobile.twi
 
 ## Notification cards
 
-Notification cards read already-rendered notifications on X and group them locally. Notification text and avatar URLs stay in the current page's memory (up to 500 entries per notification category). They are not sent to an AI service or an extension server. The extension stores an account-specific first-use timestamp, hashed notification identifiers, participant handles, viewing timestamps, and the selected view in `browser.storage.local` to maintain local unviewed badges across visits. Viewing receipts are limited to 20 accounts and 2000 receipts per account. The feature does not change X's official read state or make additional notification API requests.
+Notification cards read already-rendered notifications on X and group them locally. Notification text and avatar URLs stay in the current page's memory (up to 500 entries per notification category). They are not sent to an AI service or an extension server. The extension stores an account-specific first-use timestamp, hashed notification identifiers, participant handles, viewing timestamps, new-post alert viewing times, the selected view, and unviewed/replies-only filter preferences in `browser.storage.local` to maintain local unviewed badges across visits. Viewing receipts are limited to 20 accounts and 2000 receipts per account. Viewing receipts are separate from X's official read state. Entering or returning to the notification tab can activate the current native notification category to refresh it; the extension does not call a separate notification API. Reply navigation temporarily stores the target post and account in the current tab's session storage for up to 15 seconds and clears it after positioning the composer; reply text is not stored.
+
+## Audience insights
+
+Audience insights is off by default. When enabled, it passively reads ordinary Followers and Following responses already requested by X. It does not automatically scroll, make extra list API requests, or send records to AI or extension servers. Stored fields include signed-in and target account IDs, list type, user IDs, handles, names, X avatar URLs, follower/following counts, account creation dates, explicit relationship flags, and observation times. Records use the extension’s own IndexedDB, not X page storage. Avatar images may be requested from X’s image host when displayed.
+
+Records are separated by account and list. Limits are 3 targets per signed-in account, 20,000 followers or 10,000 following per list, and 100,000 entries or approximately 30 MiB of record content globally. Records stop merging across days; new entries stop at capacity without eviction. Disabling capture keeps saved lists. Settings can view, export or delete them without an open X tab. Clearing a list also invalidates writes that were already in progress. If sign-in identity cannot be confirmed, entries are held only in current-page memory and discarded on navigation. CSV exports are user-initiated local files.
 
 ## 5. Changes and contact
 

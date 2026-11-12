@@ -46,6 +46,8 @@ oh-my-x/
 ├── AGENT.md / README.md         # 开发指南 / 用户文档（英文版 README.en.md）
 │
 ├── shared/                      # 跨上下文共享逻辑（纯逻辑为主，可单测）
+│   ├── composer-formatting.ts   # 圆点/编号列表切换计划与选区偏移映射
+│   ├── composer-icons.ts        # Skia 绘制的两行圆点/编号图标，颜色跟随所在工具栏
 │   ├── settings.ts              # 设置归一化（toggle/数值 clamp/枚举/跨字段约束/旧键迁移）
 │   ├── spam-rules.ts            # 评分规则 + evaluateSpam + parseKeywordList
 │   ├── spam-types.ts            # spam 类型 + 规则元数据 + 分类标签
@@ -102,7 +104,9 @@ oh-my-x/
 │   │   ├── more-menu.ts         # 被收进「更多」菜单的导航入口，在菜单打开时同步隐藏
 │   │   ├── creator-nav.ts       # 导航栏的 Radar、灵感入口：克隆「主页」放在「个人资料」上方，点击请求拦截器跳转
 │   │   ├── interface.ts         # 发帖按钮、右侧边栏、长文目录、排期全景开关
-│   │   ├── composer.ts          # 编辑器插入链接按钮 + Markdown 格式化
+│   │   ├── composer.ts          # 编辑器引用帖子、Markdown 格式化、列表按钮
+│   │   ├── composer-list.ts     # 选区列表：圆点/编号，原生 B / I 浮层与底部入口
+│   │   ├── composer-colors.ts   # 底部扩展按钮跟随相邻可用原生图标取色，响应主题变化
 │   │   ├── composer-media.ts    # 发帖框多图两列排版 + 拖动排序（isolated world）
 │   │   ├── own-post-picker.ts   # 编辑器里的「引用我的帖子」搜索面板
 │   │   ├── own-post-library-client.ts # 帖子库同步（分批翻页、断点）
@@ -213,7 +217,8 @@ oh-my-x/
 
 ### 动态调度（`features/dynamic.ts` + `initialize.ts`）
 - 一个全局 `MutationObserver` 观察整棵 document 树。
-- `getDynamicFeatureScopes(mutations)` 把变更归类为 scope：`tweet | composer | scheduled | navigation`；SPA 路由切换追加 `all`。
+- `getDynamicFeatureScopes(mutations)` 把变更归类为 scope：`tweet | composer | scheduled | navigation | notifications`；SPA 路由切换追加 `all`。
+- 通知视图外壳由 `prepareNotificationCards()` 在全局 observer 回调开头同步准备，不等待动态队列或后台状态读取；加载占位保留原生列表的行尺寸。
 - `general(scopes)` 按 scope 只跑相关功能；单飞期间到达的新 scope 合并进 `pendingScopes`，本轮结束后补跑，避免漏掉最后一次变更。
 - `runDynamicFeatures` 50ms 节流。
 
@@ -333,14 +338,26 @@ npm run build     # → build/chrome-mv3/
 npm run zip       # 构建 + 打包
 ```
 
-Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`、`scripting`、`contextMenus`、`activeTab`。默认主机权限仅 X 域名、`abs.twimg.com` 与 GIF 导出所需的 `video.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
+Manifest 权限（`wxt.config.ts`）：`storage`、`cookies`、`alarms`、`downloads`、`scripting`、`contextMenus`、`activeTab`、`offscreen`。默认主机权限仅 X 域名、`abs.twimg.com` 与 GIF 导出所需的 `video.twimg.com`；AI 主机从 `optional_host_permissions` 按需授权。`permissions.request` 必须直接从 popup 点击事件调用，不能在前面插入异步操作。
 
 AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台检查主机授权；总结生成不设扩展侧等待上限，其余请求第一段数据 25 秒内要到，之后 15 秒没有新数据或总共 90 秒才算超时（`shared/ai-deadline.ts`），Port 断开中止 AbortController。内容面板关闭、移除或 popup 卸载须断开连接，迟到响应不得重建界面。原文补全也使用相同生命周期。外部 AI 请求 `credentials: omit`、拒绝重定向，不转发 X Cookie。
 
-转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成：通用规则 + 用户在弹窗填写的风格描述（`aiRepostStylePrompt`）和参考样本（`aiRepostStyleSamples`，用单独一行 `---` 分隔，最多 5 条）；两项留空时用默认风格。转发文案按插件界面语言生成：X 页面的 AI 面板在请求里带上 `locale`，后台按它选中文或英文的提示词、默认风格（`DEFAULT_REPOST_STYLE` / `DEFAULT_REPOST_STYLE_EN`）和禁用词替换表；请求没带语言时按后台读到的插件语言。中英两套提示词结构保持一致，改一套时同步改另一套。提示词里不要写入具体某个人的人设或账号。
+草稿风格由 `aiRepostOptionA` / `aiRepostOptionB` 保存，默认 `summary` / `summary-short`（干货总结 - 详细／简短）；另有详细／简短话题延伸。旧 `reply` 值归一化为 `summary-short`。`aiRepostStyles` 保存自定义风格列表的 JSON 字符串，每项含 `id`（`custom:` 前缀）、名称、参考类型、写作要求和样本；解析与选择归一化在 `shared/ai-repost-presets.ts`。删除被引用的风格时，该草稿回退默认项。风格库编辑需要明确保存，草稿选择自动保存。
+
+转发提示词由 `shared/ai-repost.ts` 的 `buildRepostSystemPrompt` 生成。两个详细预制项必须保留原版任务要求和默认风格，不加字数上限或删开场、删结尾等新限制；选择原来的「总结 + 延伸」组合时，系统提示词保持原版内容；用户消息开头补充独立的“原文总结与转发文案创作”任务说明，明确不做逐句翻译，供只读取 user 消息的意图路由识别。原有任务说明仍保留，新增说明不改变各选项的写作要求。原版固定文本见 `test/fixtures/ai-repost-original-prompts.json`，只用于回归验证，不随新风格修改。每个选项独立组装类型、描述、样本，不能互相套用。旧 `aiRepostStylePrompt` / `aiRepostStyleSamples` 保留为预制项的共用偏好；自定义项只使用自己的描述与样本，明确的自定义语气、结构和长度覆盖参考类型默认值，事实与相关性约束始终保留。样本用单独一行 `---` 分隔，最多 5 条。长度通过提示词约束，不截断生成结果。后台返回实际使用的 `presets` 及自定义 `styleNames` 快照，面板按快照显示标签；名称必须转义后再写入 HTML。
+
+转发文案按插件界面语言生成：X 页面的 AI 面板在请求里带上 `locale`，后台按它选中文或英文提示词、默认语气和禁用词替换表；请求没带语言时按后台读到的插件语言。中英两套提示词结构保持一致，改一套时同步改另一套。提示词里不要写入具体某个人的人设或账号。
+
 
 ### 公共 AI 服务
 
 - 「设置 → AI 服务」统一管理接口地址、API Key、默认模型和授权测试；总结和评论判断各自的模型字段留空时跟随公共默认模型。
 - `shared/ai-service.ts` 负责解析和幂等迁移，旧总结连接及模型迁成公共配置，保留打分模型。迁移只由后台写入；弹窗与完整设置页等待迁移完成后挂载，失败可重试。
 - X 总结弹窗不再编辑连接配置，入口跳转到完整设置页的 `#settings`。
+
+
+## 粉丝与关注分析
+
+`shared/audience.ts` 是名单解析、分档、筛选与 CSV 导出的纯逻辑；`audience-interceptor.ts` 仅旁路观察普通 Followers / Following 响应。`audience-background.ts` 验证消息来源、当前登录账号和设置后，调用 `audience-db.ts` 在扩展源 IndexedDB 原子写入。清除操作递增账号代次，拒绝旧请求写回。跨天记录不自动合并。不能用通用用户指标缓存推断名单。
+
+设置入口在「数据 → 看板」，详情路径 `#insight/audience`；关闭采集或没有 X 标签页时仍可查看本地记录。X 页面入口由 `content-scripts/features/audience.ts` 管理，模态窗口使用 `shared/components/AudiencePanel.vue` 和 `shared/audience-panel.ts`，打开时固定样本。仅本人关注名单使用明确的 `followed_by` 字段；缺失不是 false。测试见 `test/unit/audience*.test.ts`，真实 Chromium 的合成数据界面检查见 `scripts/test-audience-layout.mjs`。
