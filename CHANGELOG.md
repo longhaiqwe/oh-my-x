@@ -15,6 +15,7 @@
 - Improve notification hierarchy, narrow layouts, expanded details, and row heights during view switches.
 - Display saved-blogger avatars and fill missing avatars without restoring removed entries or overwriting newer data.
 - Add regression coverage, audience design files, store images, and promotional demo sources and deliverables.
+- Keep promotional demos in their own TypeScript project so clean extension builds do not require demo-only dependencies.
 
 ### Permissions and privacy
 

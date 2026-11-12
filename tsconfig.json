@@ -19,5 +19,12 @@
     "**/*.ts",
     "**/*.vue",
     ".wxt/types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    ".output",
+    "coverage",
+    "docs/promo"
   ]
 }
