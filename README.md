@@ -578,6 +578,8 @@ GitHub Actions 会在 push、pull request 和手动触发时执行 `npm ci` 与 
 
 **发布新版本**：先把 `package.json` 的 `version` 改成新版本号并提交，再推送同名标签（如 `git tag v2.0.0 && git push origin v2.0.0`）。`release.yml` 会检查标签与版本号一致，跑完 `npm run check` 后把 `oh-my-x-chrome-mv3.zip` 发到 Releases 页面。CI 使用 Node.js 24；本地建议使用 Node.js 24.15 或更新的 24.x。
 
+**Chrome 商店送审**：默认使用已登录的 Chrome 原生界面，步骤见 [送审流程](docs/chrome-native-review-workflow.md)。更新记录以商店实际已发布版本为基线；GitHub 发布成功不代表商店已上架。
+
 界面文案在 `shared/i18n/zh-CN.ts` 和 `shared/i18n/en.ts`，规则见 [AGENT.md](AGENT.md) 的「界面语言」一节。
 
 ### 技术栈

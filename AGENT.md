@@ -13,11 +13,13 @@ X/Twitter 界面定制 + 评论垃圾过滤 + 爆款雷达 + 排期全景浏览�
 | 框架 | [WXT](https://wxt.dev/) + Vite（版本见 `package.json`） |
 | UI | Vue 3 + reka-ui（无头组件）+ Tailwind CSS |
 | 构建 | `wxt build` → `build/chrome-mv3/`（`wxt.config.ts` 的 `outDir`，不用默认的 `.output`，方便用户找到） |
-| 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads` / `scripting` / `contextMenus` / `activeTab`） |
+| 扩展 API | Chrome MV3（`storage` / `cookies` / `alarms` / `downloads` / `scripting` / `contextMenus` / `activeTab` / `offscreen`） |
 | 类型 | TypeScript（严格模式；版本见 `package.json`） |
 | 测试 | Vitest + jsdom（见 `vitest.config.ts`） |
 
 ## 开发命令
+
+发布与 Chrome 商店送审先读 [Chrome 原生界面送审流程](docs/chrome-native-review-workflow.md)。按 2026-11-12 用户确认，后续默认用已登录的 Chrome 原生界面提交；更新记录以后台实际已发布版本为基线。历史状态见 [商店提交记录](docs/chrome-web-store-submission.md)。
 
 ```bash
 npm run dev           # 开发模式（HMR，需终端保持运行）

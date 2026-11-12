@@ -436,6 +436,8 @@ GitHub Actions runs `npm ci` and `npm run check` on push, pull request, and manu
 
 **Releasing**: change `version` in `package.json` and commit, then push a tag with the same version (for example `git tag v2.0.0 && git push origin v2.0.0`). `release.yml` checks that the tag matches the version, runs `npm run check`, and publishes `oh-my-x-chrome-mv3.zip` to the Releases page. CI uses Node.js 24; locally, use Node.js 24.15 or a later 24.x.
 
+**Chrome Web Store submission**: use the signed-in native Chrome window by default. Follow the [submission workflow (Chinese)](docs/chrome-native-review-workflow.md), and compare against the version actually published in the store. A GitHub release does not establish store publication.
+
 Interface text lives in `shared/i18n/zh-CN.ts` and `shared/i18n/en.ts`; see the "界面语言" section of [AGENT.md](AGENT.md) for the rules.
 
 ### Tech stack

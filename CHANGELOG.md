@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Documentation
+
+- 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
+
 ## 3.0.0 - 2026-11-12
 
 Compared with 2.9.0, including the 2.10.0 changes released on GitHub but not published in the Chrome Web Store.

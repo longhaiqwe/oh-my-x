@@ -1,12 +1,15 @@
 # Chrome 应用商店提交资料
 
-## 2026-11-12：3.0.0 发布准备
+后续发布默认按 [Chrome 原生界面送审流程](chrome-native-review-workflow.md) 操作（2026-11-12 用户确认）。本文保留历次提交记录；旧版本的字段模板不作为当前填写依据。
+
+## 2026-11-12：3.0.0 已提交审核
 
 - 对外更新说明以 2.9.0 为比较基线，合并 2.10.0 尚未在 Chrome 商店发布的改动。2.10.0 的 GitHub 发布记录保留，不作为商店已发布版本。
 - 累计新增粉丝与关注分析（含认证粉丝）、奖励历史看板及图片导出、AI 转发风格、编辑器列表、通知筛选与回复入口、收藏头像，并修复名单采集、通知已读同步、界面布局和图片文字识别问题。
 - 本次类型检查、131 个测试文件中的 1585 项测试、生产构建通过。12 组奖励看板、8 组粉丝面板布局、三类名单的扩展集成及 7 轮真实图片识别检查通过。浏览器检查使用合成数据，不操作真实 X 账号。
 - 商店包为 `build/oh-my-x-3.0.0-chrome.zip`；权限与 2.9.0 相同。
-- 本次工具访问商店后台仍返回 `Not allowed`；商店脚本仍缺少授权凭据。未上传、未提交审核；当前商店线上版本未重新核实。
+- 2026-11-12 14:10（北京时间）通过 Chrome 原生界面完成上传和提交。后台显示「已将您的扩展程序提交送审」及「待审核」，保留通过审核后自动发布；提交前已确认线上版本为 2.9.0。
+- 浏览器扩展控制工具此前导航后台返回 `Not allowed`，原因未知；商店脚本当时缺少授权凭据。两者都不是本次成功送审使用的方式。
 - 送审资料见 [3.0.0 送审说明](releases/v3.0.0-store.md)。
 
 
@@ -79,7 +82,7 @@ GitHub Releases 里的 `oh-my-x-chrome-mv3.zip` 顶层多一层 `chrome-mv3/` �
 
 ## 四、隐私权规范（Privacy practices）
 
-以下英文可直接粘贴。
+以下为早期版本模板。3.0.0 已更新本地记录、图片识别及相关数据申报，见 [3.0.0 实际填写记录](releases/v3.0.0-store.md)；后续按当次代码和后台字段调整，不直接复制旧模板。
 
 ### 单一用途（Single purpose）
 
@@ -185,7 +188,7 @@ https://github.com/longhaiqwe/oh-my-x/blob/main/PRIVACY.md
 
 ## 六、商店中文详细说明草稿
 
-纯文本，商店不渲染 Markdown。功能名和插件中文界面一致。
+以下保留早期中文草稿，未覆盖当前所有功能。后续先按原生界面流程准备本次完整介绍；商店字段使用纯文本。
 
 ```text
 oh-my-x 给 X（Twitter）网页端补上常用但缺失的功能。每项功能单独开关，设置保存在你的设备上。
@@ -288,7 +291,9 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 
 操作方法：日常 Chrome（155 版）已开启远程调试，Chrome 资料目录里的 `DevToolsActivePort` 文件写着端口 9222 和浏览器连接路径，HTTP 的 `/json` 接口返回 404，只能用这个路径连 WebSocket。连上后新开后台标签页，用调试接口的 `DOM.setFileInputFiles` 传包、`Input.insertText` 填文字，全程只连一次。Chrome 不允许扩展操作商店页面，所以 Claude in Chrome 用不了。
 
-## 十一、用接口发版
+## 十一、用接口发版（备选，需另行配置）
+
+默认使用 [Chrome 原生界面送审流程](chrome-native-review-workflow.md)。以下仅为脚本已配置并验证可用时的备选操作；没有接口凭据不妨碍通过原生界面送审。
 
 脚本：`scripts/chrome-web-store.mjs`（`npm run store -- <命令>`），调用 Chrome Web Store API v2 的 `upload`、`publish`、`fetchStatus`。不用登录后台。2026-10-28 只用模拟的网络请求测过，还没连真实商店跑过。
 
@@ -312,7 +317,7 @@ No test account is provided. Sign in to x.com with any X account. The extension 
 6. 跑 `npm run store -- auth`，浏览器里用发布扩展的账号同意授权，refresh token 自动写进配置文件。
 7. 跑 `npm run store -- status`，能看到线上版本就说明配好了。
 
-### 每次发版
+### 接口已配置时的发版步骤
 
 1. 同步更新 package.json、package-lock.json 和中英文 CHANGELOG，验证后提交并推送匹配版本的 v* 标签（GitHub Release 由 .github/workflows/release.yml 发布）。
 2. 在干净目录打包：主目录常有没提交的改动，要在只含发版提交的目录里跑 `npm run zip`。
