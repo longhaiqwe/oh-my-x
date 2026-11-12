@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.10.0 - 2026-11-12
+
+### Features
+
+- Add opt-in audience insights for ordinary Followers and Following lists already loaded by X: follower-count bins, search, sorting, relationship filters, and complete filtered CSV export. Lists stay on the device and can be viewed or cleared after capture is disabled.
+- Configure each AI repost draft independently with detailed or short summaries, detailed or short extensions, or saved custom styles with instructions and samples. Defaults are a detailed summary and a short summary.
+- Add bullet and numbered list controls to post, quote, and reply composers while preserving selection, bold, italic, and links. Button colors follow the X theme.
+
+### Fixes and improvements
+
+- Add unviewed/replies-only notification filters, mark-all-read for the current filter, reply navigation, native profile previews, and separate new-post alerts.
+- Preserve viewing receipts across grouped notifications, native-list clicks, tabs, and delayed responses. Restore filter preferences and navigate replies to the in-page composer in the current tab.
+- Improve notification hierarchy, narrow layouts, expanded details, and row heights during view switches.
+- Display saved-blogger avatars and fill missing avatars without restoring removed entries or overwriting newer data.
+- Add regression coverage, audience design files, store images, and promotional demo sources and deliverables.
+
+### Permissions and privacy
+
+- No new permissions compared with 2.9.0. Audience insights does not scroll automatically, make extra list API requests, or send lists to AI services or the developer.
+- Update bilingual documentation and the privacy policy for the existing offscreen permission, local audience lists, favorite avatars, and notification preferences.
+
 ## 2.9.0 - 2026-11-10
 
 ### 新增
