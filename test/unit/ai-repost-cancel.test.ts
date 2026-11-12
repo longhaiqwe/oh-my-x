@@ -61,3 +61,26 @@ it('does not start generation if closed while the full source is loading', async
   await flushMicrotasks()
   expect(ports).toHaveLength(1)
 })
+
+
+it('labels the generated types from the response snapshot and inserts the selected draft', async () => {
+  trigger().click()
+  await flushMicrotasks()
+  ports[0].server.postMessage({ ok: true, optionA: '详细延伸内容', optionB: '短句内容', presets: { optionA: 'extension', optionB: 'extension-short' } })
+  await flushMicrotasks()
+  expect(document.querySelector('[data-option="A"]')?.textContent).toContain('选项 1 · 话题延伸 - 详细')
+  const card = document.querySelector<HTMLElement>('[data-option="B"]')!
+  expect(card.textContent).toContain('选项 2 · 话题延伸 - 简短')
+  card.click()
+  expect(document.querySelector('[contenteditable]')?.textContent).toBe('短句内容')
+})
+
+it('renders custom style names as text without interpreting markup', async () => {
+  trigger().click()
+  await flushMicrotasks()
+  ports[0].server.postMessage({ ok: true, optionA: '总结', optionB: '短评', presets: { optionA: 'summary', optionB: 'custom:test' }, styleNames: { optionB: '<img src=x onerror=alert(1)>' } })
+  await flushMicrotasks()
+  const card = document.querySelector('[data-option="B"]')!
+  expect(card.textContent).toContain('<img src=x onerror=alert(1)>')
+  expect(card.querySelector('img')).toBeNull()
+})

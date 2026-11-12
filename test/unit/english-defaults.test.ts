@@ -144,7 +144,7 @@ describe('AI 转发：英文界面写英文', () => {
 
   it('用户消息用英文，原文内容照样带上', () => {
     const [, user] = buildRepostMessages({ text: '原文是中文也照样带上', title: 'Title', authorName: 'A', authorHandle: 'a' }, 'Under 200 characters', {}, 'en')
-    expect(user.content).toContain('Write two quote-post options')
+    expect(user.content).toContain('Write one draft for each')
     expect(user.content).toContain('Author: A (@a)')
     expect(user.content).toContain('Article title: Title')
     expect(user.content).toContain('原文是中文也照样带上')

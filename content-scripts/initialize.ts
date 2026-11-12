@@ -1,4 +1,4 @@
-import { initNotificationCards } from './features/notification-cards'
+import { initNotificationCards, prepareNotificationCards } from './features/notification-cards'
 import { initGifClipboardPaste } from './features/gif-clipboard'
 import { runDynamicFeatures, type DynamicFeatureScope } from './features/dynamic'
 import { applyStaticFeatures } from './features/static'
@@ -18,6 +18,7 @@ import { listenForCreatorRewardsApi } from './features/creator-rewards'
 import { listenForCreateDraftQueryId } from './features/selection-draft'
 import { initSearchTools } from './features/search-tools'
 import { initSearchMenu } from './features/search-menu'
+import { initComposerLists } from './options/composer-list'
 
 function addStylesheets() {
   addStyleSheet('main', browser.runtime.getURL('css/main.css' as any))
@@ -26,6 +27,8 @@ function addStylesheets() {
 function addMutationObserver() {
   let lastPathname = window.location.pathname
   const observer = new MutationObserver((mutations) => {
+    // 先同步准备通知视图，避免 50ms 通用队列与后台读取期间露出原始列表。
+    prepareNotificationCards()
     if (!mutations.length || isMutationSkippable(mutations)) return
     const scopes = getDynamicFeatureScopes(mutations)
     if (window.location.pathname !== lastPathname) {
@@ -96,6 +99,7 @@ export async function initializeExtension() {
   listenForBookmarkMetricsApi()
   initAutoLikeOnReply()
   initGifClipboardPaste()
+  initComposerLists()
   void initMentionByName()
   void initSearchTools()
   void initSearchMenu()

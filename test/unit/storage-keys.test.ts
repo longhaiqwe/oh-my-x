@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  KeyAiRepostOptionA,
+  KeyAiRepostOptionB,
   KeyNavigationButtonsLabels,
   KeySpamThreshold,
   KeyRadarWidth,
@@ -48,6 +50,8 @@ describe('storage defaults', () => {
         expect(['auto', 'zh-CN', 'en']).toContain(value)
       } else if (key === 'spamAiAutoScope') {
         expect(['own', 'all', 'off']).toContain(value)
+      } else if (key === KeyAiRepostOptionA || key === KeyAiRepostOptionB) {
+        expect(['summary', 'summary-short', 'extension', 'extension-short']).toContain(value)
       } else if (
         typeof value === 'string' &&
         key !== 'spamKeywordList' &&
@@ -66,6 +70,7 @@ describe('storage defaults', () => {
         key !== 'aiRepostCustomPrompt' &&
         key !== 'aiRepostStylePrompt' &&
         key !== 'aiRepostStyleSamples' &&
+        key !== 'aiRepostStyles' &&
         key !== 'spamAiModel'
       ) {
         expect(['on', 'off']).toContain(value)

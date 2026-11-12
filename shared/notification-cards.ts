@@ -1,8 +1,9 @@
 /** 通知卡片只整理页面实际提供的数据，不把合并通知推算成逐条互动。 */
-export type NotificationKind = 'reply' | 'like' | 'repost' | 'follow' | 'other'
+export type NotificationKind = 'reply' | 'like' | 'repost' | 'follow' | 'post' | 'other'
 export interface NotificationActor { handle: string; name: string; avatar: string; verified: boolean }
 export interface NotificationEntry {
   id: string
+  readId?: string
   actors: NotificationActor[]
   kind: NotificationKind
   summary: string
@@ -11,8 +12,26 @@ export interface NotificationEntry {
   url: string
   grouped: boolean
 }
-export interface NotificationReadState { baseline: number; read: Record<string, number> }
+export interface NotificationReadState { baseline: number; read: Record<string, number>; postReadThrough?: number }
 export interface NotificationGroup { actor: NotificationActor; entries: NotificationEntry[]; unread: number }
+
+export function notificationReadKey(entry: NotificationEntry, handle: string): string {
+  return `${entry.readId || entry.id}:${handle.toLowerCase()}`
+}
+
+/** 已读只增加；延迟的消息响应、跨标签页通知不能撤销已经收到的记录。 */
+export function mergeNotificationReadState(current: NotificationReadState | null, incoming: NotificationReadState): NotificationReadState {
+  if (!current) return incoming
+  const read = { ...current.read }
+  for (const [key, time] of Object.entries(incoming.read)) read[key] = Math.max(read[key] || 0, time)
+  const merged: NotificationReadState = {
+    baseline: Math.max(current.baseline, incoming.baseline),
+    read: Object.fromEntries(Object.entries(read).sort((a, b) => a[1] - b[1]).slice(-2000)),
+  }
+  const postReadThrough = Math.max(current.postReadThrough || 0, incoming.postReadThrough || 0)
+  if (postReadThrough) merged.postReadThrough = postReadThrough
+  return merged
+}
 
 export function notificationFingerprint(value: string): string {
   let a = 2166136261, b = 5381
@@ -24,20 +43,21 @@ export function notificationFingerprint(value: string): string {
 }
 
 export function notificationIsUnread(entry: NotificationEntry, state: NotificationReadState, handle: string): boolean {
-  return entry.timestamp > state.baseline && !state.read[`${entry.id}:${handle.toLowerCase()}`]
+  const baseline = entry.kind === 'post' ? Math.max(state.baseline, state.postReadThrough || 0) : state.baseline
+  return entry.timestamp > baseline && !state.read[notificationReadKey(entry, handle)] && !state.read[`${entry.id}:${handle.toLowerCase()}`]
 }
 
 export function groupNotifications(entries: NotificationEntry[], state: NotificationReadState): NotificationGroup[] {
   const groups = new Map<string, NotificationGroup>()
   for (const entry of [...entries].sort((a, b) => b.timestamp - a.timestamp)) {
-    if (entry.kind === 'other') continue
+    if (entry.kind === 'other' || entry.kind === 'post') continue
     for (const actor of entry.actors) {
       const key = actor.handle.toLowerCase()
       let group = groups.get(key)
       if (!group) { group = { actor, entries: [], unread: 0 }; groups.set(key, group) }
       // 头像列表里只有 handle 时，可从同用户的回复补上昵称。
       if (group.actor.name === group.actor.handle && actor.name !== actor.handle) group.actor = actor
-      if (group.entries.some(item => item.id === entry.id)) continue
+      if (group.entries.some(item => notificationReadKey(item, key) === notificationReadKey(entry, key))) continue
       group.entries.push(entry)
       if (notificationIsUnread(entry, state, key)) group.unread++
     }
@@ -48,7 +68,7 @@ export function groupNotifications(entries: NotificationEntry[], state: Notifica
 export const NOTIFICATION_STATE_MESSAGE = 'XF_NOTIFICATION_STATE'
 export const NOTIFICATION_STATE_KEY = 'notificationCardsReadState'
 type Store = { get(key: string): Promise<Record<string, unknown>>; set(value: Record<string, unknown>): Promise<void> }
-export interface NotificationStateRequest { type: typeof NOTIFICATION_STATE_MESSAGE; account: string; read?: string[] }
+export interface NotificationStateRequest { type: typeof NOTIFICATION_STATE_MESSAGE; account: string; read?: string[]; postReadThrough?: number; migrate?: { from: string; to: string }[] }
 
 /** 后台串行合并，避免多个标签页同时点击卡片覆盖彼此的已查看记录。 */
 export function createNotificationStateWriter(storage: Store, now = Date.now) {
@@ -67,10 +87,25 @@ export function createNotificationStateWriter(storage: Store, now = Date.now) {
             /^[a-f0-9]+-[a-f0-9]+:[a-z0-9_]{1,15}$/.test(key) && Number.isFinite(time) && time > 0,
           ).slice(-2000))
           accounts[account] = { baseline: item.baseline, read }
+          if (Number.isFinite(item.postReadThrough) && item.postReadThrough! > 0) accounts[account].postReadThrough = item.postReadThrough
         }
       }
       const current = accounts[request.account] ?? { baseline: now(), read: {} }
       let changed = !accounts[request.account]
+      // 替换旧编号而非新增一份收据，保留原查看时间，避免迁移挤占上限并推进已读基线。
+      for (const migration of (Array.isArray(request.migrate) ? request.migrate : []).slice(0, 500)) {
+        if (!migration || typeof migration.from !== 'string' || typeof migration.to !== 'string') continue
+        const { from, to } = migration
+        if (![from, to].every(key => /^[a-f0-9]+-[a-f0-9]+:[a-z0-9_]{1,15}$/.test(key)) || from === to || from.split(':')[1] !== to.split(':')[1] || !current.read[from]) continue
+        current.read[to] = Math.max(current.read[to] || 0, current.read[from])
+        delete current.read[from]
+        changed = true
+      }
+      // 保存被查看的提醒时间，而非点击时间，避免清除点击期间新到达的提醒。
+      if (Number.isFinite(request.postReadThrough) && request.postReadThrough! > (current.postReadThrough || 0)) {
+        current.postReadThrough = request.postReadThrough
+        changed = true
+      }
       for (const key of (Array.isArray(request.read) ? request.read : []).slice(0, 500)) {
         if (typeof key !== 'string' || !/^[a-f0-9]+-[a-f0-9]+:[a-z0-9_]{1,15}$/.test(key) || current.read[key]) continue
         current.read[key] = now()

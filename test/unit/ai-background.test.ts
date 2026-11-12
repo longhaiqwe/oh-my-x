@@ -49,7 +49,7 @@ describe('AI background requests', () => {
   it('sends an authorized request and returns both generated options', async () => {
     const { server } = start()
     await flushMicrotasks()
-    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, optionA: '总结一', optionB: '总结二' })
+    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, optionA: '总结一', optionB: '总结二', presets: { optionA: 'summary', optionB: 'summary-short' } })
     expect(permissions.contains).toHaveBeenCalledWith({ origins: ['https://ai.example/*'] })
     const init = fetchMock.mock.calls[0][1]
     expect(init.signal).toBeInstanceOf(AbortSignal)
@@ -119,7 +119,7 @@ describe('AI background requests', () => {
     expect(server.postMessage).not.toHaveBeenCalled()
     complete()
     await flushMicrotasks()
-    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, optionA: '总结一', optionB: '总结二' })
+    expect(server.postMessage).toHaveBeenCalledWith({ ok: true, optionA: '总结一', optionB: '总结二', presets: { optionA: 'summary', optionB: 'summary-short' } })
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -227,4 +227,43 @@ describe('AI 转搜索语法（XF_BUILD_SEARCH_QUERY）', () => {
     await flushMicrotasks()
     expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: { code: 'error.searchAiEmpty' } }))
   })
+})
+
+
+it('uses saved draft types and returns their snapshot even if settings change during generation', async () => {
+  const stored = {
+    [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model',
+    aiRepostOptionA: 'extension', aiRepostOptionB: 'extension-short',
+  }
+  ;(globalThis as any).browser.storage.local.get.mockResolvedValue(stored)
+  let finish!: (response: Response) => void
+  fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const { server } = start()
+  await flushMicrotasks()
+  const [system, user] = JSON.parse(fetchMock.mock.calls[0][1].body).messages
+  expect(system.content).toContain('optionA（观点共鸣与延伸）')
+  expect(system.content).toContain('optionB: 话题延伸 - 简短')
+  expect(user.content).not.toContain('干货脱水总结')
+  stored.aiRepostOptionB = 'summary'
+  finish(new Response(JSON.stringify({ choices: [{ message: { content: '{"optionA":"延伸一","optionB":"延伸二"}' } }] })))
+  await flushMicrotasks()
+  expect(server.postMessage).toHaveBeenCalledWith({
+    ok: true, optionA: '延伸一', optionB: '延伸二', presets: { optionA: 'extension', optionB: 'extension-short' },
+  })
+})
+
+it('uses a saved custom style and returns its display name with the generation snapshot', async () => {
+  const style = { id: 'custom:casual', name: '随手短评', base: 'summary-short', description: '只保留一个具体结论', samples: '这八步可以省了。' }
+  ;(globalThis as any).browser.storage.local.get.mockResolvedValue({
+    [KeyAiServiceApiKey]: 'key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'model',
+    aiRepostStyles: JSON.stringify([style]), aiRepostOptionB: style.id,
+  })
+  const { server } = start()
+  await flushMicrotasks()
+  const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content
+  expect(prompt.split('[optionB]')[1]).toContain(style.description)
+  expect(prompt.split('[optionB]')[1]).toContain(style.samples)
+  expect(server.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+    presets: { optionA: 'summary', optionB: style.id }, styleNames: { optionB: style.name },
+  }))
 })

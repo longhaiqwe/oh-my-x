@@ -43,8 +43,13 @@ function syncTitle(id: FeatureModuleId) {
 
 watch(locale, () => syncTitle(active.value))
 
+function isDetailHash(id: FeatureModuleId) {
+  return (id === 'layout' && location.hash === '#layout/rewind') ||
+    (id === 'insight' && location.hash === '#insight/audience')
+}
+
 watch(active, (id) => {
-  if (window.location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`)
+  if (window.location.hash !== `#${id}` && !isDetailHash(id)) history.replaceState(null, '', `#${id}`)
   syncTitle(id)
   revealActiveNav()
   window.scrollTo({ top: 0 })
@@ -57,7 +62,7 @@ function onHashChange() {
 
 onMounted(() => {
   syncTitle(active.value)
-  if (window.location.hash !== `#${active.value}` && !(active.value === 'layout' && window.location.hash === '#layout/rewind')) history.replaceState(null, '', `#${active.value}`)
+  if (window.location.hash !== `#${active.value}` && !isDetailHash(active.value)) history.replaceState(null, '', `#${active.value}`)
   window.addEventListener('hashchange', onHashChange)
   revealActiveNav()
 })

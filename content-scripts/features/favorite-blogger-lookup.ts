@@ -1,6 +1,6 @@
 import { t } from '../../shared/i18n'
 import { errorText } from '../../shared/errors'
-import { parseBloggerHandle, type FavoriteBlogger } from '../../shared/favorite-bloggers'
+import { parseBloggerHandle, toFavoriteBloggers, type FavoriteBlogger } from '../../shared/favorite-bloggers'
 import { MENTION_QUERY_MAX_LENGTH, MENTION_SEARCH_MESSAGE, type MentionUser } from '../../shared/mention-search'
 
 /** 明确的 @用户名和链接继续直接添加；中文、英文昵称都可查询。 */
@@ -78,7 +78,7 @@ export function createFavoriteBloggerLookup(
     direct.disabled = true
     list.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true })
     try {
-      const added = await onSelect({ handle: user.handle, name: user.name })
+      const added = await onSelect(toFavoriteBloggers([user])[0])
       if (!disposed && added) { input.value = ''; clear() }
     } finally {
       saving = false

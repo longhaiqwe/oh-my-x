@@ -1,3 +1,4 @@
+import { normalizeRepostPreset } from '../../shared/ai-repost-presets'
 import { sendAiRequest, OPEN_SETTINGS } from '../../shared/ai-request'
 import { KeyAiRepostEnabled } from '../../storage-keys'
 import { AI_CONFIG_KEYS, resolveAiService } from '../../shared/ai-service'
@@ -803,6 +804,8 @@ function openOrUpdateRepostPanel(
 
   const renderOptionsView = (options: AiRepostOptionsResult) => {
     if (closed || !panel.isConnected) return
+    const optionLabel = (key: 'optionA' | 'optionB') => options.styleNames?.[key] ||
+      t(`ai.preset.${normalizeRepostPreset(options.presets?.[key], key === 'optionA' ? 'summary' : 'summary-short')}`)
     panel.innerHTML = `
       <div class="xf-ai-repost-header">
         <span class="xf-ai-repost-title">${t('aiPage.pickTitle')}</span>
@@ -815,14 +818,14 @@ function openOrUpdateRepostPanel(
       <div class="xf-ai-repost-options">
         <div class="xf-ai-repost-card" data-option="A" role="button" tabindex="0">
           <div class="xf-ai-repost-card-tag">
-            <span>${t('aiPage.optionA')}</span>
+            <span>${t('aiPage.option', { number: 1, style: escapeHtml(optionLabel('optionA')) })}</span>
             <span class="xf-ai-repost-pick-hint">${t('aiPage.pick')}</span>
           </div>
           <div class="xf-ai-repost-card-body">${escapeHtml(options.optionA)}</div>
         </div>
         <div class="xf-ai-repost-card" data-option="B" role="button" tabindex="0">
           <div class="xf-ai-repost-card-tag">
-            <span>${t('aiPage.optionB')}</span>
+            <span>${t('aiPage.option', { number: 2, style: escapeHtml(optionLabel('optionB')) })}</span>
             <span class="xf-ai-repost-pick-hint">${t('aiPage.pick')}</span>
           </div>
           <div class="xf-ai-repost-card-body">${escapeHtml(options.optionB)}</div>
@@ -926,6 +929,8 @@ function openOrUpdateRepostPanel(
       renderOptionsView({
         optionA: response.optionA,
         optionB: response.optionB,
+        presets: response.presets,
+        styleNames: response.styleNames,
       })
     } catch (err: any) {
       if (!isCurrent(request)) return

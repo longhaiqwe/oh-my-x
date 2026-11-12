@@ -1,3 +1,4 @@
+import { startAudience } from '../content-scripts/features/audience'
 import { setNotificationCardsEnabled } from '../content-scripts/features/notification-cards'
 import { KeyNotificationCardsEnabled } from '../storage-keys'
 import { startRewind } from '../content-scripts/features/rewind'
@@ -84,6 +85,7 @@ export default defineContentScript({
   ],
   runAt: 'document_end',
   main() {
+    startAudience()
     let currentSettings: ExtensionSettings | null = null
 
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {

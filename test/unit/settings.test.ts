@@ -117,3 +117,11 @@ describe('normalizeSettings numeric constraints', () => {
     )
   })
 })
+
+
+it('defaults missing or invalid draft types and preserves optional types and custom style', () => {
+  expect(normalizeSettings({})).toMatchObject({ aiRepostOptionA: 'summary', aiRepostOptionB: 'summary-short' })
+  expect(normalizeSettings({ aiRepostOptionA: 'unknown', aiRepostOptionB: 12 })).toMatchObject({ aiRepostOptionA: 'summary', aiRepostOptionB: 'summary-short' })
+  expect(normalizeSettings({ aiRepostOptionA: 'extension', aiRepostOptionB: 'extension-short', aiRepostStylePrompt: '短句', aiRepostStyleSamples: '自己的样本' }))
+    .toMatchObject({ aiRepostOptionA: 'extension', aiRepostOptionB: 'extension-short', aiRepostStylePrompt: '短句', aiRepostStyleSamples: '自己的样本' })
+})

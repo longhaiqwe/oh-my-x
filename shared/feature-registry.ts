@@ -1,3 +1,4 @@
+import { KeyAudienceEnabled, KeyAudienceRevision } from '../storage-keys'
 // 功能清单：弹窗按模块分组、功能名称与说明的唯一来源。
 // 默认值仍以 storage-keys.ts 的 defaultPreferences 为准，这里只记录归属与文案。
 import {
@@ -9,6 +10,9 @@ import {
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
+  KeyAiRepostOptionA,
+  KeyAiRepostOptionB,
+  KeyAiRepostStyles,
   KeyAiRepostEnabled,
   KeyAiRepostModel,
   KeyArticleToc,
@@ -270,6 +274,11 @@ export const FEATURES: readonly FeatureDefinition[] = [
     storageKeys: [KeyCreatorRewardsStats, KeyCreatorRewardsHistory, KeyImpressionsDaily, KeyAccountOverviewQueryId, KeyCreatorRewardsCollapsed],
   },
   {
+    id: 'audience',
+    module: 'insight',
+    storageKeys: [KeyAudienceEnabled, KeyAudienceRevision],
+  },
+  {
     id: 'profileActivity',
     module: 'insight',
     storageKeys: [KeyProfileActivityStats],
@@ -334,6 +343,9 @@ export const FEATURES: readonly FeatureDefinition[] = [
       KeyAiRepostCustomPrompt,
       KeyAiRepostStylePrompt,
       KeyAiRepostStyleSamples,
+      KeyAiRepostOptionA,
+      KeyAiRepostOptionB,
+      KeyAiRepostStyles,
     ],
   },
   {

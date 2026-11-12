@@ -1,4 +1,6 @@
+import { normalizeRepostPresets, parseRepostStyles } from './ai-repost-presets'
 import {
+  KeyAudienceEnabled,
   KeyNotificationCardsEnabled,
   KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyArticlesButton,
@@ -83,6 +85,9 @@ import {
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
+  KeyAiRepostOptionA,
+  KeyAiRepostOptionB,
+  KeyAiRepostStyles,
   allSettingsKeys,
   defaultPreferences,
 } from '../storage-keys'
@@ -99,6 +104,7 @@ export type UserFollowerCountMode = 'all' | 'list' | 'off'
 export type SpamAiAutoScope = 'own' | 'all' | 'off'
 
 export interface ExtensionSettings {
+  [KeyAudienceEnabled]: ToggleValue
   [KeyNotificationCardsEnabled]: ToggleValue
   [KeyRewindEnabled]: ToggleValue
   [KeyRewindNav]: ToggleValue
@@ -185,11 +191,15 @@ export interface ExtensionSettings {
   [KeyAiRepostCustomPrompt]: string
   [KeyAiRepostStylePrompt]: string
   [KeyAiRepostStyleSamples]: string
+  [KeyAiRepostOptionA]: string
+  [KeyAiRepostOptionB]: string
+  [KeyAiRepostStyles]: string
 }
 
 export type SettingsPatch = Partial<Record<keyof ExtensionSettings, unknown>>
 
 const TOGGLE_KEYS = new Set<string>([
+  KeyAudienceEnabled,
   KeyNotificationCardsEnabled,
   KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyExtensionStatus,
@@ -376,6 +386,11 @@ export function normalizeSettings(raw: Partial<Record<string, unknown>> = {}): E
       result[key] = normalizeNumber(value, fallback as number, NUMERIC_RANGES[key])
     } else if (key === KeySpamAiAutoScope) {
       result[key] = normalizeSpamAiAutoScope(value, fallback as SpamAiAutoScope)
+    } else if (key === KeyAiRepostOptionA || key === KeyAiRepostOptionB) {
+      const selected = normalizeRepostPresets({ optionA: raw[KeyAiRepostOptionA], optionB: raw[KeyAiRepostOptionB] }, parseRepostStyles(raw[KeyAiRepostStyles]))
+      result[key] = key === KeyAiRepostOptionA ? selected.optionA : selected.optionB
+    } else if (key === KeyAiRepostStyles) {
+      result[key] = JSON.stringify(parseRepostStyles(value))
     } else if (key === KeyUiLanguage) {
       result[key] = normalizeLanguageSetting(value)
     } else if (key === KeyNavigationButtonsLabels) {

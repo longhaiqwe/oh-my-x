@@ -1,6 +1,7 @@
 import { placeProfileAction, cleanupProfileActions, getCurrentProfileActionTarget, styleProfileAction } from '../utilities/profileActions'
 import { KeyFavoriteBloggers, KeyFavoriteBloggersEnabled } from '../../storage-keys'
-import { FAVORITE_BLOGGER_MESSAGE, parseBloggerHandle, toFavoriteBloggers, type FavoriteBlogger } from '../../shared/favorite-bloggers'
+import { FAVORITE_BLOGGER_MESSAGE, favoriteAvatarUrl, parseBloggerHandle, toFavoriteBloggers, type FavoriteBlogger } from '../../shared/favorite-bloggers'
+import { MENTION_SEARCH_MESSAGE } from '../../shared/mention-search'
 import { extractHandleFromCard } from '../../shared/quick-list'
 import { t } from '../../shared/i18n'
 import { ACCENT, getThemeColors } from '../utilities/colors'
@@ -23,6 +24,7 @@ let status: HTMLElement | null = null
 let draggedHandle: string | null = null
 let moving = false
 let disposeLookup: (() => void) | null = null
+let refreshMissingAvatars: (() => Promise<void>) | null = null
 let navReference: HTMLElement | null = null
 let navLayoutObserver: MutationObserver | null = null
 
@@ -86,8 +88,11 @@ function ensureStyles() {
     .xf-favorites-panel .xf-favorites-drag { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 32px; padding: 0; border: 0; color: var(--xf-fav-muted); cursor: grab; }
     .xf-favorites-panel .xf-favorites-drag:active { cursor: grabbing; }
     .xf-favorites-row:hover { background: var(--xf-fav-hover); }
-    .xf-favorites-row a { flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+    .xf-favorites-row a { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
     .xf-favorites-row a span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .xf-favorites-row a .xf-favorites-avatar { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: var(--xf-fav-hover); color: var(--xf-fav-muted); }
+    .xf-favorites-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .xf-favorites-row-text { flex: 1; min-width: 0; }
     .xf-favorites-handle, .xf-favorites-empty, .xf-favorites-footer { color: var(--xf-fav-muted); font-size: 13px; }
     .xf-favorites-empty { padding: 16px; }
     .xf-favorites-footer { padding: 8px 16px 12px; border-top: 1px solid var(--xf-fav-border); }
@@ -149,6 +154,7 @@ function positionPanel() {
 }
 
 export function closeFavoriteBloggersPanel(restoreFocus = false) {
+  refreshMissingAvatars = null
   disposeLookup?.()
   disposeLookup = null
   clearDrag()
@@ -287,7 +293,22 @@ function renderRows() {
     const handle = document.createElement('span')
     handle.className = 'xf-favorites-handle'
     handle.textContent = `@${item.handle}`
-    link.append(name, handle)
+    const avatar = document.createElement('span')
+    avatar.className = 'xf-favorites-avatar'
+    avatar.setAttribute('aria-hidden', 'true')
+    const fallback = () => { avatar.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>' }
+    if (item.avatar) {
+      const image = document.createElement('img')
+      image.alt = ''
+      image.draggable = false
+      image.addEventListener('error', fallback, { once: true })
+      image.src = item.avatar
+      avatar.append(image)
+    } else fallback()
+    const text = document.createElement('span')
+    text.className = 'xf-favorites-row-text'
+    text.append(name, handle)
+    link.append(avatar, text)
     link.addEventListener('click', () => closeFavoriteBloggersPanel())
     const remove = document.createElement('button')
     remove.type = 'button'
@@ -310,6 +331,34 @@ function renderRows() {
     ;(next || search)?.focus()
   }
   positionPanel()
+  void refreshMissingAvatars?.()
+}
+
+function createAvatarRefresh(ownedPanel: HTMLDivElement) {
+  const attempted = new Set<string>()
+  let running = false
+  let failed = false
+  return async () => {
+    if (running || failed || loadFailed) return
+    running = true
+    try {
+      while (panel === ownedPanel) {
+        const item = items.find(item => !item.avatar && !attempted.has(item.handle.toLowerCase()))
+        if (!item) break
+        attempted.add(item.handle.toLowerCase())
+        const response = await browser.runtime.sendMessage({ type: MENTION_SEARCH_MESSAGE, query: item.handle })
+        if (panel !== ownedPanel) break
+        if (!response?.ok) { failed = true; break }
+        const match = toFavoriteBloggers(response.users).find(user => user.handle.toLowerCase() === item.handle.toLowerCase())
+        if (!match?.avatar || !isSaved(item.handle)) continue
+        const result = await browser.runtime.sendMessage({ type: FAVORITE_BLOGGER_MESSAGE, action: 'update-avatar', blogger: match })
+        if (panel !== ownedPanel) break
+        if (!result?.ok) { failed = true; break }
+        // 重新读最新存储，避免补头像的旧返回覆盖另一个标签页刚完成的增删。
+        await runFavoriteBloggersFeature()
+      }
+    } catch { failed = true } finally { running = false }
+  }
 }
 
 async function openPanel(entry: HTMLElement) {
@@ -387,6 +436,10 @@ async function openPanel(entry: HTMLElement) {
   window.addEventListener('scroll', positionPanel, true)
   window.addEventListener('popstate', onNavigate)
   await runFavoriteBloggersFeature()
+  if (panel === ownedPanel && !loadFailed) {
+    refreshMissingAvatars = createAvatarRefresh(ownedPanel)
+    void refreshMissingAvatars()
+  }
 }
 
 function ensureNav() {
@@ -436,6 +489,21 @@ function profileName(root: Element, handle: string): string {
   return handle
 }
 
+function profileAvatar(root: Element, handle: string): string | undefined {
+  for (const image of root.querySelectorAll<HTMLImageElement>('img')) {
+    if (image.closest('article')) continue
+    const link = image.closest('a[href]') as HTMLAnchorElement | null
+    if (!link) continue
+    let url: URL
+    try { url = new URL(link.getAttribute('href')!, 'https://x.com') } catch { continue }
+    if (!['x.com', 'twitter.com', 'mobile.twitter.com'].includes(url.hostname)) continue
+    if (![`/${handle.toLowerCase()}`, `/${handle.toLowerCase()}/photo`].includes(url.pathname.replace(/\/$/, '').toLowerCase())) continue
+    const avatar = favoriteAvatarUrl(image.currentSrc || image.src)
+    if (avatar) return avatar
+  }
+  return undefined
+}
+
 function injectButton(root: Element, blogger: FavoriteBlogger) {
   const existing = root.querySelector<HTMLButtonElement>(`.${BUTTON}`)
   if (existing?.dataset.handle === blogger.handle) {
@@ -451,7 +519,9 @@ function injectButton(root: Element, blogger: FavoriteBlogger) {
     event.preventDefault()
     event.stopPropagation()
     button.disabled = true
-    await changeFavorite(isSaved(blogger.handle) ? 'remove' : 'add', blogger)
+    const source = root.closest('[data-testid="HoverCard"]') || root.closest('[data-testid="primaryColumn"]') || root
+    const avatar = profileAvatar(source, blogger.handle)
+    await changeFavorite(isSaved(blogger.handle) ? 'remove' : 'add', { ...blogger, ...(avatar ? { avatar } : {}) })
     button.disabled = false
   })
   return button

@@ -14,6 +14,22 @@ describe('博主收藏数据', () => {
       { handle: 'Alice', name: '昵称' }, { handle: 'bob', name: 'bob' },
     ])
   })
+  it('保留合法头像，兼容旧收藏并丢弃外站或脚本地址', () => {
+    const avatar = 'https://pbs.twimg.com/profile_images/123/a.jpg'
+    expect(toFavoriteBloggers([{ handle: 'alice', avatar }, { handle: 'bob', avatar: 'https://evil.com/a.jpg' }, { handle: 'carol', avatar: 'javascript:alert(1)' }])).toEqual([
+      { handle: 'alice', name: 'alice', avatar }, { handle: 'bob', name: 'bob' }, { handle: 'carol', name: 'carol' },
+    ])
+  })
+  it('补头像保留昵称、顺序和其他收藏，不恢复已删除的记录', async () => {
+    let data: Record<string, unknown> = { [KeyFavoriteBloggers]: [{ handle: 'bob', name: '原昵称' }, { handle: 'alice', name: 'Alice' }] }
+    const write = createFavoriteBloggerWriter({ get: async () => structuredClone(data), set: async value => { data = value } })
+    const avatar = 'https://pbs.twimg.com/profile_images/123/bob.jpg'
+    expect((await write({ action: 'update-avatar', blogger: { handle: 'BOB', avatar } })).ok).toBe(true)
+    expect(data[KeyFavoriteBloggers]).toEqual([{ handle: 'bob', name: '原昵称', avatar }, { handle: 'alice', name: 'Alice' }])
+    await write({ action: 'remove', handle: 'bob' })
+    await write({ action: 'update-avatar', blogger: { handle: 'bob', avatar } })
+    expect(data[KeyFavoriteBloggers]).toEqual([{ handle: 'alice', name: 'Alice' }])
+  })
   it('并发增删不会丢失其他标签页的收藏', async () => {
     let data: Record<string, unknown> = {}
     const write = createFavoriteBloggerWriter({

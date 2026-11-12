@@ -1,9 +1,11 @@
 import { t } from '../../shared/i18n'
 import { findComposerRoots } from '../utilities/composer-roots'
 import addStyles, { stylesExist } from '../utilities/addStyles'
-import { accentAlpha } from '../utilities/colors'
+import { ACCENT, accentAlpha } from '../utilities/colors'
 import { openOwnPostPicker } from './own-post-picker'
 import { convertMarkdownToPost, isMarkdownContent } from '../../shared/markdown-to-post'
+import { createComposerFormatButtons } from './composer-list'
+import { followComposerToolbarColor } from './composer-colors'
 
 // 用 WeakMap 保存每个编辑器「失焦前」的光标位置
 // 点击工具栏按钮时编辑器已失焦，必须在 blur 时提前保存
@@ -94,7 +96,7 @@ function ensureComposerStyles() {
   if (!stylesExist('insertLinkButton')) {
     addStyles(
       'insertLinkButton',
-      '.xf-insert-link-presentation{display:inline-flex!important}.xf-insert-link-inner{display:inline-flex!important;align-items:center!important;gap:2px!important}.xf-insert-link-button{background:transparent!important;border:0!important;padding:6px!important;margin-left:2px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;color:inherit!important;border-radius:9999px!important}.xf-insert-link-button:hover{background-color:' + accentAlpha(0.1) + '!important}.xf-insert-link-button svg{width:20px!important;height:20px!important;color:inherit!important}'
+      '.xf-insert-link-presentation{display:inline-flex!important}.xf-insert-link-inner{display:inline-flex!important;align-items:center!important;gap:2px!important}.xf-insert-link-button{background:transparent!important;border:0!important;padding:6px!important;margin-left:2px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;color:var(--xf-composer-icon-color,' + ACCENT + ')!important;border-radius:9999px!important}.xf-insert-link-button:hover{background-color:' + accentAlpha(0.1) + '!important}.xf-insert-link-button svg{width:20px!important;height:20px!important;color:inherit!important}'
     )
   }
 }
@@ -121,7 +123,7 @@ export const addComposerInsertLinkButton = () => {
           }
         }, true)
 
-        // Inline replies only gain the requested quote picker; keep their existing paste behavior.
+        // 内联回复保留现有的粘贴行为，不启用自动 Markdown 转换。
         if (isInline) return
 
         // 绑定快捷键 ⌘⇧M / Ctrl+Shift+M 格式化 Markdown
@@ -167,9 +169,22 @@ export const addComposerInsertLinkButton = () => {
         obs.observe(modalEl, { childList: true, subtree: true })
       }
 
-      if (modalEl.querySelector('[data-testid="xf-insert-link-button"]')) return
+      // X 分阶段挂载发帖框。只使用明确的工具栏，不根据关闭按钮或文件输入框猜位置。
+      const toolbar = modalEl.querySelector<HTMLElement>('[data-testid="toolBar"]')
+      const toolbarContainer = toolbar
+        ? toolbar.querySelector<HTMLElement>('[role="tablist"], [data-testid="ScrollSnap-List"]') ?? toolbar
+        : modalEl.querySelector<HTMLElement>('[role="tablist"], [data-testid="ScrollSnap-List"]')
+      const existingGroup = modalEl.querySelector<HTMLElement>('[data-testid="xf-insert-link-presentation"]')
+      const existingButtons = [...modalEl.querySelectorAll<HTMLElement>('.xf-insert-link-button')]
+      if (toolbarContainer && existingGroup?.parentElement === toolbarContainer &&
+        existingButtons.length === (isInline ? 3 : 4) && existingButtons.every(button => existingGroup.contains(button))) return
 
-      const tablist = modalEl.querySelector('[role="tablist"], [data-testid="ScrollSnap-List"]') as HTMLElement | null
+      // 清除旧版误挂到顶部的按钮，以及工具栏重建后残缺的按钮组。
+      modalEl.querySelectorAll('[data-testid="xf-insert-link-presentation"]').forEach(group => group.remove())
+      existingButtons.forEach(button => button.remove())
+      delete modalEl.dataset.xfInsertLinkAdded
+      // 后续原生工具栏的 DOM 变更会通过 runDynamicFeatures 再次调用本函数。
+      if (!toolbarContainer) return
 
       // 1. 插入链接按钮
       const linkBtn = document.createElement('button')
@@ -225,40 +240,20 @@ export const addComposerInsertLinkButton = () => {
         formatMarkdownInEditor(modalEl)
       })
 
-      if (tablist) {
-        const presentation = document.createElement('div')
-        presentation.setAttribute('role', 'presentation')
-        presentation.setAttribute('data-testid', 'xf-insert-link-presentation')
-        presentation.className = 'xf-insert-link-presentation'
+      const formatButtons = createComposerFormatButtons(modalEl)
 
-        const inner1 = document.createElement('div')
-        inner1.className = 'xf-insert-link-inner'
-        inner1.appendChild(linkBtn)
-        if (!isInline) inner1.appendChild(mdBtn)
-        presentation.appendChild(inner1)
-
-        tablist.appendChild(presentation)
-        modalEl.dataset.xfInsertLinkAdded = '1'
-        return
-      }
-
-      let toolbarContainer: HTMLElement | null = null
-      toolbarContainer = modalEl.querySelector('[data-testid="toolBar"]')
-      const fileInput = modalEl.querySelector('input[data-testid="fileInput"], input[type="file"]') as HTMLElement | null
-      if (!toolbarContainer && fileInput && fileInput.parentElement) toolbarContainer = fileInput.parentElement as HTMLElement
-
-      if (!toolbarContainer && !isInline) {
-        const svgButtons = Array.from(modalEl.querySelectorAll('button')).filter((b) => b.querySelector('svg'))
-        if (svgButtons.length) {
-          const candidate = svgButtons[0].parentElement as HTMLElement | null
-          if (candidate) toolbarContainer = candidate
-        }
-      }
-
-      if (!toolbarContainer) return
-
-      toolbarContainer.appendChild(linkBtn)
-      if (!isInline) toolbarContainer.appendChild(mdBtn)
+      const presentation = document.createElement('div')
+      presentation.setAttribute('role', 'presentation')
+      presentation.setAttribute('data-testid', 'xf-insert-link-presentation')
+      presentation.className = 'xf-insert-link-presentation'
+      const inner = document.createElement('div')
+      inner.className = 'xf-insert-link-inner'
+      inner.appendChild(linkBtn)
+      if (!isInline) inner.appendChild(mdBtn)
+      inner.append(...formatButtons)
+      presentation.appendChild(inner)
+      toolbarContainer.appendChild(presentation)
+      followComposerToolbarColor(toolbarContainer)
       modalEl.dataset.xfInsertLinkAdded = '1'
     })
   } catch {

@@ -1,3 +1,5 @@
+export const KeyAudienceEnabled = 'audienceEnabled'
+export const KeyAudienceRevision = 'audienceRevision'
 export const KeyRewindEnabled = 'rewindEnabled'
 export const KeyRewindNav = 'rewindNav'
 export const KeyRewindOcr = 'rewindOcr'
@@ -65,6 +67,8 @@ export const KeyAutoLikeOnReply = 'autoLikeOnReply'
 // Quick interaction storage keys
 export const KeyNotificationCardsEnabled = 'notificationCardsEnabled'
 export const KeyNotificationCardsView = 'notificationCardsView'
+export const KeyNotificationCardsOnlyReplies = 'notificationCardsOnlyReplies'
+export const KeyNotificationCardsOnlyUnread = 'notificationCardsOnlyUnread'
 
 export const KeyQuickInteraction = 'quickInteraction'
 export const KeyQuickInteractionDock = 'quickInteractionDock'
@@ -137,9 +141,13 @@ export const KeyAiRepostApiKey = 'aiRepostApiKey'
 export const KeyAiRepostModel = 'aiRepostModel'
 export const KeyAiRepostCustomPrompt = 'aiRepostCustomPrompt'
 export const KeyAiRepostStylePrompt = 'aiRepostStylePrompt' // 转发风格描述；留空用默认风格
+export const KeyAiRepostOptionA = 'aiRepostOptionA' // 第一条草稿类型
+export const KeyAiRepostStyles = 'aiRepostStyles' // 自定义风格列表，JSON 字符串
+export const KeyAiRepostOptionB = 'aiRepostOptionB' // 第二条草稿类型
 export const KeyAiRepostStyleSamples = 'aiRepostStyleSamples' // 自己写过的转发样本，每条之间用单独一行 --- 隔开（单段样本也可只空一行）
 
 export const allSettingsKeys = [
+  KeyAudienceEnabled,
   KeyNotificationCardsEnabled,
   KeyRewindEnabled, KeyRewindNav, KeyRewindOcr,
   KeyExtensionStatus,
@@ -227,6 +235,9 @@ export const allSettingsKeys = [
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
+  KeyAiRepostOptionA,
+  KeyAiRepostOptionB,
+  KeyAiRepostStyles,
 ] as const
 
 export type SettingKey = (typeof allSettingsKeys)[number]
@@ -397,7 +408,8 @@ export function getDefaultTweetFilterKeywords(locale: string): string[] {
 
 // 存储里还没有词库时的兜底值是中文；英文界面的新用户在安装时由 shared/spam-migration.ts 写入英文词库
 export const defaultPreferences: Record<string, string | number | boolean> = {
-  [KeyNotificationCardsEnabled]: 'on',
+  [KeyAudienceEnabled]: 'off',
+  [KeyNotificationCardsEnabled]: 'off',
   [KeyRewindEnabled]: 'off',
   [KeyRewindNav]: 'off',
   [KeyRewindOcr]: 'off',
@@ -486,4 +498,7 @@ export const defaultPreferences: Record<string, string | number | boolean> = {
   [KeyAiRepostCustomPrompt]: '',
   [KeyAiRepostStylePrompt]: '',
   [KeyAiRepostStyleSamples]: '',
+  [KeyAiRepostOptionA]: 'summary',
+  [KeyAiRepostOptionB]: 'summary-short',
+  [KeyAiRepostStyles]: '[]',
 }

@@ -1,3 +1,5 @@
+import { registerAudienceBackground } from '../shared/audience-background'
+import { normalizeRepostPresets, parseRepostStyles } from '../shared/ai-repost-presets'
 import { createNotificationStateWriter, NOTIFICATION_STATE_MESSAGE } from '../shared/notification-cards'
 import { registerRewindBackground } from '../shared/rewind-background'
 import { createFavoriteBloggerWriter, FAVORITE_BLOGGER_MESSAGE } from '../shared/favorite-bloggers'
@@ -45,6 +47,9 @@ import {
   KeyAiRepostCustomPrompt,
   KeyAiRepostStylePrompt,
   KeyAiRepostStyleSamples,
+  KeyAiRepostOptionA,
+  KeyAiRepostOptionB,
+  KeyAiRepostStyles,
   KeySpamAiDailyLimit,
   KeySpamAiBotAccounts,
   KeyCreatorRewardsStats,
@@ -277,6 +282,9 @@ async function callAiRepostApi(
     KeyAiRepostCustomPrompt,
     KeyAiRepostStylePrompt,
     KeyAiRepostStyleSamples,
+    KeyAiRepostOptionA,
+    KeyAiRepostOptionB,
+    KeyAiRepostStyles,
   ])
 
   const connection = resolveAiService(stored, 'repost')
@@ -296,13 +304,22 @@ async function callAiRepostApi(
 
   const endpoint = resolveChatCompletionsUrl(baseUrl)
   await requireAiPermission(baseUrl, signal)
+  const styles = parseRepostStyles(stored[KeyAiRepostStyles])
+  const presets = normalizeRepostPresets({ optionA: stored[KeyAiRepostOptionA], optionB: stored[KeyAiRepostOptionB] }, styles)
   const style = {
+    ...presets,
+    styles,
     description: String(stored[KeyAiRepostStylePrompt] ?? ''),
     samples: String(stored[KeyAiRepostStyleSamples] ?? ''),
   }
   const messages = buildRepostMessages(source, customPrompt, style, locale)
   const { content } = await postChatCompletion(endpoint, apiKey, { model, messages, temperature: 0.65 }, signal)
-  return parseAiRepostResponse(content, locale)
+  const styleNames: Partial<Record<keyof typeof presets, string>> = {}
+  for (const key of ['optionA', 'optionB'] as const) {
+    const selected = styles.find(item => item.id === presets[key])
+    if (selected) styleNames[key] = selected.name
+  }
+  return { ...parseAiRepostResponse(content, locale), presets, ...(Object.keys(styleNames).length ? { styleNames } : {}) }
 }
 
 /** 搜索框里的大白话转成 X 搜索词；用公共 AI 服务的默认模型，不流式 */
@@ -917,6 +934,7 @@ export default defineBackground(() => {
     return true
   })
   registerRewindBackground()
+  registerAudienceBackground()
   const writeFavoriteBlogger = createFavoriteBloggerWriter(browser.storage.local)
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== FAVORITE_BLOGGER_MESSAGE) return

@@ -6,6 +6,16 @@ export const FAVORITE_BLOGGER_MESSAGE = 'XF_FAVORITE_BLOGGER'
 export interface FavoriteBlogger {
   handle: string
   name: string
+  avatar?: string
+}
+
+export function favoriteAvatarUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  try {
+    const url = new URL(value)
+    if (url.protocol === 'https:' && url.hostname === 'pbs.twimg.com' && !url.username && !url.password && !url.port) return url.href
+  } catch { /* 旧收藏和无效图片使用默认图标。 */ }
+  return undefined
 }
 
 /** 只接受用户名或 X / Twitter 主页地址，不把帖子、站内路由或外站链接当成博主。 */
@@ -33,7 +43,8 @@ export function toFavoriteBloggers(raw: unknown): FavoriteBlogger[] {
     const handle = parseBloggerHandle(item?.handle)
     if (!handle || seen.has(handle.toLowerCase())) return []
     seen.add(handle.toLowerCase())
-    return [{ handle, name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 100) : handle }]
+    const avatar = favoriteAvatarUrl(item.avatar)
+    return [{ handle, name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 100) : handle, ...(avatar ? { avatar } : {}) }]
   })
 }
 
@@ -48,12 +59,16 @@ export function createFavoriteBloggerWriter(storage: FavoriteStorage) {
   return (message: { action?: unknown; blogger?: unknown; handle?: unknown; targetHandle?: unknown; placement?: unknown }) => {
     const operation = pending.then(async () => {
       const blogger = toFavoriteBloggers([message.blogger])[0]
-      const handle = message.action === 'add' ? blogger?.handle : parseBloggerHandle(message.handle)
-      if (!handle || !['add', 'remove', 'move'].includes(String(message.action))) return { ok: false }
+      const handle = message.action === 'add' || message.action === 'update-avatar' ? blogger?.handle : parseBloggerHandle(message.handle)
+      if (!handle || !['add', 'remove', 'move', 'update-avatar'].includes(String(message.action))) return { ok: false }
       const stored = await storage.get(KeyFavoriteBloggers)
       const items = toFavoriteBloggers(stored[KeyFavoriteBloggers])
       const index = items.findIndex(item => item.handle.toLowerCase() === handle.toLowerCase())
-      if (message.action === 'move') {
+      if (message.action === 'update-avatar') {
+        // 只补仍存在且缺头像的收藏，避免迟到请求恢复已删除的记录或覆盖新头像。
+        if (index < 0 || items[index].avatar || !blogger?.avatar) return { ok: true, items }
+        items[index].avatar = blogger.avatar
+      } else if (message.action === 'move') {
         const target = parseBloggerHandle(message.targetHandle)?.toLowerCase()
         if (index < 0 || !target || !items.some(item => item.handle.toLowerCase() === target) ||
           (message.placement !== 'before' && message.placement !== 'after')) return { ok: false }

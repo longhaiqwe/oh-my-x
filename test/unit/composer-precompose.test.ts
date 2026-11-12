@@ -122,6 +122,53 @@ describe('composer and precompose URL handling', () => {
   })
 
   describe('composer insert link button lifecycle', () => {
+    function loadingComposer() {
+      document.body.innerHTML = '<div role="dialog" aria-labelledby="modal-header"><div data-header><button aria-label="关闭"><svg></svg></button></div><div class="DraftEditor-editorContainer"><div contenteditable="true" data-testid="tweetTextarea_0">测试</div></div></div>'
+      return document.querySelector<HTMLElement>('[role="dialog"]')!
+    }
+
+    it('底部工具栏尚未加载时不插到关闭按钮旁，加载后仅插入一次', () => {
+      const modal = loadingComposer()
+      addComposerInsertLinkButton()
+      expect(modal.querySelectorAll('.xf-insert-link-button')).toHaveLength(0)
+      modal.insertAdjacentHTML('beforeend', '<div data-testid="toolBar"><div role="tablist"></div></div>')
+      addComposerInsertLinkButton()
+      addComposerInsertLinkButton()
+      expect(modal.querySelector('[data-header]')!.children).toHaveLength(1)
+      expect(modal.querySelectorAll('[data-testid="toolBar"] .xf-insert-link-button')).toHaveLength(4)
+    })
+
+    it('只有文件输入框时不把按钮插入上传控件内', () => {
+      const modal = loadingComposer()
+      modal.insertAdjacentHTML('beforeend', '<label data-upload><input type="file" data-testid="fileInput"></label>')
+      addComposerInsertLinkButton()
+      expect(modal.querySelectorAll('.xf-insert-link-button')).toHaveLength(0)
+    })
+
+    it.each([false, true])('清理顶部残留按钮，底部工具栏是否已出现：%s', ready => {
+      const modal = loadingComposer()
+      const header = modal.querySelector('[data-header]')!
+      header.insertAdjacentHTML('beforeend', '<button class="xf-insert-link-button" data-testid="xf-insert-link-button"></button><button class="xf-insert-link-button xf-format-markdown-button"></button><button class="xf-insert-link-button xf-composer-list-button"></button>')
+      if (ready) modal.insertAdjacentHTML('beforeend', '<div data-testid="toolBar"></div>')
+      addComposerInsertLinkButton()
+      expect(header.children).toHaveLength(1)
+      expect(modal.querySelectorAll('.xf-insert-link-button')).toHaveLength(ready ? 4 : 0)
+      if (ready) expect(modal.querySelectorAll('[data-testid="toolBar"] .xf-insert-link-button')).toHaveLength(4)
+    })
+
+    it('有明确底部工具栏时不使用上方其他标签栏，工具栏重建后补回按钮', () => {
+      const modal = loadingComposer()
+      modal.querySelector('[data-header]')!.insertAdjacentHTML('beforeend', '<div role="tablist"></div>')
+      modal.insertAdjacentHTML('beforeend', '<div data-testid="toolBar"><div data-testid="ScrollSnap-List"></div></div>')
+      addComposerInsertLinkButton()
+      expect(modal.querySelector('[data-header] .xf-insert-link-button')).toBeNull()
+      const toolbar = modal.querySelector('[data-testid="toolBar"]')!
+      expect(toolbar.querySelectorAll('.xf-insert-link-button')).toHaveLength(4)
+      toolbar.innerHTML = '<div role="tablist"></div>'
+      addComposerInsertLinkButton()
+      expect(toolbar.querySelectorAll('.xf-insert-link-button')).toHaveLength(4)
+    })
+
     it('retains preComposeUrl in storage after insert, supporting typing and repeated insertion', () => {
       const normalUrl = 'https://x.com/developer/status/777'
       savePrecomposeUrl(normalUrl)

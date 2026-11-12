@@ -1,3 +1,4 @@
+import { installAudienceInterceptor } from '../shared/audience-interceptor'
 /**
  * MAIN world 数据拦截器（唯一入口）。
  *
@@ -87,6 +88,7 @@ export default defineContentScript({
   world: 'MAIN',
   runAt: 'document_start',
   main() {
+    installAudienceInterceptor()
     // 扩展总开关：MAIN world 无法读 storage，由 isolated world 通过 postMessage 通知。
     // 默认 true 兼容现有行为（document_start 时还不知道开关状态）；收到关闭通知后停用拦截。
     let interceptEnabled = true

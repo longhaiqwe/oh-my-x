@@ -17,6 +17,28 @@ import {
 } from '../../content-scripts/features/ai-repost'
 
 describe('shared/ai-repost', () => {
+  it('defaults to a concise summary and a grounded short reply', () => {
+    const prompt = buildRepostSystemPrompt()
+    expect(prompt).toContain('optionA（干货脱水总结）')
+    expect(prompt).toContain('optionB: 干货总结 - 简短')
+    expect(prompt).toContain('最多 80 字')
+    expect(prompt).toContain('保留主体、否定关系、作者立场和限制条件')
+    expect(prompt).toContain('不编造用户经历')
+    expect(prompt).not.toContain('optionB: 话题延伸')
+  })
+
+  it.each(['zh-CN', 'en'] as const)('supports optional follow-up types without contradictory user instructions (%s)', locale => {
+    const [system, user] = buildRepostMessages({ text: '测试原文' }, undefined, {
+      optionA: 'extension', optionB: 'extension-short', description: '自然一些', samples: '参考样本',
+    }, locale)
+    expect(system.content).toContain(locale === 'en' ? 'optionA (take and follow-up)' : 'optionA（观点共鸣与延伸）')
+    expect(system.content).toContain(locale === 'en' ? 'optionB: Follow-up - short' : 'optionB: 话题延伸 - 简短')
+    expect(system.content).toContain('参考样本')
+    expect(system.content).not.toContain(locale === 'en' ? 'optionA (key points)' : 'optionA（干货脱水总结）')
+    expect(user.content).not.toContain('optionA: key points')
+    expect(user.content).not.toContain('optionA 为干货')
+  })
+
   it('normalizes OpenAI-compatible chat completions URLs', () => {
     expect(resolveChatCompletionsUrl('')).toBe('https://api.openai.com/v1/chat/completions')
     expect(resolveChatCompletionsUrl('https://api.openai.com/v1')).toBe(

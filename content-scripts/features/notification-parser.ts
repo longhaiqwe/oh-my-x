@@ -55,7 +55,8 @@ export function parseNotificationArticle(article: Element): NotificationEntry | 
       return null
     }
     summary = cleanText(header).replace(/[·•]\s*$/, '').trim()
-    if (/点赞|喜欢了|liked your/i.test(summary)) kind = 'like'
+    if (/新帖(?:子)?(?:通知|提醒)|(?:new (?:post|tweet)(?:s)? (?:notification|alert)(?:s)?|(?:post|tweet) notifications?)/i.test(summary)) kind = 'post'
+    else if (/点赞|喜欢了|liked your/i.test(summary)) kind = 'like'
     else if (/转帖|转推|转发了|reposted|retweeted/i.test(summary)) kind = 'repost'
     else if (/关注了你|关注你了|关注了您|followed you|following you/i.test(summary)) kind = 'follow'
     const links = [...article.querySelectorAll<HTMLAnchorElement>('ul a[href]'), ...header.querySelectorAll<HTMLAnchorElement>('a[href]')]
@@ -69,7 +70,19 @@ export function parseNotificationArticle(article: Element): NotificationEntry | 
   }
   const grouped = actors.length > 1 || /另外|others|\d+\s*个帖子|\d+\s*(?:posts|tweets)/i.test(summary)
   const id = notificationFingerprint(url || JSON.stringify([kind, timestamp, summary, text, actors.map(a => a.handle.toLowerCase()).sort()]))
-  return { id, actors, kind, summary, text, timestamp, url, grouped }
+  // 原始指纹保留用于原生节点定位和旧收据兼容。点赞／转帖按目标帖子与用户保存已读，
+  // 合并通知的时间、昵称、摘要和头像名单更新不能撤销旧用户的已读状态。
+  let readId: string | undefined
+  if (kind === 'like' || kind === 'repost' || kind === 'follow') {
+    const targets = [...new Set([...article.querySelectorAll<HTMLAnchorElement>('a[href]')].flatMap(link => {
+      if (!['x.com', 'twitter.com', 'mobile.twitter.com'].includes(link.hostname)) return []
+      return link.pathname.match(/^\/[A-Za-z0-9_]{1,15}\/status\/(\d+)\/?$/)?.[1] || []
+    }))].sort()
+    const target = targets.length ? ['posts', targets] : text ? ['text', text] : ['unknown', timestamp]
+    // 关注事件可以重复发生；没有帖子地址和正文时，也不能推断不同时间的通知属于同一帖。
+    readId = notificationFingerprint(JSON.stringify(['interaction', kind, kind === 'follow' ? timestamp : target]))
+  }
+  return { id, readId, actors, kind, summary, text, timestamp, url, grouped }
 }
 
 export function getNotificationAccount(): string | null {

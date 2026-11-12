@@ -45,6 +45,76 @@ afterEach(() => {
 })
 
 describe('收藏界面', () => {
+  it('搜索收藏后保存头像，重开面板仍显示，图片失败时保留默认图标', async () => {
+    const avatar = 'https://pbs.twimg.com/profile_images/123/alice_normal.jpg'
+    const save = send.getMockImplementation()! as (message: unknown) => Promise<unknown>
+    send.mockImplementation(async message => message.type === MENTION_SEARCH_MESSAGE
+      ? { ok: true, users: [{ handle: 'alice', name: 'Alice', avatar }] } : save(message))
+    await runFavoriteBloggersFeature()
+    nav().click()
+    await flush()
+    const form = document.querySelector<HTMLFormElement>('.xf-favorites-form')!
+    form.querySelector('input')!.value = 'Alice'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flush()
+    document.querySelector<HTMLButtonElement>('.xf-favorites-candidate')!.click()
+    await flush()
+    expect(stored[KeyFavoriteBloggers]).toEqual([{ handle: 'alice', name: 'Alice', avatar }])
+    closeFavoriteBloggersPanel()
+    nav().click()
+    await flush()
+    const image = rows()[0].querySelector('img')!
+    expect(image?.src).toBe(avatar)
+    image.dispatchEvent(new Event('error'))
+    expect(rows()[0].querySelector('img')).toBeNull()
+    expect(rows()[0].querySelector('.xf-favorites-avatar svg')).not.toBeNull()
+  })
+
+  it.each(['profile', 'hover'])('从 %s 收藏时读取对应博主头像，忽略其他用户图片', async source => {
+    const avatar = 'https://pbs.twimg.com/profile_images/123/avatar.jpg'
+    const root = document.querySelector(source === 'profile' ? 'main' : '[data-testid="HoverCard"]')!
+    const handle = source === 'profile' ? 'alice' : 'bob'
+    root.insertAdjacentHTML('afterbegin', `<a href="/other/photo"><img src="https://pbs.twimg.com/profile_images/456/other.jpg"></a><a href="/${handle}/photo"><img src="${avatar}"></a>`)
+    await runFavoriteBloggersFeature()
+    root.querySelector<HTMLButtonElement>('.xf-favorite-blogger-button')!.click()
+    await flush()
+    expect(stored[KeyFavoriteBloggers]).toEqual([expect.objectContaining({ handle, avatar })])
+  })
+
+  it('旧收藏只补取用户名精确匹配的头像，保存后不再重复查询', async () => {
+    const avatar = 'https://pbs.twimg.com/profile_images/123/bob.jpg'
+    stored[KeyFavoriteBloggers] = [{ handle: 'bob', name: '自存昵称' }, { handle: 'carol', name: 'Carol' }]
+    const save = send.getMockImplementation()! as (message: unknown) => Promise<unknown>
+    send.mockImplementation(async message => message.type === MENTION_SEARCH_MESSAGE
+      ? { ok: true, users: [{ handle: 'BOB', name: 'Bob', avatar }] } : save(message))
+    await runFavoriteBloggersFeature()
+    nav().click()
+    await flush()
+    await flush()
+    expect(stored[KeyFavoriteBloggers]).toEqual([{ handle: 'bob', name: '自存昵称', avatar }, { handle: 'carol', name: 'Carol' }])
+    expect(rows()[0].querySelector('img')?.src).toBe(avatar)
+    expect(rows()[1].querySelector('.xf-favorites-avatar svg')).not.toBeNull()
+    await runFavoriteBloggersFeature()
+    await flush()
+    expect(send.mock.calls.filter(([message]) => message.type === MENTION_SEARCH_MESSAGE)).toHaveLength(2)
+  })
+
+  it('关闭面板后不保存迟到的头像查询', async () => {
+    stored[KeyFavoriteBloggers] = [{ handle: 'bob', name: 'Bob' }]
+    const save = send.getMockImplementation()! as (message: unknown) => Promise<unknown>
+    let resolve!: (result: unknown) => void
+    send.mockImplementation(message => message.type === MENTION_SEARCH_MESSAGE
+      ? new Promise(r => { resolve = r }) : save(message))
+    await runFavoriteBloggersFeature()
+    nav().click()
+    await flush()
+    expect(resolve).toBeTypeOf('function')
+    closeFavoriteBloggersPanel()
+    resolve({ ok: true, users: [{ handle: 'bob', avatar: 'https://pbs.twimg.com/profile_images/123/bob.jpg' }] })
+    await flush()
+    expect(stored[KeyFavoriteBloggers]).toEqual([{ handle: 'bob', name: 'Bob' }])
+  })
+
   it.each(['乔木', 'Chris'])('输入昵称 %s 后选择候选，保存名字并可在已有收藏中搜索；重复选择不重复添加', async query => {
     const save = send.getMockImplementation()! as (message: unknown) => Promise<unknown>
     send.mockImplementation(async message => message.type === MENTION_SEARCH_MESSAGE ? {
@@ -353,7 +423,7 @@ describe('收藏界面', () => {
     expect(rows()[1].hasAttribute('data-dragging')).toBe(true)
     grip.dispatchEvent(new Event('dragend', { bubbles: true }))
     expect(document.querySelector('[data-dragging]')).toBeNull()
-    expect(send).not.toHaveBeenCalled()
+    expect(send.mock.calls.filter(([message]) => message.type !== MENTION_SEARCH_MESSAGE)).toHaveLength(0)
     send.mockResolvedValueOnce({ ok: false })
     grip.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
     await flush()
