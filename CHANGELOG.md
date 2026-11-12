@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.0.0 - 2026-11-12
+
+Compared with 2.9.0, including the 2.10.0 changes released on GitHub but not published in the Chrome Web Store.
+
+### Features
+
+- Add opt-in audience insights for ordinary followers, verified followers, and following lists already loaded by X: follower-count bins, search, sorting, relationship filters, and complete filtered CSV export. List types and accounts remain separate, and saved lists remain accessible after capture is disabled.
+- Add a dedicated Creator Rewards history dashboard with calendar weeks, months, the last 90 days, custom ranges, daily/weekly trends, complete-period comparisons, and daily details. Export the current view as a local PNG with optional attribution.
+- Configure each AI repost draft independently with detailed or short summaries/extensions, or saved custom styles with instructions and samples. Defaults are a detailed summary and a short summary.
+- Add bullet and numbered list controls to post, quote, and reply composers while preserving selection, bold, italic, and links. Button colors follow the X theme.
+- Add unviewed/replies-only notification filters, mark-all-read for the current filter, direct reply navigation, native profile previews, and separate new-post alerts.
+- Display saved-blogger avatars and fill missing avatars for existing favorites.
+
+### Fixes and improvements
+
+- Preserve viewing receipts across grouped notifications, native-list clicks, tabs, and delayed responses. Restore filter preferences and navigate replies to the in-page composer in the current tab.
+- Improve notification hierarchy, narrow layouts, expanded details, and row heights during view switches. Viewed new-post alerts remain hidden until a newer alert arrives.
+- Avoid restoring removed favorites or overwriting newer data when avatar lookups finish late.
+- Authorize audience capture against the current browser-tab URL after X navigates within the page. Place the entry below the full navigation to avoid clipping and inherit X fonts and accent colors.
+- Distinguish unfinished dates, missing records, and zero values in rewards history. Show observed totals with coverage counts and support negative changes. Retain up to 120 daily account-analytics records and request 90-day history on demand.
+- Clarify that daily differences in the rolling 90-day rewards total are net changes, including expirations and platform adjustments, rather than newly eligible daily impressions. Statistics retain UTC date boundaries.
+- Prevent malformed language-file requests during image-recognition initialization by disabling implicit sublanguage loading before the worker initializes. Explicitly selected languages are unchanged.
+- Keep promotional demos in their own TypeScript project so clean extension builds do not require demo-only dependencies.
+- Expand unit, layout, extension integration, and real OCR regression checks, and update bilingual guides, privacy disclosures, design files, store images, and promotional deliverables.
+
+### Permissions and data
+
+- No new extension permissions compared with 2.9.0. Audience capture is opt-in, observes already-loaded data, and does not scroll, make extra list requests, or send lists to AI services or the developer.
+- Daily rewards history depends on locally recorded totals and cannot be reconstructed from the current cumulative value. Image export stays on the device and does not publish anything.
+- Document the existing offscreen permission, local audience lists, favorite avatars, and notification preferences.
+
 ## 2.10.0 - 2026-11-12
 
 ### Features
