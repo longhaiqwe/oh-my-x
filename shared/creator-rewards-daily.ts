@@ -1,7 +1,7 @@
 /**
  * 原创内容奖励计划的每日数据：
  * - 奖励计划接口只返回「过去 90 天累计的已验证首页时间线曝光」一个数，没有历史，
- *   所以每天记一次，相邻两天相减得到当天计入奖励的曝光。
+ *   所以每天记一次，相邻两天相减得到奖励进度净变化（包含到期移出与平台修正）。
  * - 整体曝光和蓝 V 曝光来自账号分析页的 accountOverviewDailyQuery，按 UTC 日返回。
  */
 import {
@@ -28,7 +28,7 @@ export interface DailyConversionRow {
   date: string
   total: number | null
   verified: number | null
-  /** 当天计入奖励的曝光 = 当天累计 − 前一天累计；缺任一天时为 null */
+  /** 奖励进度净变化 = 当天累计 − 前一天累计；不是当天新增合格曝光，缺任一天时为 null */
   counted: number | null
 }
 
@@ -37,7 +37,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const REWARDS_REFRESH_OFFSET_MS = (2 * 60 + 30) * 60 * 1000
 /** 留 120 天：超过 90 天后可用来推算移出统计窗口的那一天 */
 const REWARDS_HISTORY_LIMIT = 120
-const IMPRESSIONS_CACHE_LIMIT = 30
+const IMPRESSIONS_CACHE_LIMIT = 120
 
 export const ACCOUNT_OVERVIEW_OPERATION = 'accountOverviewDailyQuery'
 /** 2026-11-09 在 x.com/i/account_analytics 验证的接口编号；X 换编号后由页面拦截器记下新的 */
@@ -159,7 +159,7 @@ export function parseImpressionsCache(raw: unknown): ImpressionsDailyCache | nul
   return { days, updatedAt: obj.updatedAt }
 }
 
-/** 合并新取到的天数，只留最近 30 天 */
+/** 合并新取到的天数，只留最近 120 条日记录 */
 export function mergeImpressionsDays(
   previous: ImpressionsDailyCache | null,
   fresh: Record<string, DailyImpressions>,
@@ -173,12 +173,13 @@ export function mergeImpressionsDays(
   return { days, updatedAt }
 }
 
-/** 请求最近 14 天（含今天）的按天数据，参数结构照抄 X 账号分析页 */
-export function buildAccountOverviewVariables(now = Date.now()) {
+/** 默认请求最近 14 天（含今天）；历史看板请求 91 天，覆盖昨天为止的 90 天 */
+export function buildAccountOverviewVariables(now = Date.now(), days = 14) {
+  const count = Math.max(1, Math.min(91, Math.trunc(days) || 14))
   const todayStart = Date.parse(`${utcDateKey(now)}T00:00:00Z`)
   const to = todayStart + DAY_MS
-  const from = to - 14 * DAY_MS
-  const prevFrom = from - 14 * DAY_MS
+  const from = to - count * DAY_MS
+  const prevFrom = from - count * DAY_MS
   const iso = (t: number) => new Date(t).toISOString()
   return {
     // 2026-11-09 实测：缺此必填变量会返回 GRAPHQL_VALIDATION_FAILED（HTTP 422）。

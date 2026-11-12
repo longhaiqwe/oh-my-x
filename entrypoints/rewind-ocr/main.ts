@@ -83,6 +83,8 @@ async function read(src: string, langs: string) {
     await worker?.terminate()
     worker = undefined
     await download(langs.split('+'))
+    // 第四个参数在初始化前禁用附加语言加载；所有识别语言已在 langs 中明确指定。
+    // 避免语言包自带的附加语言配置导致请求乱码文件名，不能等 setParameters 时再设置。
     worker = await createWorker(langs, OEM.LSTM_ONLY, {
       workerPath: new URL('ocr/worker.min.js', browser.runtime.getURL('/'))
         .href,
@@ -95,7 +97,7 @@ async function read(src: string, langs: string) {
       workerBlobURL: false,
       cacheMethod: 'readOnly',
       langPath: DATA,
-    })
+    }, 'tessedit_load_sublangs \n')
     language = langs
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT })
   }

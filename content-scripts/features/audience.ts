@@ -5,6 +5,7 @@ import {
 } from '../../storage-keys'
 import {
   AUDIENCE_CONTEXT,
+  AUDIENCE_LABELS,
   AUDIENCE_DATA,
   audienceKey,
   audienceRoute,
@@ -22,11 +23,15 @@ import {
 } from '../../shared/audience-panel'
 import { t, onLocaleChange } from '../../shared/i18n'
 import { getRewindAccount } from '../options/rewind-account'
-import { getThemeColors } from '../utilities/colors'
+import { getThemeColors, syncXAccentColor } from '../utilities/colors'
+import { getXFontFamily } from '../utilities/xTypography'
+import addStyles from '../utilities/addStyles'
+import entryCss from './audience-entry.css?inline'
 let started = false
 export function startAudience() {
   if (started || location.hostname === 'pro.x.com') return
   started = true
+  addStyles('audience-entry', entryCss)
   let enabled = false,
     context: AudienceContext | undefined,
     snapshot: AudienceSnapshot | undefined,
@@ -85,10 +90,14 @@ export function startAudience() {
       '[data-testid="primaryColumn"] [role="tablist"]',
     )
     if (!tabs) return
+    // X clips the tab list inside ScrollSnap-SwipeableList. Mount below the
+    // whole navigation so the entry remains visible and does not scroll sideways.
+    const anchor = tabs.closest('nav, [role="navigation"]') || tabs
     if (!bar?.isConnected) {
       bar = document.createElement('button')
       bar.type = 'button'
       bar.id = 'xf-audience-entry'
+      bar.innerHTML = '<span class="au-count"></span><span class="au-separator" aria-hidden="true"> · </span><span class="au-action"><span class="au-action-label"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>'
       bar.addEventListener('click', () => {
         if (!context) {
           void refresh(true)
@@ -103,20 +112,23 @@ export function startAudience() {
           onClose: () => (panel = undefined),
         })
       })
-      tabs.insertAdjacentElement('afterend', bar)
     }
+    if (anchor.nextElementSibling !== bar)
+      anchor.insertAdjacentElement('afterend', bar)
+    syncXAccentColor()
     const c = getThemeColors()
-    bar.style.cssText = `display:block;width:100%;min-height:44px;padding:12px 16px;border:0;border-bottom:1px solid ${c.border};background:${c.bg};color:${c.fg};text-align:left;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;`
-    bar.textContent =
-      error ||
-      t('audience.entry', {
-        count: snapshot?.members.length || 0,
-        kind: t(
-          audienceRoute(location.pathname)!.kind === 'followers'
-            ? 'audience.followers'
-            : 'audience.following',
-        ),
-      })
+    const style = {
+      bg: c.bg, fg: c.fg, muted: c.fgSecondary, border: c.border,
+      hover: c.hoverBg,
+      font: getXFontFamily(tabs.querySelector('[role="tab"] span')),
+    }
+    for (const [key, value] of Object.entries(style))
+      bar.style.setProperty(`--au-entry-${key}`, value)
+    const count = snapshot?.members.length || 0
+    const kind = t(AUDIENCE_LABELS[audienceRoute(location.pathname)!.kind])
+    bar.querySelector('.au-count')!.textContent = error ? '' : t('audience.entryCount', { count })
+    bar.querySelector('.au-action-label')!.textContent = error || t('audience.entryAction', { kind })
+    bar.setAttribute('aria-label', error || t('audience.entry', { count, kind }))
     bar.title = t('audience.emptyHint')
     // The open analysis window keeps its original sample; new native pages appear after reopening.
   }
@@ -258,7 +270,7 @@ export function startAudience() {
             const m = sanitizeAudienceMember(item)
             if (m) {
               delete m.followsYou
-              if (members.has(m.id) || members.size < (packet.kind === 'followers' ? 20000 : 10000))
+              if (members.has(m.id) || members.size < (packet.kind === 'following' ? 10000 : 20000))
                 members.set(m.id, mergeAudienceMember(members.get(m.id), m))
             }
           }

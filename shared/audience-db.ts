@@ -10,6 +10,7 @@ import {
 export const AUDIENCE_LIMITS = {
   targets: 3,
   followers: 20000,
+  verified_followers: 20000,
   following: 10000,
   rows: 100000,
   bytes: 30 * 1024 * 1024,

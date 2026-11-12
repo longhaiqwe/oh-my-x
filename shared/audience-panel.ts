@@ -44,7 +44,8 @@ export function openAudiencePanel(
           accent: 'var(--color-accent)',
           'accent-text': 'var(--color-on-accent)',
           soft: 'var(--color-accent-subtle)',
-          font: 'system-ui,sans-serif',
+          font: getComputedStyle(document.body).fontFamily,
+          shadow: 'var(--shadow-xl)',
         }
       : {
           bg: c.bg,
@@ -56,6 +57,7 @@ export function openAudiencePanel(
           'accent-text': 'var(--xf-accent-text, #fff)',
           soft: c.accentBg,
           font: getXFontFamily(),
+          shadow: c.shadow,
         }
     for (const [key, v] of Object.entries(colors))
       host.style.setProperty(`--au-${key}`, v)

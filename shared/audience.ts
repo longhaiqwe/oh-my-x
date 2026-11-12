@@ -1,8 +1,13 @@
-/** Only ordinary Followers / Following timelines are accepted. No recursive user harvesting. */
+/** Only matching Followers / BlueVerifiedFollowers / Following timelines are accepted. No recursive user harvesting. */
 export const AUDIENCE_MESSAGE = 'xf-audience'
 export const AUDIENCE_CONTEXT = 'xf-audience-context'
 export const AUDIENCE_DATA = 'xf-audience-data'
-export type AudienceKind = 'followers' | 'following'
+export type AudienceKind = 'followers' | 'verified_followers' | 'following'
+export const AUDIENCE_LABELS = {
+  followers: 'audience.followers',
+  verified_followers: 'audience.verifiedFollowers',
+  following: 'audience.following',
+} as const
 export type AudienceMember = {
   id: string
   handle: string
@@ -50,7 +55,9 @@ export const audienceKey = (
   kind: AudienceKind,
 ) => `${account}:${targetId}:${kind}`
 export function audienceRoute(path: string) {
-  const match = path.match(/^\/([a-zA-Z0-9_]{1,15})\/(followers|following)\/?$/)
+  const match = path.match(
+    /^\/([a-zA-Z0-9_]{1,15})\/(followers|verified_followers|following)\/?$/,
+  )
   return match ? { handle: match[1], kind: match[2] as AudienceKind } : null
 }
 const count = (v: unknown): number | undefined =>
@@ -97,9 +104,13 @@ export function parseAudienceResponse(
   try {
     const request = new URL(url, 'https://x.com')
     const operation = request.pathname
-      .match(/\/graphql\/[^/]+\/(Followers|Following)$/)?.[1]
-      ?.toLowerCase()
-    if (operation !== route.kind) return null
+      .match(/\/graphql\/[^/]+\/(Followers|BlueVerifiedFollowers|Following)$/)?.[1]
+    const expected = {
+      followers: 'Followers',
+      verified_followers: 'BlueVerifiedFollowers',
+      following: 'Following',
+    }
+    if (operation !== expected[route.kind]) return null
     const variables = JSON.parse(request.searchParams.get('variables') || '{}')
     if (typeof variables.userId !== 'string' || !/^\d+$/.test(variables.userId))
       return null
@@ -166,13 +177,16 @@ export function parseAudienceResponse(
       targetId: variables.userId,
       handle: handle || route.handle,
       kind: route.kind,
-      total: count(
-        route.kind === 'followers'
-          ? (target.relationship_counts?.followers ??
-              target.legacy?.followers_count)
-          : (target.relationship_counts?.following ??
-              target.legacy?.friends_count),
-      ),
+      total:
+        route.kind === 'verified_followers'
+          ? undefined
+          : count(
+              route.kind === 'followers'
+                ? (target.relationship_counts?.followers ??
+                    target.legacy?.followers_count)
+                : (target.relationship_counts?.following ??
+                    target.legacy?.friends_count),
+            ),
       members: [...members.values()],
     }
   } catch {

@@ -37,14 +37,16 @@ const browser = await chromium.launch({
 })
 const output = '/tmp/oh-my-x-audience-validation'
 await mkdir(output, { recursive: true })
-const fixture = `<!doctype html><meta charset="utf-8"><style>body{margin:0;font:16px system-ui;background:white;color:#0f1419}button{font:inherit}.spacer{height:400px}</style><div class="spacer"></div><button id="entry">查看分析</button><div style="height:1800px"></div><script>window.browser={i18n:{getUILanguage:()=>window.testLocale||'zh-CN'}};</script>`
+const fixture = `<!doctype html><meta charset="utf-8"><style>:root{--xf-accent:rgb(255,122,0);--xf-accent-rgb:255,122,0}body{margin:0;font:16px serif;background:white;color:#0f1419}button{font:inherit}.spacer{height:400px}</style><a data-testid="AppTabBar_Home_Link"><span style="font-family:Arial,sans-serif">Home</span></a><div class="spacer"></div><button id="entry">查看分析</button><div style="height:1800px"></div><script>window.browser={i18n:{getUILanguage:()=>window.testLocale||'zh-CN'}};</script>`
 try {
   for (const scenario of [
     { name: 'followers-light', width: 1280, kind: 'followers' },
     { name: 'followers-dark', width: 1280, kind: 'followers', dark: true },
+    { name: 'verified-light', width: 1280, kind: 'verified_followers' },
+    { name: 'verified-mobile', width: 375, kind: 'verified_followers' },
     { name: 'following-light', width: 1280, kind: 'following' },
-    { name: 'followers-mobile', width: 390, kind: 'followers' },
-    { name: 'following-mobile', width: 390, kind: 'following' },
+    { name: 'followers-mobile', width: 375, kind: 'followers' },
+    { name: 'following-mobile', width: 375, kind: 'following' },
     { name: 'followers-english', width: 360, kind: 'followers', en: true },
   ]) {
     const page = await browser.newPage({
@@ -79,7 +81,7 @@ try {
         updatedAt: now,
         count: 37,
         bytes: 0,
-        total: 2000,
+        total: s.kind === 'verified_followers' ? undefined : 2000,
         members: Array.from({ length: 37 }, (_, i) => ({
           id: String(i + 1),
           handle: 'sample' + i,
@@ -120,8 +122,17 @@ try {
     assert(geometry.width <= scenario.width)
     assert.equal(geometry.height, scenario.width <= 700 ? 900 : 818)
     if (scenario.dark) assert.equal(geometry.bg, 'rgb(21, 32, 43)')
+    const styles = await dialog.evaluate(el => ({
+      font: getComputedStyle(el).fontFamily,
+      nativeFont: getComputedStyle(document.querySelector('[data-testid=AppTabBar_Home_Link] span')).fontFamily,
+      focus: getComputedStyle(el.querySelector('button')).outlineColor,
+      headerPadding: getComputedStyle(el.querySelector('header')).paddingLeft,
+    }))
+    assert.equal(styles.font, styles.nativeFont)
+    assert.equal(styles.focus, 'rgb(255, 122, 0)')
+    assert.equal(styles.headerPadding, scenario.width <= 700 ? '16px' : '24px')
     await page.screenshot({ path: `${output}/${scenario.name}.png` })
-    if (scenario.kind === 'followers') {
+    if (scenario.kind !== 'following') {
       if (scenario.width <= 700) {
         await dialog.locator('.bin').nth(2).click()
         await dialog.locator('.mobile-view').click()
@@ -161,7 +172,7 @@ try {
     await page.close()
   }
   console.log(
-    'PASS: 6 production-panel layouts; bins, relationship filters, search, pagination, complete CSV export, Escape/focus/scroll restoration. Screenshots: ' +
+    'PASS: 8 production-panel layouts with native fonts and orange theme; bins, relationship filters, search, pagination, complete CSV export, Escape/focus/scroll restoration. Screenshots: ' +
       output,
   )
 } finally {

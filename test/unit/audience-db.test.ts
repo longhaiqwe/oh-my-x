@@ -28,7 +28,12 @@ describe('audience persistence', () => {
     await db.add('2', 0, packet(), now)
     await db.add('1', 0, { ...packet(), kind: 'following' }, now)
     expect((await db.read('1:10:followers'))?.members).toHaveLength(2)
-    expect(await db.list()).toHaveLength(3)
+    await db.add('1', 0, { ...packet(), kind: 'verified_followers' }, now)
+    expect((await db.read('1:10:verified_followers'))?.count).toBe(1)
+    expect(await db.list()).toHaveLength(4)
+    await db.clear('1', '1:10:verified_followers')
+    expect((await db.read('1:10:followers'))?.count).toBe(2)
+    expect((await db.read('1:10:following'))?.count).toBe(1)
   })
   it('clear increments generation, blocks late writes and preserves other identities', async () => {
     const db = repo()

@@ -73,6 +73,16 @@ describe('audience passive interception', () => {
       post.mock.calls.filter((c) => (c[0] as any).type === AUDIENCE_DATA),
     ).toHaveLength(1)
   })
+  it('captures verified followers only on the matching list route', async () => {
+    history.pushState({}, '', '/owner/verified_followers')
+    context('verified')
+    const post = vi.spyOn(window, 'postMessage')
+    void window.fetch(url.replace('/Followers?', '/BlueVerifiedFollowers?'))
+    await finish()
+    expect(post.mock.calls.filter(c => (c[0] as any).type === AUDIENCE_DATA)).toHaveLength(1)
+    expect((post.mock.calls[0][0] as any).packet.kind).toBe('verified_followers')
+    history.pushState({}, '', path)
+  })
   it('discards a response after navigation away and back, disabling, or context replacement', async () => {
     const post = vi.spyOn(window, 'postMessage')
     context('two')

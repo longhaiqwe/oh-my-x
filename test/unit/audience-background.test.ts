@@ -65,7 +65,7 @@ beforeEach(() => {
       },
     },
     cookies: { get: vi.fn(async () => ({ value: 'u=100' })) },
-    tabs: { query: vi.fn() },
+    tabs: { query: vi.fn(), get: vi.fn(async () => ({ id: 5, url: x.url })) },
   }
   vi.stubGlobal('browser', api)
   registerAudienceBackground()
@@ -100,18 +100,19 @@ describe('audience RPC authorization', () => {
     api.storage.local.get.mockResolvedValue({ [KeyAudienceEnabled]: 'off' })
     expect((await send('add', payload)).result.state).toBe('disabled')
     api.storage.local.get.mockResolvedValue({ [KeyAudienceEnabled]: 'on' })
-    expect(
-      (
-        await send('add', payload, {
-          ...x,
-          url: 'https://x.com/other/following',
-        })
-      ).ok,
-    ).toBe(false)
+    api.tabs.get.mockResolvedValueOnce({ url: 'https://x.com/other/following' })
+    expect((await send('add', payload)).ok).toBe(false)
     expect((await send('add', { ...payload, account: '999' })).ok).toBe(false)
     expect(
       (await send('read', { key: '999:100:following', account: '999' })).ok,
     ).toBe(false)
+  })
+  it('validates the current tab route after SPA navigation, not the original document URL', async () => {
+    api.tabs.get.mockResolvedValue({ url: 'https://x.com/owner/verified_followers' })
+    expect((await send('add', { ...payload, packet: { ...payload.packet, kind: 'verified_followers' } })).result?.state).toBe('saved')
+    expect((await send('add', payload)).ok).toBe(false)
+    api.tabs.get.mockResolvedValue({ url: 'https://evil.example/owner/following' })
+    expect((await send('add', payload)).ok).toBe(false)
   })
   it('strips relationship flags from third-party targets and blocks stale generation after clearing', async () => {
     await send('add', {

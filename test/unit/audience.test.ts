@@ -110,13 +110,22 @@ describe('audience parser and analysis', () => {
       expect(
         parseAudienceResponse(url(op), response([entry()]), '/owner/followers'),
       ).toBeNull()
-    expect(audienceRoute('/owner/verified_followers')).toBeNull()
+    expect(audienceRoute('/owner/verified_followers')).toEqual({ handle: 'owner', kind: 'verified_followers' })
     const r: any = response([entry()])
     r.data.user.result.rest_id = '999'
     expect(parseAudienceResponse(url(), r, '/owner/followers')).toBeNull()
     r.data.user.result.rest_id = '1'
     r.data.user.result.core = { screen_name: 'someoneElse' }
     expect(parseAudienceResponse(url(), r, '/owner/followers')).toBeNull()
+  })
+  it('keeps verified followers separate and never uses the full follower total', () => {
+    const data: any = response([entry()])
+    data.data.user.result.legacy = { followers_count: 1000, friends_count: 200 }
+    const result = parseAudienceResponse(url('BlueVerifiedFollowers'), data, '/owner/verified_followers')
+    expect(result).toMatchObject({ kind: 'verified_followers', targetId: '1', members: [{ id: '2' }] })
+    expect(result?.total).toBeUndefined()
+    expect(parseAudienceResponse(url(), data, '/owner/verified_followers')).toBeNull()
+    expect(parseAudienceResponse(url('Following'), data, '/owner/verified_followers')).toBeNull()
   })
   it('does not include recommendation modules, tweets, promoted or mismatched user IDs', () => {
     const e = entry(),

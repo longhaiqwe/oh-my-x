@@ -57,7 +57,7 @@ export function installAudienceInterceptor() {
   const capture = (url: string) =>
     context &&
     audienceRoute(location.pathname) &&
-    /\/graphql\/[^/]+\/(Followers|Following)(?:\?|$)/.test(url)
+    /\/graphql\/[^/]+\/(Followers|BlueVerifiedFollowers|Following)(?:\?|$)/.test(url)
       ? { ...context, navigation, time: Date.now() }
       : undefined
   const receive = (

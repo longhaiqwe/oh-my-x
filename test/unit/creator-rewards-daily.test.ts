@@ -169,11 +169,11 @@ describe('存储解析与合并', () => {
     })
   })
 
-  it('mergeImpressionsDays 新数据覆盖旧数据，只留 30 天', () => {
+  it('mergeImpressionsDays 新数据覆盖旧数据，只留 120 条日记录', () => {
     const days: Record<string, { total: number; verified: number }> = {}
-    for (let i = 0; i < 35; i++) days[shiftDateKey('2026-09-01', i)] = { total: i, verified: 0 }
+    for (let i = 0; i < 125; i++) days[shiftDateKey('2026-09-01', i)] = { total: i, verified: 0 }
     const merged = mergeImpressionsDays({ days, updatedAt: 1 }, { '2026-10-05': { total: 99, verified: 9 } }, 2)
-    expect(Object.keys(merged.days)).toHaveLength(30)
+    expect(Object.keys(merged.days)).toHaveLength(120)
     expect(merged.days['2026-10-05']).toEqual({ total: 99, verified: 9 })
     expect(merged.updatedAt).toBe(2)
   })

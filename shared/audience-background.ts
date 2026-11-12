@@ -87,7 +87,15 @@ export function registerAudienceBackground() {
         settings[KeyExtensionStatus] === 'off'
       )
         return { state: 'disabled' }
-      const route = audienceRoute(url.pathname),
+      // MessageSender.url can retain the original document URL after X uses
+      // pushState. Read the browser's current tab URL for list authorization.
+      if (typeof sender.tab?.id !== 'number')
+        throw new AppError('error.libraryBadSource')
+      const tab = await browser.tabs.get(sender.tab.id)
+      const currentUrl = new URL(tab.url || '')
+      if (currentUrl.origin !== url.origin)
+        throw new AppError('error.libraryBadSource')
+      const route = audienceRoute(currentUrl.pathname),
         packet = m.packet as AudiencePacket
       if (
         !route ||

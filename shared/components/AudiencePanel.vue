@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import {
+  AUDIENCE_LABELS,
   audienceCsv,
   audienceStale,
   audienceStats,
@@ -83,7 +84,7 @@ function download() {
       <div>
         <span class="eyebrow">OH-MY-X · @{{ snapshot.handle }}</span>
         <h1 id="audience-title">
-          {{ t(following ? 'audience.following' : 'audience.followers') }}
+          {{ t(AUDIENCE_LABELS[snapshot.kind]) }}
         </h1>
       </div>
       <button
@@ -114,6 +115,7 @@ function download() {
           })
         }}
       </p>
+      <p v-if="snapshot.kind === 'verified_followers'" class="muted">{{ t('audience.verifiedScope') }}</p>
       <p class="muted">{{ t('audience.sample') }}</p>
     </div>
     <div

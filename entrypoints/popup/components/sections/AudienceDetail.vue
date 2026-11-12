@@ -6,6 +6,7 @@ import {
 } from '../../../../storage-keys'
 import { audienceRequest } from '../../../../shared/audience-client'
 import {
+  AUDIENCE_LABELS,
   type AudienceMeta,
   type AudienceSnapshot,
 } from '../../../../shared/audience'
@@ -124,14 +125,12 @@ onBeforeUnmount(() => {
         :key="record.key"
         class="border-t border-border pt-3"
       >
-        <div class="flex justify-between gap-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
           <span class="text-sm font-semibold"
             >@{{ record.handle }} ·
             {{
               t(
-                record.kind === 'followers'
-                  ? 'audience.followers'
-                  : 'audience.following',
+                AUDIENCE_LABELS[record.kind],
               )
             }}</span
           ><span class="text-xs text-secondary-text">{{
@@ -200,13 +199,22 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .audience-setting-button {
+  font: inherit;
   font-size: 12px;
+  line-height: 16px;
   font-weight: 600;
   min-height: 32px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 4px 8px;
   cursor: pointer;
+}
+.audience-setting-button:hover:not(:disabled) {
+  background: var(--color-sunken-bg);
+}
+.audience-setting-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .audience-setting-button:focus-visible {
   outline: 2px solid var(--color-accent-ring);

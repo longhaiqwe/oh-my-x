@@ -1190,7 +1190,7 @@ export default defineBackground(() => {
     }
 
     if (msg?.type === 'XF_FETCH_CREATOR_REWARDS') {
-      void refreshCreatorRewardsData().then(sendResponse)
+      void refreshCreatorRewardsData(msg.history === true ? 91 : 14).then(sendResponse)
       return true
     }
 
@@ -1264,7 +1264,7 @@ async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null>
 }
 
 /** 奖励计划进度和账号分析的每日曝光一起取；账号分析失败不影响进度 */
-async function refreshCreatorRewardsData(): Promise<{
+async function refreshCreatorRewardsData(days = 14): Promise<{
   ok: boolean
   stats?: CreatorRewardsStats | null
   error?: TransferableError
@@ -1272,7 +1272,7 @@ async function refreshCreatorRewardsData(): Promise<{
 }> {
   const [rewards, impressions] = await Promise.allSettled([
     fetchCreatorRewardsFromApi(),
-    fetchImpressionsDailyFromApi(),
+    fetchImpressionsDailyFromApi(days),
   ])
   return {
     ok: rewards.status === 'fulfilled' && Boolean(rewards.value),
@@ -1282,14 +1282,14 @@ async function refreshCreatorRewardsData(): Promise<{
   }
 }
 
-async function requestAccountOverview(queryId: string, headers: HeadersInit): Promise<Response> {
+async function requestAccountOverview(queryId: string, headers: HeadersInit, days: number): Promise<Response> {
   const url = new URL(`${X_API_BASE}/graphql/${queryId}/${ACCOUNT_OVERVIEW_OPERATION}`)
-  url.searchParams.set('variables', JSON.stringify(buildAccountOverviewVariables()))
+  url.searchParams.set('variables', JSON.stringify(buildAccountOverviewVariables(Date.now(), days)))
   return fetch(url.toString(), { method: 'GET', headers, credentials: 'include' })
 }
 
 /** 账号分析页的按天曝光：整体 + 蓝 V 用户看到的部分 */
-async function fetchImpressionsDailyFromApi(): Promise<ImpressionsDailyCache> {
+async function fetchImpressionsDailyFromApi(dayCount = 14): Promise<ImpressionsDailyCache> {
   const csrf = await getCsrfToken()
   if (!csrf) {
     throw new AppError('error.noXSession')
@@ -1306,7 +1306,7 @@ async function fetchImpressionsDailyFromApi(): Promise<ImpressionsDailyCache> {
 
   let res: Response | null = null
   for (const queryId of queryIds) {
-    res = await requestAccountOverview(queryId, headers)
+    res = await requestAccountOverview(queryId, headers, dayCount)
     // 400/404 多半是接口编号过期，换下一个编号
     if (res.status !== 400 && res.status !== 404) break
   }

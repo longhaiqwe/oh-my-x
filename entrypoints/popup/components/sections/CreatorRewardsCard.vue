@@ -58,7 +58,7 @@ const rows = computed(() =>
   ),
 )
 
-// 默认选最近一个三项都有的日子，没有就选最后一天
+// 默认选最近一个有净变化的日子，没有就选最后一天
 const selectedRow = computed<DailyConversionRow>(() => {
   const list = rows.value
   return (
@@ -69,7 +69,8 @@ const selectedRow = computed<DailyConversionRow>(() => {
 })
 
 const hasCounted = computed(() => rows.value.some((row) => row.counted !== null))
-const countedMax = computed(() => Math.max(0, ...rows.value.map((row) => row.counted ?? 0)))
+const countedMax = computed(() => Math.max(0, ...rows.value.map((row) => Math.abs(row.counted ?? 0))))
+const hasNegative = computed(() => rows.value.some(row => row.counted !== null && row.counted < 0))
 
 function ratioText(part: number | null, whole: number | null): string {
   if (part === null || whole === null || whole <= 0) return ''
@@ -96,8 +97,8 @@ function formatCount(value: number | null): string {
 
 function barHeight(row: DailyConversionRow): number {
   if (row.counted === null) return 0
-  if (row.counted <= 0 || countedMax.value <= 0) return 2
-  return Math.max(2, Math.round((row.counted / countedMax.value) * BAR_MAX_HEIGHT))
+  if (row.counted === 0 || countedMax.value <= 0) return 2
+  return Math.max(2, Math.round((Math.abs(row.counted) / countedMax.value) * (hasNegative.value ? BAR_MAX_HEIGHT / 2 : BAR_MAX_HEIGHT)))
 }
 
 function dayParts(date: string) {
@@ -265,6 +266,10 @@ function openRewardsPage() {
   window.open('https://x.com/i/jf/creators/original_content_rewards', '_blank')
 }
 
+function openHistory() {
+  void browser.tabs.create({ url: browser.runtime.getURL('/rewards.html') })
+}
+
 onMounted(() => {
   void loadFromStorage()
 })
@@ -373,7 +378,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 选中那天：整体曝光 → 蓝 V 曝光 → 计入奖励；下方是近 7 天计入奖励。用统计框底色和进度分开，不用分隔线；框内居中 -->
+        <!-- 选中那天：整体曝光、蓝 V 曝光、奖励进度净变化；下方是近 7 天净变化。用统计框底色和进度分开，不用分隔线；框内居中 -->
         <div class="flex flex-col gap-3 p-3 rounded-control bg-sunken-bg">
           <div class="flex flex-col gap-1">
             <p class="text-xs text-center text-muted-text" :title="t('rewards.dateInUtc')">{{ longDay(selectedRow.date) }}</p>
@@ -396,7 +401,7 @@ onMounted(() => {
                 </template>
               </HintTooltip>
 
-              <HintTooltip>
+              <HintTooltip :disabled="!conversion.countedOfTotal && !conversion.countedOfVerified">
                 <div
                   tabindex="0"
                   class="flex flex-col items-center w-fit mx-auto rounded-control cursor-help outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
@@ -410,7 +415,6 @@ onMounted(() => {
                 <template #content>
                   <p v-if="conversion.countedOfTotal">{{ t('rewards.shareOfTotal') }} <span class="font-semibold tabular-nums">{{ conversion.countedOfTotal }}</span></p>
                   <p v-if="conversion.countedOfVerified">{{ t('rewards.shareOfVerified') }} <span class="font-semibold tabular-nums">{{ conversion.countedOfVerified }}</span></p>
-                  <p class="text-tooltip-muted">{{ t('rewards.countedHint') }}</p>
                 </template>
               </HintTooltip>
             </div>
@@ -418,7 +422,7 @@ onMounted(() => {
             <p v-if="selectedRow.total === null" class="text-xs text-center text-muted-text">{{ t('rewards.analyticsPending') }}</p>
           </div>
 
-          <!-- 近 7 天计入奖励，点柱子切换上面的日期；没有数据时不显示 -->
+          <!-- 近 7 天奖励进度净变化，点柱子切换上面的日期；没有数据时不显示 -->
           <div v-if="hasCounted" class="flex flex-col gap-1">
             <div class="flex h-8 border-b border-border" role="group" :aria-label="t('rewards.last7')">
               <button
@@ -428,15 +432,16 @@ onMounted(() => {
                 :aria-pressed="row.date === selectedRow.date"
                 :aria-label="t('rewards.bar', { date: longDay(row.date), count: formatCount(row.counted) })"
                 :title="t('rewards.bar', { date: longDay(row.date), count: formatCount(row.counted) })"
-                class="flex-1 flex items-end justify-center rounded-t-control cursor-pointer hover:bg-card-bg outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                class="relative flex-1 flex items-end justify-center rounded-t-control cursor-pointer hover:bg-card-bg outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
                 @click="pickedDate = row.date"
               >
                 <span
                   v-if="barHeight(row) > 0"
-                  class="w-full max-w-6 rounded-t"
-                  :class="row.date === selectedRow.date ? 'bg-accent' : 'bg-chart-muted'"
-                  :style="{ height: `${barHeight(row)}px` }"
+                  class="absolute w-full max-w-6 rounded-t"
+                  :class="row.counted !== null && row.counted < 0 ? 'bg-danger' : row.date === selectedRow.date ? 'bg-accent' : 'bg-chart-muted'"
+                  :style="{ height: `${barHeight(row)}px`, bottom: hasNegative && (row.counted ?? 0) < 0 ? undefined : hasNegative ? '50%' : '0', top: hasNegative && (row.counted ?? 0) < 0 ? '50%' : undefined }"
                 ></span>
+                <span v-if="hasNegative" class="absolute inset-x-0 top-1/2 border-t border-border" aria-hidden="true"></span>
               </button>
             </div>
             <div class="flex justify-between text-xs tabular-nums text-muted-text">
@@ -468,6 +473,9 @@ onMounted(() => {
       <p v-if="impressionsError" class="text-xs text-danger">
         {{ impressionsError }}
       </p>
+      <button type="button" @click="openHistory" class="w-full flex items-center justify-between text-xs text-accent-text py-2 cursor-pointer rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent-ring">
+        <span>{{ t('rewardsDashboard.history') }}</span><span aria-hidden="true">→</span>
+      </button>
     </template>
   </FeatureCard>
 </template>
