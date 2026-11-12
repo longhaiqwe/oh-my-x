@@ -2,6 +2,22 @@
 
 日期：2026-11-10。名称按用户确认统一为「回看」。实现保留 oh-my-x 的六模块结构，入口位于「界面与阅读 → 阅读」，详情使用现有 SubPage、FeatureCard 和 SwitchToggle。X 页面使用宿主字体、主题及强调色。
 
+## 2026-11-12 语言文件名乱码修复（北京时间）
+
+使用当前 7.0.0 完整 SIMD 内核和现有 `4.0.0_best_int` 语言数据，复现了 `chi_sim+eng` 初始化时的乱码 `.traineddata` 请求。语言文件完整存在，初始化返回成功，仍会输出 `Error opening data file`、`TESSDATA_PREFIX` 和 `Failed loading language` 三条消息。故不能据此认定下载失败或整个识别过程失败。
+
+在 `createWorker` 的第四个参数中传入 `tessedit_load_sublangs` 空值，在初始化前关闭语言包自带的附加语言加载。实际识别语言仍按原来的 `langs` 明确指定，不修改缓存、识别语言顺序和已保存记录。`Estimating resolution` 是分辨率估算提示，本次未屏蔽。
+
+- 新增入口回归测试，确认初始化配置在识别前传入；修改前失败，修改后通过。
+- 五组真实语言数据初始化均成功，语言加载警告为 0。
+- 新增 `scripts/test-rewind-ocr.mjs`，使用隔离 Chromium、生产构建、真实识别 worker（后台工作线程）和本地生成的图片。七轮语言加载与切换通过；检查英文结果、简体及繁体中文结果，并检查语言加载错误日志。
+- 在构建临时副本中移除修复配置，该浏览器测试因同样的三条乱码语言加载消息而失败，确认测试能检出旧问题。
+- `npm run check` 通过：类型检查、130 个测试文件中的 1565 项测试、生产构建。
+
+复验：先构建，设置 `REWIND_TESSDATA_DIR` 为含 `eng`、`chi_sim`、`chi_tra`、`jpn`、`kor` 五个解压后 `.traineddata` 文件的目录，再运行 `node scripts/test-rewind-ocr.mjs`。语言数据来源与生产下载地址一致：`https://cdn.jsdelivr.net/npm/@tesseract.js-data/<语言>/4.0.0_best_int/<语言>.traineddata.gz`。Playwright（浏览器自动化工具）与 Chromium 路径变量沿用本文后面的说明。
+
+边界：浏览器测试用普通扩展页承载相同 OCR（图片文字识别）入口，便于拦截测试图片；未复验真实用户浏览器里的离屏页面生命周期，也未覆盖日语、韩语文字准确率。用户仍需重载扩展并刷新 X，旧错误记录不会自动清除。
+
 ## 同日功能对齐补充
 
 重新对照上游 `content.js`、`background.js` 和 `ocr/offscreen.js` 后，补齐了初版未对齐的六项行为。界面布局、默认关闭、账号隔离与 IndexedDB 仍沿用用户确认的集成设计。

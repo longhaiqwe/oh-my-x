@@ -207,7 +207,13 @@ Posts in your timeline that contain muted words can be collapsed into a one-line
 
 Shows your progress toward the creator rewards program in the popup: Verified Home Timeline impressions over the last 90 days / 500K.
 
-Below it is one day's impression conversion: all impressions, verified impressions (from X account analytics), impressions counted toward rewards, and the share of verified in all impressions and of counted in verified impressions. Under that is a 7-day bar chart of counted impressions; click a bar to switch the day. The program only reports a running total, so the extension records it once a day after 02:30 UTC, and counted = today's total minus the previous day's. It appears from the second recorded day. Dates are in UTC.
+Below it are daily all impressions, verified impressions (from X Analytics), and Counted toward rewards (the daily change in the rolling total). Click a bar in the 7-day chart to select a date. The verified-impression tooltip shows its share of all impressions. The Counted tooltip shows its share of all impressions and of verified impressions. Net progress is the difference between consecutive rolling 90-day totals recorded after 02:30 UTC. It includes expired impressions and platform corrections, so it is not new qualifying impressions.
+
+Open **View history dashboard** to browse calendar weeks, calendar months, the last 90 days, or custom dates. The default view shows the current Monday–Sunday week. Today and future dates keep their cells with blank values; totals only cover completed statistical days. Periods of up to 31 days use a calendar with a date and the selected daily metric in each cell; unfinished dates are disabled. The 90-day chart supports daily and weekly grouping. Complete periods can be compared with the previous complete period. Missing dates remain missing. Incomplete totals sum recorded days only and display their coverage. Reward totals take visual priority over impression totals. Calendar bar lengths and high-value fills show relative daily amounts, with peak days marked. The compact dashboard keeps daily records and data notes collapsed. Use Export image in the header to add an optional signature and save the current calendar or chart as a local PNG. Nothing is published.
+
+The analytics cache retains 120 daily records. Opening or refreshing the dashboard requests 90 days of history; coverage depends on what X returns. Reward history only includes locally recorded snapshots and cannot be reconstructed from the current total. Reporting days follow UTC (08:00 to 08:00 the next day in Beijing time).
+
+The screenshot below shows the earlier card; the history dashboard entry now appears at the bottom.
 
 #### Account activity
 
@@ -215,13 +221,14 @@ Open a profile page, then click Scan last 7 days under Insights → Account acti
 
 #### Audience insights
 
-Enable Insights → Dashboards → Audience insights (off by default). An entry appears below the native tabs on ordinary followers and following pages. Only entries already loaded by X are recorded; the extension does not auto-scroll or make additional X API requests. Refresh once if the list was already open before enabling.
+Enable Insights → Dashboards → Audience insights (off by default). An entry appears below the native tabs on Followers, Verified followers and Following pages. Only entries already loaded by X are recorded; the extension does not auto-scroll or make additional X API requests. Refresh once if the list was already open before enabling.
 
+- **Verified follower composition:** a separate sample from the Verified followers tab, with the same distribution and filters. It is never merged into the ordinary follower sample.
 - **Follower composition:** six exclusive follower-count bins, three overlapping cumulative thresholds, account search and pagination. Percentages use entries with known follower counts and do not describe the entire audience.
 - **Following analysis:** follower-count and follower/following-ratio sorting; filters for 10K+ followers, accounts under 90 days old, and fewer than 100 followers. Follows me / Does not follow me / Unknown filters are available only for your own following list and use explicit relationship fields.
 - **Local records:** separated by signed-in account, target account and list kind. Settings can view, export or confirm deletion even when capture is disabled and no X tab is open. CSV exports include all filtered results, not just the current page.
 
-Limits: 3 targets per signed-in account, 20K followers or 10K following per list, and 100K entries or about 30 MiB of record content globally. New entries stop at capacity without silently removing old records. Records stop merging across days or after 24 hours; starting a new record explicitly replaces the old one. If sign-in identity cannot be confirmed, entries remain only in current-page memory and are cleared on navigation.
+Limits: 3 targets per signed-in account, 20K ordinary or verified followers, or 10K following per list, and 100K entries or about 30 MiB of record content globally. New entries stop at capacity without silently removing old records. Records stop merging across days or after 24 hours; starting a new record explicitly replaces the old one. If sign-in identity cannot be confirmed, entries remain only in current-page memory and are cleared on navigation.
 
 #### Viral radar
 

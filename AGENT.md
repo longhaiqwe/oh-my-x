@@ -358,6 +358,6 @@ AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台
 
 ## 粉丝与关注分析
 
-`shared/audience.ts` 是名单解析、分档、筛选与 CSV 导出的纯逻辑；`audience-interceptor.ts` 仅旁路观察普通 Followers / Following 响应。`audience-background.ts` 验证消息来源、当前登录账号和设置后，调用 `audience-db.ts` 在扩展源 IndexedDB 原子写入。清除操作递增账号代次，拒绝旧请求写回。跨天记录不自动合并。不能用通用用户指标缓存推断名单。
+`shared/audience.ts` 是名单解析、分档、筛选与 CSV 导出的纯逻辑；`audience-interceptor.ts` 仅旁路观察 Followers / BlueVerifiedFollowers / Following 响应，三类名单分开保存。`audience-background.ts` 验证消息来源、浏览器当前标签页地址、当前登录账号和设置后，调用 `audience-db.ts` 在扩展源 IndexedDB 原子写入。清除操作递增账号代次，拒绝旧请求写回。跨天记录不自动合并。不能用通用用户指标缓存推断名单。
 
 设置入口在「数据 → 看板」，详情路径 `#insight/audience`；关闭采集或没有 X 标签页时仍可查看本地记录。X 页面入口由 `content-scripts/features/audience.ts` 管理，模态窗口使用 `shared/components/AudiencePanel.vue` 和 `shared/audience-panel.ts`，打开时固定样本。仅本人关注名单使用明确的 `followed_by` 字段；缺失不是 false。测试见 `test/unit/audience*.test.ts`，真实 Chromium 的合成数据界面检查见 `scripts/test-audience-layout.mjs`。

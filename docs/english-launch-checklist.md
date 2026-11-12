@@ -127,7 +127,7 @@ Content Filter
 - Keyword filter: collapse or hide timeline posts that contain muted words
 
 Insights
-- Original Content Rewards: Verified Home Timeline impressions over the last 90 days out of 500K, plus impressions counted toward rewards per day
+- Original Content Rewards: Verified Home Timeline impressions over the last 90 days out of 500K, plus daily net reward progress, a 90-day history dashboard and local image export
 - Account activity: posts and replies per day over the last 7 days
 - Viral radar: marks rising and viral posts by views per hour
 - Ratio badges, follower counts, and bookmark counts on the page
