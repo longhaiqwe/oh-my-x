@@ -17,6 +17,7 @@ import {
   SLOT_ATTR,
   SPACER_ATTR,
   WRAPPER_ATTR,
+  VIEW_ATTR,
   requestComposerMediaReorder,
   setComposerMediaGridEnabled,
   updateComposerMediaGrids,
@@ -44,6 +45,7 @@ describe('多图排序的纯计算', () => {
     expect(sameMediaSet(['1', '2', '3'], ['3', '1', '2'])).toBe(true)
     expect(sameMediaSet(['1', '2'], ['1', '3'])).toBe(false)
     expect(sameMediaSet(['1', '1'], ['1', '2'])).toBe(false)
+    expect(sameMediaSet(['1', '2'], ['1', '1'])).toBe(false)
   })
 })
 
@@ -186,6 +188,141 @@ describe('发帖框多图排版', () => {
     expect(groups[0].hasAttribute(COLUMN_ATTR)).toBe(false)
     expect(wrapper.children[1].hasAttribute(COLUMN_ATTR)).toBe(true)
     expect(groups.map((g) => g.getAttribute(ORDER_ATTR))).toEqual(['1', '2', '3'])
+  })
+
+  it.each([5, 20])('%i 张图片默认总览，切换大图不会改动发帖顺序', (count) => {
+    const { root, groups, store } = buildAttachments(Array.from({ length: count }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    expect(root.getAttribute(GRID_ATTR)).toBe(String(count))
+    expect(root.getAttribute(VIEW_ATTR)).toBe('overview')
+    expect(groups.at(-1)!.getAttribute(ORDER_ATTR)).toBe(String(count))
+    root.querySelector<HTMLButtonElement>('[data-view="detail"]')!.click()
+    expect(root.getAttribute(VIEW_ATTR)).toBe('detail')
+    expect(store.actions).toEqual([])
+    updateComposerMediaGrids()
+    expect(root.querySelectorAll('.xf-media-toolbar')).toHaveLength(1)
+    expect(root.getAttribute(VIEW_ATTR)).toBe('detail')
+  })
+
+  it('支持多层轮播包装，不移动 X 原有图片节点', () => {
+    const { root, wrapper, groups } = buildAttachments(Array.from({ length: 20 }, (_, i) => image(i + 1)))
+    for (const group of groups) {
+      const slide = document.createElement('div')
+      const inner = document.createElement('div')
+      wrapper.append(slide)
+      slide.append(inner)
+      inner.append(group)
+    }
+    updateComposerMediaGrids()
+    expect(root.getAttribute(GRID_ATTR)).toBe('20')
+    expect(root.querySelectorAll(`[${COLUMN_ATTR}]`)).toHaveLength(40)
+    expect(groups[0].parentElement!.parentElement!.parentElement).toBe(wrapper)
+  })
+
+  it('第 20 张可直接移到开头，使用完整图片数据', () => {
+    const { root, store } = buildAttachments(Array.from({ length: 20 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    const select = root.querySelector('select')!
+    select.value = '20'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    root.querySelector<HTMLButtonElement>('[data-edge="first"]')!.click()
+    expect(store.getState().mediaUpload.map(item => item.id)).toEqual([20, ...Array.from({ length: 19 }, (_, i) => i + 1)])
+  })
+
+  it('20 张图片从末尾拖到开头，预览落点保持稳定', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { groups, store } = buildAttachments(Array.from({ length: 20 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    placeInGrid(groups)
+    groups[19].querySelector('img')!.dispatchEvent(pointer('pointerdown', 250, 1250))
+    window.dispatchEvent(pointer('pointermove', 50, 50))
+    expect(groups[19].getAttribute(ORDER_ATTR)).toBe('1')
+    // 指针停留在新位置不会因预览重排反复跳动。
+    window.dispatchEvent(pointer('pointermove', 51, 51))
+    expect(groups[19].getAttribute(ORDER_ATTR)).toBe('1')
+    window.dispatchEvent(pointer('pointerup', 51, 51))
+    expect(store.getState().mediaUpload.map(item => item.id)).toEqual([20, ...Array.from({ length: 19 }, (_, i) => i + 1)])
+  })
+
+  it('图片数据不完整或超出上限时保持原样', () => {
+    const { root, groups } = buildAttachments(Array.from({ length: 21 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    expect(root.hasAttribute(GRID_ATTR)).toBe(false)
+    groups[20].remove()
+    updateComposerMediaGrids()
+    expect(root.hasAttribute(GRID_ATTR)).toBe(false)
+  })
+
+  it('关闭功能后清理多图工具栏、模式和拖动浮层', () => {
+    const { root, groups } = buildAttachments(Array.from({ length: 5 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    placeInGrid(groups)
+    groups[0].querySelector('img')!.dispatchEvent(pointer('pointerdown', 50, 50))
+    window.dispatchEvent(pointer('pointermove', 250, 50))
+    setComposerMediaGridEnabled(false)
+    expect(root.querySelector('.xf-media-toolbar')).toBeNull()
+    expect(root.hasAttribute(VIEW_ATTR)).toBe(false)
+    expect(document.querySelector('.xf-media-drag-ghost')).toBeNull()
+  })
+
+  it('大图拖到下边缘会滚动，滚动后按新位置更新落点，取消时停止滚动', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let frame: FrameRequestCallback | undefined
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frame = callback; return 42 })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    const { root, groups, wrapper, store } = buildAttachments(Array.from({ length: 20 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    root.querySelector<HTMLButtonElement>('[data-view="detail"]')!.click()
+    wrapper.style.overflowY = 'auto'
+    Object.defineProperties(wrapper, { scrollHeight: { value: 1330 }, clientHeight: { value: 266 } })
+    wrapper.getBoundingClientRect = () => ({ left: 0, top: 0, right: 408, bottom: 266, width: 408, height: 266 }) as DOMRect
+    placeInGrid(groups)
+    groups.forEach(group => {
+      const measure = group.getBoundingClientRect.bind(group)
+      group.getBoundingClientRect = () => {
+        const rect = measure()
+        return { ...rect, top: rect.top - wrapper.scrollTop, bottom: rect.bottom - wrapper.scrollTop } as DOMRect
+      }
+    })
+    try {
+      groups[0].querySelector('img')!.dispatchEvent(pointer('pointerdown', 50, 50))
+      window.dispatchEvent(pointer('pointermove', 250, 260))
+      for (let i = 0; i < 20; i++) frame!(i * 16)
+      expect(wrapper.scrollTop).toBeGreaterThan(100)
+      expect(Number(groups[0].getAttribute(ORDER_ATTR))).toBeGreaterThan(4)
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      expect(cancel).toHaveBeenCalledWith(42)
+      expect(store.actions).toEqual([])
+      expect(groups[0].getAttribute(ORDER_ATTR)).toBe('1')
+    } finally {
+      raf.mockRestore()
+      cancel.mockRestore()
+    }
+  })
+
+  it('拖动期间附件被移除，不提交过期顺序', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { groups, store } = buildAttachments(Array.from({ length: 5 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    placeInGrid(groups)
+    groups[0].querySelector('img')!.dispatchEvent(pointer('pointerdown', 50, 50))
+    window.dispatchEvent(pointer('pointermove', 250, 50))
+    groups[4].remove()
+    window.dispatchEvent(pointer('pointerup', 250, 50))
+    expect(store.actions).toEqual([])
+    expect(document.querySelector('.xf-media-drag-ghost')).toBeNull()
+  })
+
+  it('重复同步不重建工具栏内容，避免触发全局观察器循环', async () => {
+    const { root } = buildAttachments(Array.from({ length: 5 }, (_, i) => image(i + 1)))
+    updateComposerMediaGrids()
+    let mutations = 0
+    const observer = new MutationObserver(records => { mutations += records.length })
+    observer.observe(root, { childList: true, subtree: true })
+    updateComposerMediaGrids()
+    await Promise.resolve()
+    observer.disconnect()
+    expect(mutations).toBe(0)
   })
 
   it('有视频时保持 X 原样', () => {

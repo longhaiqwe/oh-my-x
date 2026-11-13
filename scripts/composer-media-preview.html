@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>多图排序交互验证</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fff;color:#0f1419;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{width:min(600px,100%);margin:24px auto;padding:16px;border:1px solid #ddd;border-radius:16px}h1{font-size:18px;margin:0 0 16px}textarea{width:100%;height:64px;resize:none;border:0;background:transparent;color:inherit;font:inherit}
+.fixture-controls{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}.fixture-controls button{background:none;color:inherit;padding:8px 12px;border:1px solid #888;border-radius:20px}
+[data-testid=attachments]{display:flex;flex-direction:column}[role=group]{position:relative;overflow:hidden;border-radius:12px;min-width:240px;height:300px}
+.picture{position:absolute;inset:0}.picture img{width:100%;height:100%;display:block;object-fit:cover}
+[role=group] button{position:absolute;top:8px;right:8px;color:white;background:#0f1419c0;border:0;border-radius:50%;width:24px;height:24px;padding:0}
+#status{font-size:13px;margin-top:16px;overflow-wrap:anywhere}body.dark{background:#15202b;color:#f7f9f9}
+</style>
+<main><h1>多图排序 · 本地验证</h1><div class="fixture-controls"><button data-count="4">4 张</button><button data-count="5">5 张</button><button data-count="20">20 张</button><button id="theme">深浅主题</button></div><textarea placeholder="有什么新鲜事？"></textarea><div id="mount"></div><p id="status" role="status"></p></main>
+<script type="module">
+import { updateComposerMediaGrids } from '/content-scripts/options/composer-media.ts'
+import { installComposerMediaBridge } from '/shared/composer-media-bridge.ts'
+import { applyLanguageSetting } from '/shared/i18n/index.ts'
+applyLanguageSetting('zh-CN')
+installComposerMediaBridge()
+const mount=document.querySelector('#mount'),status=document.querySelector('#status')
+const fiber=(el, props, parent=null)=>el.__reactFiber$fixture={memoizedProps:props,return:parent}
+const art=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="hsl(${id*37} 35% 86%)"/><circle cx="${80+id*9}" cy="110" r="65" fill="hsl(${id*37} 35% 65%)"/><path d="M0 300L130 150L250 300L330 200L400 300" fill="hsl(${id*37} 25% 45%)"/><text x="24" y="50" font-family="sans-serif" font-size="32" fill="#0f1419">照片 ${id}</text></svg>`)
+let items=[],root,store
+function render(){
+ const previous=root?.querySelector('[data-xf-media-wrapper]')?.scrollTop||0
+ let outer=root.firstElementChild
+ if(outer?.classList.contains('xf-media-toolbar'))outer=outer.nextElementSibling
+ const frame=document.createElement('div');frame.style.cssText='overflow:hidden;position:relative'
+ const wrapper=document.createElement('div');wrapper.style.cssText='display:flex;transform:translateX(-200px);width:4000px'
+ frame.append(wrapper)
+ const parent={memoizedProps:{media:items},return:{memoizedProps:{store},return:null}}
+ for(const item of items){const slide=document.createElement('div'),inner=document.createElement('div'),group=document.createElement('div');slide.style.cssText='width:250px;transform:translateX(0)';group.setAttribute('role','group');group.innerHTML=`<div class="picture"><img draggable="true" src="${art(item.id)}"></div><button aria-label="编辑图片 ${item.id}">✎</button>`;group.querySelector('button').onclick=()=>status.textContent='点击编辑图片 '+item.id;fiber(group,{mediaItem:item},parent);inner.append(group);slide.append(inner);wrapper.append(slide)}
+ if(outer)outer.replaceWith(frame);else root.append(frame)
+ updateComposerMediaGrids();wrapper.scrollTop=previous
+ status.textContent='实际数据顺序：'+items.map(x=>x.id).join(' → ')
+}
+function setup(count){
+ items=Array.from({length:count},(_,i)=>({id:i+1,mediaFile:{isImage:true}}))
+ store={getState:()=>({mediaUpload:items}),dispatch(action){if(action.type.endsWith('REMOVE_MEDIA'))items=items.filter(x=>!action.payload.includes(x.id));else{items.push(...action.payload);render()}}}
+ root=document.createElement('div');root.dataset.testid='attachments';fiber(root,{store});mount.replaceChildren(root);render()
+}
+document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>setup(Number(b.dataset.count)))
+document.querySelector('#theme').onclick=()=>{document.body.classList.toggle('dark');updateComposerMediaGrids()}
+setup(20)
+</script></html>

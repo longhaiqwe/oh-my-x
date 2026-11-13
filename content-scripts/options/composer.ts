@@ -1,5 +1,5 @@
 import { t } from '../../shared/i18n'
-import { findComposerRoots } from '../utilities/composer-roots'
+import { findComposerEditor, findComposerRoots, queryComposerElements } from '../utilities/composer-roots'
 import addStyles, { stylesExist } from '../utilities/addStyles'
 import { ACCENT, accentAlpha } from '../utilities/colors'
 import { openOwnPostPicker } from './own-post-picker'
@@ -12,10 +12,7 @@ import { followComposerToolbarColor } from './composer-colors'
 const savedRangeMap = new WeakMap<HTMLElement, Range>()
 
 function findEditorInModal(modalEl: Element): HTMLElement | null {
-  return (
-    modalEl.querySelector('.DraftEditor-editorContainer [contenteditable="true"]') ||
-    modalEl.querySelector('[data-testid^="tweetTextarea"][contenteditable="true"]')
-  ) as HTMLElement | null
+  return findComposerEditor(modalEl)
 }
 
 export function formatMarkdownInEditor(modalEl: Element) {
@@ -105,6 +102,12 @@ export const addComposerInsertLinkButton = () => {
   try {
     const modals = findComposerRoots()
 
+    // 弹窗切到媒体编辑后可能保留原工具栏，清掉已不属于发帖框的按钮。
+    document.querySelectorAll('[data-testid="xf-insert-link-presentation"], .xf-insert-link-button').forEach(element => {
+      if (!modals.some(modal => modal.contains(element) &&
+        modal.closest('[role="dialog"]') === element.closest('[role="dialog"]'))) element.remove()
+    })
+
     modals.forEach((modal) => {
       const modalEl = modal as HTMLElement
       const isInline = modalEl.dataset.xfInlineComposer === '1'
@@ -170,17 +173,18 @@ export const addComposerInsertLinkButton = () => {
       }
 
       // X 分阶段挂载发帖框。只使用明确的工具栏，不根据关闭按钮或文件输入框猜位置。
-      const toolbar = modalEl.querySelector<HTMLElement>('[data-testid="toolBar"]')
+      const toolbar = queryComposerElements(modalEl, '[data-testid="toolBar"]')[0]
       const toolbarContainer = toolbar
-        ? toolbar.querySelector<HTMLElement>('[role="tablist"], [data-testid="ScrollSnap-List"]') ?? toolbar
-        : modalEl.querySelector<HTMLElement>('[role="tablist"], [data-testid="ScrollSnap-List"]')
-      const existingGroup = modalEl.querySelector<HTMLElement>('[data-testid="xf-insert-link-presentation"]')
-      const existingButtons = [...modalEl.querySelectorAll<HTMLElement>('.xf-insert-link-button')]
+        ? queryComposerElements(toolbar, '[role="tablist"], [data-testid="ScrollSnap-List"]')[0] ?? toolbar
+        : queryComposerElements(modalEl, '[role="tablist"], [data-testid="ScrollSnap-List"]')[0]
+      const existingGroups = queryComposerElements(modalEl, '[data-testid="xf-insert-link-presentation"]')
+      const existingGroup = existingGroups[0]
+      const existingButtons = queryComposerElements(modalEl, '.xf-insert-link-button')
       if (toolbarContainer && existingGroup?.parentElement === toolbarContainer &&
         existingButtons.length === (isInline ? 3 : 4) && existingButtons.every(button => existingGroup.contains(button))) return
 
       // 清除旧版误挂到顶部的按钮，以及工具栏重建后残缺的按钮组。
-      modalEl.querySelectorAll('[data-testid="xf-insert-link-presentation"]').forEach(group => group.remove())
+      existingGroups.forEach(group => group.remove())
       existingButtons.forEach(button => button.remove())
       delete modalEl.dataset.xfInsertLinkAdded
       // 后续原生工具栏的 DOM 变更会通过 runDynamicFeatures 再次调用本函数。

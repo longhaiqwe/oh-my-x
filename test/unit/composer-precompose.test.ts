@@ -127,6 +127,47 @@ describe('composer and precompose URL handling', () => {
       return document.querySelector<HTMLElement>('[role="dialog"]')!
     }
 
+    it('媒体裁剪弹窗的标签栏不应出现发帖按钮，后台发帖框仍保留按钮', () => {
+      const composer = loadingComposer()
+      composer.insertAdjacentHTML('beforeend', '<div data-testid="toolBar"></div>')
+      document.body.insertAdjacentHTML('beforeend', `<div role="dialog" aria-labelledby="modal-header" data-crop>
+        <h2>裁剪媒体</h2><div role="tablist" data-testid="ScrollSnap-List">
+          <button role="tab">裁剪</button><button role="tab">ALT</button>
+        </div><textarea aria-label="图片说明"></textarea>
+      </div>`)
+      addComposerInsertLinkButton()
+      expect(document.querySelector('[data-crop] .xf-insert-link-button')).toBeNull()
+      expect(composer.querySelectorAll('.xf-insert-link-button')).toHaveLength(4)
+    })
+
+    it('发帖框切到媒体编辑后清除残留按钮，返回编辑器后恢复一次', () => {
+      const modal = loadingComposer()
+      modal.insertAdjacentHTML('beforeend', '<div role="tablist" data-testid="ScrollSnap-List"></div>')
+      addComposerInsertLinkButton()
+      const editor = modal.querySelector('.DraftEditor-editorContainer')!
+      editor.remove()
+      addComposerInsertLinkButton()
+      expect(modal.querySelector('.xf-insert-link-presentation')).toBeNull()
+      expect(modal.querySelector('.xf-insert-link-button')).toBeNull()
+      modal.prepend(editor)
+      addComposerInsertLinkButton()
+      addComposerInsertLinkButton()
+      expect(modal.querySelectorAll('.xf-insert-link-button')).toHaveLength(4)
+    })
+
+    it('发帖工具栏尚未加载时不借用嵌套媒体弹窗的工具栏', () => {
+      const modal = loadingComposer()
+      modal.insertAdjacentHTML('beforeend', `<div role="dialog" aria-labelledby="modal-header" data-crop>
+        <div data-testid="toolBar"><div role="tablist" data-testid="ScrollSnap-List"></div></div>
+      </div>`)
+      addComposerInsertLinkButton()
+      expect(modal.querySelector('.xf-insert-link-button')).toBeNull()
+      modal.insertAdjacentHTML('beforeend', '<div data-testid="toolBar" data-compose-toolbar></div>')
+      addComposerInsertLinkButton()
+      expect(modal.querySelector('[data-crop] .xf-insert-link-button')).toBeNull()
+      expect(modal.querySelectorAll('[data-compose-toolbar] .xf-insert-link-button')).toHaveLength(4)
+    })
+
     it('底部工具栏尚未加载时不插到关闭按钮旁，加载后仅插入一次', () => {
       const modal = loadingComposer()
       addComposerInsertLinkButton()

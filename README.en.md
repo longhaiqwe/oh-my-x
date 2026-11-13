@@ -271,7 +271,10 @@ Block quotes, underline, and strikethrough controls are not provided for ordinar
 
 #### Image grid and ordering
 
-When you attach 2 to 4 images, they are shown in two columns of equal tiles, left to right and top to bottom in posting order, with the order number in the bottom-right corner. Landscape and portrait images are shown uncropped. Drag an image to another tile and release; the post, scheduled post, or draft uses the new order, with no need to remove and upload again.
+Reorder 2 to 20 attached images; X still determines how many images your account can upload. Up to 4 images keep the two-column layout. Larger sets start in Overview and can switch to a two-column Large view. Images remain uncropped and numbered in posting order. Drag an image to its new position and release to update the order in X’s editor without uploading again.
+
+- Overview uses 5 columns, or 4 on narrow screens. In Large view, hold near the top or bottom edge to scroll while dragging.
+- Select an image number to move it directly to the start or end. Both views share the same order.
 
 - A single click on an image opens X's Edit media as before. Press Esc while dragging to cancel.
 - It changes the image order that X's editor keeps; post requests are not intercepted or modified. If X's data can't be read, X's layout is kept, and a failed drag shows a message.

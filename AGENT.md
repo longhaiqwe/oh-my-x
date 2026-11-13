@@ -109,7 +109,7 @@ oh-my-x/
 │   │   ├── composer.ts          # 编辑器引用帖子、Markdown 格式化、列表按钮
 │   │   ├── composer-list.ts     # 选区列表：圆点/编号，原生 B / I 浮层与底部入口
 │   │   ├── composer-colors.ts   # 底部扩展按钮跟随相邻可用原生图标取色，响应主题变化
-│   │   ├── composer-media.ts    # 发帖框多图两列排版 + 拖动排序（isolated world）
+│   │   ├── composer-media.ts    # 发帖框 2–20 张图片排版 + 拖动排序；超过 4 张支持总览与大图（isolated world）
 │   │   ├── own-post-picker.ts   # 编辑器里的「引用我的帖子」搜索面板
 │   │   ├── own-post-library-client.ts # 帖子库同步（分批翻页、断点）
 │   │   ├── precompose.ts        # 发帖前保存当前 URL
@@ -181,7 +181,7 @@ oh-my-x/
 - X 发帖框的图片显示顺序和发帖时 `media_ids` 的顺序都取自 Redux `mediaUpload` 数组的顺序；发帖框自己的 `mediaIds` 只用来筛选，改它不会换顺序。X 自带的拖动排序（react-beautiful-dnd）只在图文混排（`inline_media`）编辑器里启用。
 - 重排在 MAIN world 做：从附件区的 React 节点往上找到 Redux store，先派发普通动作 `rweb/mediaUpload/REMOVE_MEDIA`（只过滤数组，不取消上传、不释放文件），再派发 `rweb/mediaUpload/ADD_MEDIA` 按新顺序加回同一批对象。发帖框里的图片对象和 store 里的是同一批引用，按引用确认找对了 store。
 - 两边只通过 DOM 交流：isolated world 在 `[data-testid="attachments"]` 上派发 `xf-composer-media-sync`，MAIN world 同步写回每张图的 `data-xf-media-id / index / image`；重排时先写 `data-xf-media-reorder`（编号列表）再派发 `xf-composer-media-reorder`，读 `data-xf-media-reorder-result`。
-- 排版只改 CSS 和 data 属性：把 X 的「列」设成 `display: contents`，外层改成两列 grid，用 `order` 按发帖顺序排；隐藏 16:9 占位块。X 的 2 / 3 / 4 张图分别是 [0,1]、[0,[1,2]]、[[0,2],[1,3]] 两层结构，更深的层级（混合媒体轮播）不处理。
+- 图片排版通过 CSS（样式规则）和 data 属性调整，不移动 X 管理的图片节点。支持 2–20 张：2–4 张为两列，5–20 张默认总览（桌面 5 列、窄屏 4 列），可切换两列大图。支持不含额外交互控件的多层图片包装；隐藏占位块和原生轮播箭头。增加编号选择、移到首尾与大图拖动边缘滚动；工具栏独立插入附件区。
 - X 重排后会重新创建图片格子（附件区本身不变），所以每个附件区挂一个 MutationObserver，在同一轮微任务里重新标记，避免闪出原来的排版。
 - 读不到 X 数据、有视频或 GIF、少于 2 张时保持 X 原样。开关 `composerMediaGrid`。
 

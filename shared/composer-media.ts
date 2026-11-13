@@ -24,8 +24,8 @@ export const MEDIA_INDEX_ATTR = 'data-xf-media-index'
 /** 图片格子：是否图片，1 / 0（MAIN world 写） */
 export const MEDIA_IMAGE_ATTR = 'data-xf-media-image'
 
-/** X 发帖最多 4 张图 */
-export const MAX_COMPOSER_MEDIA = 4
+/** 图片排序支持的附件上限；实际上传权限仍由 X 决定。 */
+export const MAX_COMPOSER_MEDIA = 20
 
 /** 把 from 位置的元素移到 to 位置，其余元素依次挪动；返回新数组 */
 export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
@@ -74,5 +74,5 @@ export function parseMediaIds(value: string | null | undefined): string[] {
 export function sameMediaSet(a: readonly string[], b: readonly string[]): boolean {
   if (a.length !== b.length) return false
   const set = new Set(a)
-  return set.size === a.length && b.every((id) => set.has(id))
+  return set.size === a.length && new Set(b).size === b.length && b.every((id) => set.has(id))
 }
