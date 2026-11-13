@@ -926,7 +926,7 @@ describe('通知页集成', () => {
     document.querySelector<HTMLButtonElement>('[data-action="cards"]')!.click()
     resized()
     expect(card('alice')).toBe(firstCard)
-    Object.defineProperty(document.querySelector('#xf-notification-cards'), 'clientWidth', { value: 700 })
+    vi.spyOn(document.querySelector('#xf-notification-cards')!, 'getBoundingClientRect').mockReturnValue({ width: 700 } as DOMRect)
     resized()
     expect(card('alice')).not.toBe(firstCard)
   })

@@ -24,10 +24,10 @@ article p{margin:12px 0;line-height:24px}h1{height:70px;margin:0}nav{height:50px
 <script>
 window.store={notificationCardsEnabled:'on',notificationCardsView:'cards',uiLanguage:'zh-CN'};
 window.browser={runtime:{id:'test',sendMessage:async()=>({ok:true,state:{baseline:Date.now(),read:{}}})},
-storage:{local:{get:async()=>store,set:async data=>Object.assign(store,data)},onChanged:{addListener(){}}}};
+storage:{local:{get:async()=>store,set:async data=>Object.assign(store,data)},onChanged:{addListener(listener){window.storageChanged=listener}}}};
 window.zeroMeasurements=0; window.observerCalls=0;
-window.mountNative=()=>{
-document.querySelector('#region').innerHTML='<div id="native-timeline">'+Array.from({length:20},(_,i)=>
+window.mountNative=(count=20)=>{
+document.querySelector('#region').innerHTML='<div id="native-timeline">'+Array.from({length:count},(_,i)=>
 '<div class="cell" data-testid="cellInnerDiv"><article data-testid="tweet"><div data-testid="User-Name"><a href="/user'+i+'">User '+i+'</a> <a href="/user'+i+'/status/'+(100+i)+'"><time datetime="2026-11-11T01:00:00Z">今天</time></a></div><p data-testid="tweetText">'+('测试通知正文，用于验证长短留言的真实行高。'.repeat(i%3+1))+'</p><button data-testid="reply">回复</button></article></div>').join('')+'</div>';
 const rows=[...document.querySelectorAll('article')];
 const layout=()=>{let top=0;for(const row of rows){row.parentElement.style.transform='translateY('+top+'px)';top+=row.getBoundingClientRect().height}document.querySelector('#native-timeline').style.minHeight=top+'px'};
@@ -42,6 +42,84 @@ window.metrics=()=>({zeroMeasurements,observerCalls,rows:[...document.querySelec
  pageHeight:document.documentElement.scrollHeight,cardBottom:document.querySelector('#xf-notification-cards')?.getBoundingClientRect().bottom+scrollY});
 </script>`
 try {
+  // 缩放后的 CSS 宽度可以带小数；详情必须跟随实际网格列数。
+  for (const width of [380.25, 659.75]) {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+    await page.route('**/*', r => r.fulfill({ contentType: 'text/html', body: fixture }))
+    await page.goto('https://x.com/notifications')
+    await page.addScriptTag({ content: code })
+    await page.evaluate(async width => {
+      document.querySelector('main').style.width = width+'px'
+      mountNative(); await NotificationCards.initNotificationCards(); await frames()
+    }, width)
+    await page.locator('[data-open-person="user0"]').click()
+    const placement = await page.evaluate(() => {
+      const grid = document.querySelector('.xf-nc-grid')
+      const children = [...grid.children]
+      return { columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+        detailIndex: children.indexOf(grid.querySelector('.xf-nc-detail')) }
+    })
+    assert.equal(placement.columns, 2)
+    assert.equal(placement.detailIndex, placement.columns, '小数宽度下详情仍应插在整行卡片之后')
+    console.log(JSON.stringify({ scenario: 'fractional-container-width', width, ...placement }))
+    await page.close()
+  }
+  {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+    await page.route('**/*', r => r.fulfill({ contentType: 'text/html', body: fixture }))
+    await page.goto('https://x.com/notifications')
+    await page.addScriptTag({ content: code })
+    await page.evaluate(async () => { mountNative(); await NotificationCards.initNotificationCards(); await frames() })
+    await page.locator('.xf-nc-card [data-profile="user0"]').focus()
+    assert.notEqual(await page.locator('#native-timeline article').first().evaluate(el => el.style.translate), '')
+    await page.evaluate(() => storageChanged({ notificationCardsView: { newValue: 'list' } }, 'local'))
+    assert.equal(await page.locator('#native-timeline').isVisible(), true)
+    assert.equal(await page.locator('#native-timeline article').first().evaluate(el => el.style.translate), '', '跨标签页切回原始列表必须还原悬停位移')
+    console.log(JSON.stringify({ scenario: 'synced-mode-clears-profile-offset', restored: true }))
+    await page.close()
+  }
+  {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+    await page.route('**/*', r => r.fulfill({ contentType: 'text/html', body: fixture }))
+    await page.goto('https://x.com/notifications')
+    await page.addScriptTag({ content: code })
+    const stress = await page.evaluate(async () => {
+      mountNative(500); await NotificationCards.initNotificationCards(); await frames()
+      let mutations = 0
+      // 与全局管线相同，在 DOM 回调内准备外壳；观察卡片更新是否持续触发自身。
+      const observer = new MutationObserver(records => {
+        mutations += records.length
+        NotificationCards.prepareNotificationCards()
+      })
+      observer.observe(document, { childList: true, subtree: true })
+      const firstCard = document.querySelector('.xf-nc-card')
+      const start = performance.now()
+      let overlap = false
+      for (let i = 0; i < 10; i++) {
+        document.querySelector('[data-action="list"]').click()
+        const rows = metrics().rows
+        overlap ||= rows.some((row, j) => j && row.top < rows[j-1].top + rows[j-1].height - 1)
+        await frames()
+        document.querySelector('[data-action="cards"]').click(); await frames()
+      }
+      const elapsedMs = Math.round(performance.now() - start)
+      const before = mutations
+      await frames()
+      observer.disconnect()
+      return { rows: document.querySelectorAll('#native-timeline article').length,
+        cards: document.querySelectorAll('.xf-nc-card').length, zeroMeasurements, overlap,
+        retainedCard: firstCard === document.querySelector('.xf-nc-card'),
+        settled: mutations === before, elapsedMs }
+    })
+    assert.equal(stress.rows, 500)
+    assert.equal(stress.cards, 500)
+    assert.equal(stress.zeroMeasurements, 0)
+    assert.equal(stress.overlap, false)
+    assert.equal(stress.retainedCard, true)
+    assert.equal(stress.settled, true, '停止切换后 DOM 更新应收敛')
+    console.log(JSON.stringify({ scenario: '500-notifications-10-round-trips', ...stress }))
+    await page.close()
+  }
   for (const savedMode of ['cards', 'list']) {
     const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
     await page.route('**/*', r => r.fulfill({ contentType: 'text/html', body: fixture }))

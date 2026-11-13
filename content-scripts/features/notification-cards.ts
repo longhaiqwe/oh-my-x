@@ -235,7 +235,9 @@ function render(force = false) {
   // 原始列表滚动时仍收集通知，但不计算分组、不格式化时间、不渲染隐藏卡片。
   if (mode === 'list') return
   const all = [...entries.values()]
-  const columns = root.clientWidth >= 660 ? 3 : root.clientWidth <= 380 ? 1 : 2
+  // clientWidth 会取整，缩放后的临界宽度可能与 CSS 容器查询算出不同列数。
+  const width = root.getBoundingClientRect().width
+  const columns = width >= 660 ? 3 : width <= 380 ? 1 : 2
   const nextSignature = JSON.stringify([all, state, selected, onlyUnread, onlyReplies, columns, getLocale(), status, unknownCount, markingAllRead])
   if (!force && signature === nextSignature) return
   signature = nextSignature
@@ -613,7 +615,11 @@ export async function initNotificationCards() {
     if (area !== 'local') return
     if (changes[KeyNotificationCardsView]) {
       const next = changes[KeyNotificationCardsView].newValue === 'list' ? 'list' : 'cards'
-      if (mode !== next) { preferencesRevision++; mode = next; selected = ''; render() }
+      if (mode !== next) {
+        // 与本页切换保持一致：先还原原生头像的定位，再让原始列表可见。
+        profileHover.close()
+        preferencesRevision++; mode = next; selected = ''; status = ''; render()
+      }
     }
     let filtersChanged = false
     if (changes[KeyNotificationCardsOnlyReplies]) {
