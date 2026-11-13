@@ -212,7 +212,7 @@ oh-my-x 给 X（Twitter）网页端补上常用但缺失的功能。每项功能
 
 创作与发布
 - 引用我的帖子：在编辑器里搜索自己的帖子和文章，插入链接
-- 多图排版与排序：发帖时 2 到 4 张图排成两列，按发帖顺序标序号，图片完整显示；拖动图片可调整顺序，发出的帖子、定时帖和草稿都按调整后的顺序
+- 多图排版与排序：支持 2 到 20 张图片排序，4 张以内保留两列；多图可切换总览和大图，支持拖动时边缘滚动，也可直接移到开头或末尾
 - AI 总结转发：用你自己的 API Key 和 OpenAI 兼容服务，生成两条引用转发草稿
 - 排期全景：列出所有定时帖的发布时间和相邻间隔，右侧栏也有排期面板
 
@@ -271,10 +271,10 @@ oh-my-x 与 X Corp. 无关联。
 
 填完后「我为何无法提交？」的问题列表为空，「提请审核」按钮可点。
 
-测试说明「其他说明」原文（452 字符，上限 500）：
+测试说明「其他说明」（2026-11-13 更新为 3.1.0 模板，438 字符，上限 500）：
 
 ```text
-No test account is provided. Sign in to x.com with any X account. The extension runs only on x.com, twitter.com, mobile.twitter.com, and pro.x.com. Use the toolbar popup to turn each feature on or off. Spam reply filter: open a post page that has replies. Image grid and ordering: attach 2 to 4 images in the post editor. AI quote drafts need your own OpenAI-compatible API key; without one, no AI requests are sent. Other features need no extra setup.
+No test account is provided. Sign in to x.com. Toggle features in the extension popup. Image ordering: attach 2–20 images if your X account permits; drag to reorder. Above 4 images, test Overview/Large views, edge scrolling and move to start/end. Open a post with replies to test spam filtering. AI drafts require your own OpenAI-compatible API key; no AI requests are sent without one. No posting is required to inspect the image layout.
 ```
 
 ## 十、2.5.0 提交（2026-10-26）

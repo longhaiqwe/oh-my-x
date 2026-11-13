@@ -6,6 +6,24 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.1.0 - 2026-11-13
+
+### Features
+
+- Extend image reordering to 2–20 images. Keep the two-column layout for up to four images; default to an overview for 5–20 images with an optional two-column detail view.
+- Move a selected image to the start or end by its number, and auto-scroll near the edges while dragging in detail view. Match X fonts and theme colors.
+
+### Fixes and improvements
+
+- Support nested carousel attachment wrappers and hide native carousel arrows while the grid is active. Reject duplicate media IDs before updating the order.
+- Restrict editor controls to actual post composers, avoiding extra buttons in image-cropping and nested media dialogs.
+- Use fractional widths for notification-card column calculations at browser zoom boundaries. Restore avatar positions and clear stale status when another tab switches to the original list.
+
+### Permissions and limitations
+
+- No new extension permissions compared with 3.0.0. X still determines how many images an account can upload; the extension arranges images already attached.
+- Preserve the native layout for incomplete media data, videos, or GIFs. No automatic posting. Ordering after publishing, scheduling, or saving drafts has not been fully verified on live X.
+
 ## 3.0.0 - 2026-11-12
 
 Compared with 2.9.0, including the 2.10.0 changes released on GitHub but not published in the Chrome Web Store.
