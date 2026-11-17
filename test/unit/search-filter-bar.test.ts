@@ -150,11 +150,30 @@ describe('搜索筛选条', () => {
     ])
   })
 
+  it('只看长文可以开关，保留最新标签、点赞和关注条件', async () => {
+    await start()
+    const baseHref = '/search?q=claude%20min_faves%3A10&f=live&pf=on'
+    go(baseHref)
+    expect(button('articlesOnly').textContent).toBe('只看长文')
+    expect(button('articlesOnly').getAttribute('aria-pressed')).toBe('false')
+    button('articlesOnly').click()
+
+    const articleHref = '/search?q=claude%20min_faves%3A10%20url%3A%22x.com%2Fi%2Farticle%22&f=live&pf=on'
+    expect(navigations()).toEqual([{ href: articleHref, replace: false }])
+    go(articleHref)
+    expect(button('articlesOnly').getAttribute('aria-pressed')).toBe('true')
+    button('articlesOnly').click()
+    expect(navigations().at(-1)).toEqual({ href: baseHref, replace: false })
+  })
+
   it('清除筛选去掉筛选条管的语法和只看关注的人，其他语法（含 lang:）保留', async () => {
     await start()
-    go('/search?q=from%3Ax%20claude%20lang%3Aen%20min_faves%3A10&f=live&pf=on')
+    const query = 'from:x claude lang:en url:example.com -url:x.com/i/article url:x.com/i/article min_faves:10'
+    go(`/search?q=${encodeURIComponent(query)}&f=live&pf=on`)
+    expect(button('articlesOnly').getAttribute('aria-pressed')).toBe('true')
     bar()!.querySelector<HTMLButtonElement>('.xf-search-clear')!.click()
-    expect(navigations()).toEqual([{ href: '/search?q=from%3Ax%20claude%20lang%3Aen&f=live', replace: false }])
+    const remaining = 'from:x claude lang:en url:example.com -url:x.com/i/article'
+    expect(navigations()).toEqual([{ href: `/search?q=${encodeURIComponent(remaining)}&f=live`, replace: false }])
   })
 
   it('在「热门」里改条件后停在「热门」，默认「最新」不再切换', async () => {

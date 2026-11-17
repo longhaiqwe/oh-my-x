@@ -135,6 +135,7 @@ Adds a row of filters below the tabs on search results and hashtag pages, so you
 | Likes | 10+ / 100+ / 1000+ likes | `min_faves:10` and so on |
 | Media | Images / Videos / Images or videos | `filter:images` / `filter:videos` / `filter:media` |
 | Original posts only | On / off | `-filter:replies` |
+| Articles only | On / off | `url:"x.com/i/article"` |
 | People you follow | On / off | URL parameter `pf=on` |
 
 Each choice rewrites the search and runs it again; you can see and keep editing it in the search box. Operators of the same kind that you type yourself (such as `min_faves:500`) show in the matching dropdown. The filter bar is not shown on the People and Lists tabs.

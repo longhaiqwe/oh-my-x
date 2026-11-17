@@ -16,6 +16,8 @@ export interface SearchFilters {
   minLikes: number | null
   /** -filter:replies */
   originalOnly: boolean
+  /** X Article 链接筛选 */
+  articlesOnly: boolean
   /** filter: 后面的 images / videos / media */
   media: string | null
 }
@@ -24,6 +26,7 @@ export const EMPTY_SEARCH_FILTERS: Readonly<SearchFilters> = Object.freeze({
   time: null,
   minLikes: null,
   originalOnly: false,
+  articlesOnly: false,
   media: null,
 })
 
@@ -41,6 +44,8 @@ export interface SearchLocation {
 const TIME_TOKEN = /^within_time:(\d+[smhd])$/i
 const LIKES_TOKEN = /^min_faves:(\d+)$/i
 const ORIGINAL_TOKEN = /^-filter:replies$/i
+const ARTICLE_QUERY = 'url:"x.com/i/article"'
+const ARTICLE_TOKEN = /^url:(?:"x\.com\/i\/article"|x\.com\/i\/article)$/i
 const MEDIA_TOKEN = /^filter:(images|videos|media)$/i
 // 引号里的短语算一个词，里面的空格和语法原样保留
 const QUERY_TOKEN = /"[^"]*"?|\S+/g
@@ -54,6 +59,7 @@ export function splitSearchQuery(query: string): { terms: string; filters: Searc
     if ((match = TIME_TOKEN.exec(token))) filters.time = match[1].toLowerCase()
     else if ((match = LIKES_TOKEN.exec(token))) filters.minLikes = Number(match[1])
     else if (ORIGINAL_TOKEN.test(token)) filters.originalOnly = true
+    else if (ARTICLE_TOKEN.test(token)) filters.articlesOnly = true
     else if ((match = MEDIA_TOKEN.exec(token))) filters.media = match[1].toLowerCase()
     else rest.push(token)
   }
@@ -67,11 +73,12 @@ export function buildSearchQuery(terms: string, filters: SearchFilters): string 
   if (filters.minLikes) parts.push(`min_faves:${filters.minLikes}`)
   if (filters.originalOnly) parts.push('-filter:replies')
   if (filters.media) parts.push(`filter:${filters.media}`)
+  if (filters.articlesOnly) parts.push(ARTICLE_QUERY)
   return parts.filter(Boolean).join(' ')
 }
 
 export function hasSearchFilters(filters: SearchFilters): boolean {
-  return Boolean(filters.time || filters.minLikes || filters.originalOnly || filters.media)
+  return Boolean(filters.time || filters.minLikes || filters.originalOnly || filters.articlesOnly || filters.media)
 }
 
 function toUrl(href: string): URL | null {

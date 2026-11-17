@@ -25,7 +25,7 @@ const BAR_CLASS = 'xf-search-filters'
 const FILTERABLE_TABS = new Set([null, 'live', 'media'])
 
 type SelectField = 'time' | 'minLikes' | 'media'
-type ToggleField = 'originalOnly' | 'following'
+type ToggleField = 'originalOnly' | 'articlesOnly' | 'following'
 
 interface SelectSpec {
   field: SelectField
@@ -87,6 +87,7 @@ function ensureStyles() {
     .xf-search-select::after{content:"";position:absolute;top:50%;right:13px;width:5px;height:5px;margin-top:-4px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);pointer-events:none}
     .xf-search-select[data-active="true"],.${BAR_CLASS} button[aria-pressed="true"]{color:${ACCENT}}
     .xf-search-select[data-active="true"] select,.${BAR_CLASS} button[aria-pressed="true"]{border-color:${ACCENT};background:${accentAlpha(0.1)}}
+    .${BAR_CLASS} button[data-field="articlesOnly"][aria-pressed="true"]{color:var(--xf-sf-fg);font-weight:600}
     .${BAR_CLASS} .xf-search-clear{border-color:transparent;color:${ACCENT}}
     .${BAR_CLASS} .xf-search-clear[hidden]{display:none}
   `)
@@ -130,9 +131,10 @@ function onToggle(field: ToggleField) {
   const state = currentState()
   if (!state) return
   if (field === 'following') applyFilters(state.filters, !state.page.following)
-  else applyFilters({ ...state.filters, originalOnly: !state.filters.originalOnly }, state.page.following)
+  else applyFilters({ ...state.filters, [field]: !state.filters[field] }, state.page.following)
 }
 
+// 搜索和结果标签优先；长文作为同级筛选，沿用 32px 按钮、8px 间距和主题色，宽度不足时换行。
 function createBar(): HTMLElement {
   const bar = document.createElement('div')
   bar.className = BAR_CLASS
@@ -153,7 +155,11 @@ function createBar(): HTMLElement {
     bar.append(wrap)
   }
 
-  const toggles: [ToggleField, MessageKey][] = [['originalOnly', 'searchFilters.originalOnly'], ['following', 'searchFilters.following']]
+  const toggles: [ToggleField, MessageKey][] = [
+    ['originalOnly', 'searchFilters.originalOnly'],
+    ['articlesOnly', 'searchFilters.articlesOnly'],
+    ['following', 'searchFilters.following'],
+  ]
   for (const [field, label] of toggles) {
     const button = document.createElement('button')
     button.type = 'button'
@@ -196,7 +202,11 @@ function renderBar(bar: HTMLElement, filters: SearchFilters, following: boolean)
     select.parentElement!.dataset.active = String(Boolean(value))
   }
 
-  const pressed: Record<ToggleField, boolean> = { originalOnly: filters.originalOnly, following }
+  const pressed: Record<ToggleField, boolean> = {
+    originalOnly: filters.originalOnly,
+    articlesOnly: filters.articlesOnly,
+    following,
+  }
   for (const [field, on] of Object.entries(pressed)) {
     bar.querySelector(`button[data-field="${field}"]`)?.setAttribute('aria-pressed', String(on))
   }

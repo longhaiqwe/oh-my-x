@@ -17,7 +17,7 @@ describe('splitSearchQuery / buildSearchQuery', () => {
   it('拆出筛选条管的语法，其余部分按原顺序保留', () => {
     const { terms, filters } = splitSearchQuery('claude  code within_time:7d min_faves:100 -filter:replies filter:images')
     expect(terms).toBe('claude code')
-    expect(filters).toEqual({ time: '7d', minLikes: 100, originalOnly: true, media: 'images' })
+    expect(filters).toEqual({ ...EMPTY_SEARCH_FILTERS, time: '7d', minLikes: 100, originalOnly: true, media: 'images' })
   })
 
   it('引号里的短语算一个词，里面的语法不拆', () => {
@@ -37,7 +37,7 @@ describe('splitSearchQuery / buildSearchQuery', () => {
   })
 
   it('按固定顺序拼回，没有条件时只剩其余部分', () => {
-    expect(buildSearchQuery('a b', { time: '24h', minLikes: 10, originalOnly: true, media: 'media' }))
+    expect(buildSearchQuery('a b', { ...EMPTY_SEARCH_FILTERS, time: '24h', minLikes: 10, originalOnly: true, media: 'media' }))
       .toBe('a b within_time:24h min_faves:10 -filter:replies filter:media')
     expect(buildSearchQuery(' a ', EMPTY_SEARCH_FILTERS)).toBe('a')
     expect(buildSearchQuery('', { ...EMPTY_SEARCH_FILTERS, media: 'videos' })).toBe('filter:videos')
@@ -46,6 +46,7 @@ describe('splitSearchQuery / buildSearchQuery', () => {
   it('hasSearchFilters 只看筛选条管的条件', () => {
     expect(hasSearchFilters(EMPTY_SEARCH_FILTERS)).toBe(false)
     expect(hasSearchFilters({ ...EMPTY_SEARCH_FILTERS, originalOnly: true })).toBe(true)
+    expect(hasSearchFilters({ ...EMPTY_SEARCH_FILTERS, articlesOnly: true })).toBe(true)
   })
 })
 
