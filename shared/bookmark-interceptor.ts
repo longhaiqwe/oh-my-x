@@ -203,6 +203,17 @@ export function extractBookmarkMetrics(data: unknown): Record<string, number> {
 }
 
 const STATUS_OR_ARTICLE_ID_RE = /\/(?:status|article)\/(\d+)/
+const ARTICLE_PATH_RE = /^\/[^/]+\/article\/(\d+)\/?$/
+const TWEET_SELECTOR = 'article[data-testid="tweet"]'
+const ARTICLE_READER_SELECTOR = '[data-testid="twitterArticleReadView"]'
+
+/** 长文自己的顶部和底部操作栏，不包括正文里嵌入的帖子。 */
+export function isArticleBookmarkButton(btn: Element): boolean {
+  if (btn.closest('[data-testid="twitterArticleRichTextView"]')) return false
+  const tweet = btn.closest(TWEET_SELECTOR)
+  const reader = btn.closest(ARTICLE_READER_SELECTOR) || tweet?.querySelector(ARTICLE_READER_SELECTOR)
+  return Boolean(reader && reader.closest(TWEET_SELECTOR) === tweet)
+}
 
 /**
  * 这些区域里的链接指向别的推文，不是按钮所属推文的 ID：
@@ -216,20 +227,23 @@ const NESTED_CONTENT_SELECTOR = [
 ].join(', ')
 
 /**
- * 找出收藏按钮所属推文的 ID 候选，按可信度排序：
+ * 找出收藏按钮所属推文的 ID 候选。长文阅读页先用地址栏里的长文 ID，再按以下顺序取帖子 ID：
  * 1. 按钮所在操作栏里的推文链接（浏览量链接 /status/<id>/analytics）
  * 2. 推文自己的时间链接
  * 3. 推文里其余的推文/长文链接（如时间线里长文卡片的 /article/<id>）
  * 所有候选都跳过嵌套推文和正文里的链接（引用推文、长文正文里嵌入的推文和文字链接）。
  * 长文顶部的操作栏没有时间链接，不跳过的话会取到正文里第一条嵌入推文的 ID。
- * 传入 pathname 时，前三步都没找到才用地址栏里的 ID。
+ * 其他页面前三步都没找到时才用地址栏里的 ID。
  */
 export function getBookmarkOwnerIds(btn: Element, pathname?: string): string[] {
   const ids: string[] = []
   const container =
-    btn.closest('article[data-testid="tweet"]') ||
+    btn.closest(TWEET_SELECTOR) ||
     btn.closest('article') ||
-    btn.closest('[data-testid="twitterArticleReadView"]')
+    btn.closest(ARTICLE_READER_SELECTOR)
+
+  const articleId = pathname?.match(ARTICLE_PATH_RE)?.[1]
+  if (articleId && isArticleBookmarkButton(btn)) ids.push(articleId)
 
   const belongsToContainer = (el: Element) => {
     if (!container) return true

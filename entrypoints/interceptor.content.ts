@@ -63,6 +63,7 @@ import {
   isTweetOrArticleUrl,
   extractBookmarkMetrics,
   getBookmarkOwnerIds,
+  isArticleBookmarkButton,
 } from '../shared/bookmark-interceptor'
 import {
   isCreateTweetUrl,
@@ -803,6 +804,7 @@ export default defineContentScript({
 
     const BOOKMARK_METRICS_KEY = 'xf_bookmark_metrics_last'
     const bookmarkMetricsCache: Record<string, number> = {}
+    const bookmarkFallbackCache: Record<string, number> = {}
 
     function handleBookmarks(data: unknown) {
       try {
@@ -826,6 +828,7 @@ export default defineContentScript({
           // ignore
         }
 
+        annotateBookmarksInDom()
         window.postMessage(
           { type: BOOKMARK_METRICS_TYPE, payload: metrics, __xf: XF_BRIDGE_MARKER },
           '*',
@@ -1091,31 +1094,26 @@ export default defineContentScript({
     }
 
     // ---------- React Fiber 穿透探测与 DOM 自动标注机制 ----------
-    function findCountInObj(obj: any, depth = 0, seen = new WeakSet()): number | null {
+    function findCountInObj(obj: any, ownerIds?: string[], depth = 0, seen = new WeakSet()): number | null {
       if (!obj || depth > 6 || typeof obj !== 'object') return null
       if (typeof Node !== 'undefined' && obj instanceof Node) return null
       if (typeof Window !== 'undefined' && obj instanceof Window) return null
       if (seen.has(obj)) return null
       seen.add(obj)
 
-      // 1. 直查 legacy.bookmark_count / bookmark_count / bookmarkCount
-      if (obj.legacy && typeof obj.legacy.bookmark_count === 'number') {
-        return obj.legacy.bookmark_count
-      }
-      if (typeof obj.bookmark_count === 'number') {
-        return obj.bookmark_count
-      }
-      if (typeof obj.bookmarkCount === 'number') {
-        return obj.bookmarkCount
+      // 长文页组件可能还持有时间线或正文内帖子的对象。只有 ID 相符的数据能用于长文。
+      if (!ownerIds || ownerIds.includes(obj.rest_id ?? obj.restId ?? obj.legacy?.id_str ?? obj.id_str ?? obj.id)) {
+        const count = obj.legacy?.bookmark_count ?? obj.bookmark_count ?? obj.bookmarkCount
+        if (typeof count === 'number' && Number.isFinite(count) && count >= 0) return count
       }
       // 2. 长文专属节点直查
-      if (obj.article && typeof obj.article.bookmark_count === 'number') {
+      if (!ownerIds && obj.article && typeof obj.article.bookmark_count === 'number') {
         return obj.article.bookmark_count
       }
-      if (obj.article_results?.result && typeof obj.article_results.result.bookmark_count === 'number') {
+      if (!ownerIds && obj.article_results?.result && typeof obj.article_results.result.bookmark_count === 'number') {
         return obj.article_results.result.bookmark_count
       }
-      if (obj.tweet_results?.result?.legacy && typeof obj.tweet_results.result.legacy.bookmark_count === 'number') {
+      if (!ownerIds && obj.tweet_results?.result?.legacy && typeof obj.tweet_results.result.legacy.bookmark_count === 'number') {
         return obj.tweet_results.result.legacy.bookmark_count
       }
 
@@ -1133,13 +1131,13 @@ export default defineContentScript({
         ) {
           continue
         }
-        const found = findCountInObj(val, depth + 1, seen)
+        const found = findCountInObj(val, ownerIds, depth + 1, seen)
         if (typeof found === 'number' && !isNaN(found)) return found
       }
       return null
     }
 
-    function extractBookmarkFromFiber(element: Element | null): number | null {
+    function extractBookmarkFromFiber(element: Element | null, ownerIds?: string[]): number | null {
       if (!element) return null
       try {
         let curr: any = element
@@ -1150,7 +1148,7 @@ export default defineContentScript({
 
           const props = propsKey ? curr[propsKey] : null
           if (props) {
-            const count = findCountInObj(props)
+            const count = findCountInObj(props, ownerIds)
             if (typeof count === 'number' && !isNaN(count)) return count
           }
 
@@ -1159,7 +1157,7 @@ export default defineContentScript({
           while (fiber && depth < 35) {
             const memoized = fiber.memoizedProps
             if (memoized) {
-              const count = findCountInObj(memoized)
+              const count = findCountInObj(memoized, ownerIds)
               if (typeof count === 'number' && !isNaN(count)) return count
             }
             fiber = fiber.return
@@ -1211,43 +1209,28 @@ export default defineContentScript({
 
         bookmarkButtons.forEach((btn) => {
           // 1. 取按钮所属推文自己的 ID（跳过长文正文里嵌入的推文和引用推文），接口缓存中已有则直接使用
-          const candidateIds = getBookmarkOwnerIds(btn)
-          const matchedId =
-            candidateIds.find((id) => typeof bookmarkMetricsCache[id] === 'number') ??
-            candidateIds[0]
-
-          let finalCount = matchedId !== undefined ? bookmarkMetricsCache[matchedId] : undefined
-          if (typeof finalCount !== 'number') {
+          const isArticle = isArticleBookmarkButton(btn)
+          const candidateIds = getBookmarkOwnerIds(btn, isArticle ? location.pathname : undefined)
+          const matchedId = candidateIds.find((id) => typeof bookmarkMetricsCache[id] === 'number')
+          let finalCount: number | undefined = matchedId ? bookmarkMetricsCache[matchedId] : undefined
+          if (finalCount === undefined && isArticle && candidateIds.length > 0) {
+            finalCount = extractBookmarkFromFiber(btn, candidateIds) ?? undefined
+          } else if (finalCount === undefined && !isArticle) {
+            const fallbackId = candidateIds[0]
             const article =
               btn.closest('article[data-testid="tweet"]') ||
-              btn.closest('article') ||
-              btn.closest('[data-testid="twitterArticleReadView"]')
-            const fiberCount =
-              extractBookmarkFromFiber(btn) ||
-              extractBookmarkFromFiber(btn.closest('[role="group"]')) ||
-              (article ? extractBookmarkFromFiber(article) : null) ||
-              extractBookmarkFromDetailStats(article)
-
-            if (typeof fiberCount === 'number' && !isNaN(fiberCount)) {
-              finalCount = fiberCount
-              // 提取成功后回填进缓存并持久化
-              if (matchedId) {
-                bookmarkMetricsCache[matchedId] = finalCount
-                try {
-                  sessionStorage.setItem(BOOKMARK_METRICS_KEY, JSON.stringify(bookmarkMetricsCache))
-                } catch {}
-              }
-            }
+              btn.closest('article')
+            finalCount = (fallbackId ? bookmarkFallbackCache[fallbackId] : undefined) ??
+              extractBookmarkFromFiber(btn) ?? extractBookmarkFromDetailStats(article) ?? undefined
+            if (fallbackId && finalCount !== undefined) bookmarkFallbackCache[fallbackId] = finalCount
           }
 
-          if (typeof finalCount === 'number') {
-            const countStr = String(finalCount)
-            if (btn.getAttribute('data-xf-bookmark-count') !== countStr) {
-              btn.setAttribute('data-xf-bookmark-count', countStr)
-              // 触发自定义通知，让 isolated world 迅速响应
-              btn.dispatchEvent(new CustomEvent('xf-bookmark-count-updated', { bubbles: true }))
-            }
-          }
+          const countStr = finalCount === undefined ? null : String(finalCount)
+          if (btn.getAttribute('data-xf-bookmark-count') === countStr) return
+          if (countStr === null) btn.removeAttribute('data-xf-bookmark-count')
+          else btn.setAttribute('data-xf-bookmark-count', countStr)
+          // 触发自定义通知，让 isolated world 迅速响应
+          btn.dispatchEvent(new CustomEvent('xf-bookmark-count-updated', { bubbles: true }))
         })
       } catch {
         // ignore

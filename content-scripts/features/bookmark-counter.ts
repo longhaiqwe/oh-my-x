@@ -6,6 +6,7 @@ import {
   extractBookmarkFromAriaLabel,
   formatBookmarkCount,
   getBookmarkOwnerIds,
+  isArticleBookmarkButton,
 } from '../../shared/bookmark-interceptor'
 
 /**
@@ -287,6 +288,8 @@ export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
 
   let counterEl = btn.querySelector<HTMLElement>(`.${COUNTER_CLASS}`)
   const displayStr = formatBookmarkCount(count, getLocale())
+  // 与页面脚本提供的 data-xf-bookmark-count 分开，渲染值不能作为下一次读取的数据源。
+  btn.dataset.xfBookmarkRenderedCount = String(count)
 
   if (!displayStr) {
     if (counterEl) counterEl.style.display = 'none'
@@ -345,15 +348,13 @@ export function applyBookmarkCountToButton(btn: HTMLElement, count: number) {
   counterEl.style.fontWeight = finalFontWeight
   counterEl.style.lineHeight = finalLineHeight
 
-  // 记录当前绑定的数值
-  btn.dataset.xfBookmarkCount = String(count)
-
   // 绑定点击增减逻辑（仅绑定一次）
   if (!btn.hasAttribute(BOUND_CLICK_ATTR)) {
     btn.setAttribute(BOUND_CLICK_ATTR, '1')
     btn.addEventListener('click', () => {
       setTimeout(() => {
-        const currentCount = parseInt(btn.dataset.xfBookmarkCount || '0', 10)
+        if (!btn.querySelector(`.${COUNTER_CLASS}`)) return
+        const currentCount = parseInt(btn.dataset.xfBookmarkRenderedCount || '0', 10)
         const updatedAria = btn.getAttribute('aria-label') || ''
         const updatedIsRemove =
           updatedAria.includes('从书签中删除') ||
@@ -411,12 +412,10 @@ export function updateBookmarkCounters() {
 
   bookmarkButtons.forEach((btn) => {
     // 1. 只有当已有原生容器且具有有效数字内容时，才视为原生已展示，避免空容器导致误判跳过
-    const existingNativeSpan = btn.querySelector('[data-testid="app-text-transition-container"]')
-    if (existingNativeSpan && !existingNativeSpan.closest(`.${COUNTER_CLASS}`)) {
-      const nativeText = existingNativeSpan.textContent?.trim() || ''
-      if (nativeText && /\d/.test(nativeText)) {
-        return
-      }
+    const nativeCounters = btn.querySelectorAll(`[data-testid="app-text-transition-container"]:not(.${COUNTER_CLASS} *)`)
+    if (Array.from(nativeCounters).some((el) => /\d/.test(el.textContent || ''))) {
+      btn.querySelector(`.${COUNTER_CLASS}`)?.remove()
+      return
     }
 
     // 2. 优先检查 MAIN world 写入的 DOM 属性 data-xf-bookmark-count
@@ -433,6 +432,13 @@ export function updateBookmarkCounters() {
     const labelCount = extractBookmarkFromAriaLabel(btn.getAttribute('aria-label'))
     if (typeof labelCount === 'number' && labelCount > 0) {
       applyBookmarkCountToButton(btn, labelCount)
+      return
+    }
+
+    // 长文操作栏只用本按钮的数字或页面脚本已核对归属的数据。
+    // 历史缓存和整篇正文的文字都可能含有其他帖子的收藏数。
+    if (isArticleBookmarkButton(btn)) {
+      btn.querySelector(`.${COUNTER_CLASS}`)?.remove()
       return
     }
 

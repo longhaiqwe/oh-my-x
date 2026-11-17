@@ -34,7 +34,7 @@ describe('bookmark-counter feature', () => {
     const counter = btn.querySelector('.xf-bookmark-counter')
     expect(counter).not.toBeNull()
     expect(counter?.textContent?.trim()).toBe('186')
-    expect(btn.dataset.xfBookmarkCount).toBe('186')
+    expect(btn.dataset.xfBookmarkRenderedCount).toBe('186')
   })
 
   it('should update existing counter when count changes', () => {
@@ -242,6 +242,29 @@ describe('bookmark-counter feature', () => {
     expect(counter).not.toBeNull()
     expect(counter?.textContent?.trim()).toBe('447')
   })
+
+  it('长文顶部不读取正文里的收藏数，原生数字后来出现时只显示一份', () => {
+    document.body.innerHTML = `
+      <article data-testid="tweet">
+        <article data-testid="twitterArticleReadView">
+          <div role="group"><button data-testid="bookmark"><div><div><svg></svg></div></div></button></div>
+          <div data-testid="twitterArticleRichTextView"><span>14 个书签</span></div>
+        </article>
+      </article>`
+    const btn = document.querySelector('button')!
+
+    updateBookmarkCounters()
+    expect(btn.textContent?.trim()).toBe('')
+
+    btn.setAttribute('data-xf-bookmark-count', '108')
+    updateBookmarkCounters()
+    expect(btn.textContent?.trim()).toBe('108')
+
+    btn.firstElementChild!.insertAdjacentHTML('beforeend', '<span data-testid="app-text-transition-container">109</span>')
+    updateBookmarkCounters()
+    expect(btn.textContent?.trim()).toBe('109')
+  })
+
   it('关闭收藏量后移除已显示的数字和样式，并恢复按钮原有的内联样式', () => {
     const btn = document.createElement('button')
     btn.setAttribute('data-testid', 'bookmark')

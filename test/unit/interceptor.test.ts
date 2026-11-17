@@ -216,6 +216,49 @@ describe('interceptor hook execution (window.fetch / XHR)', () => {
     })
   })
 
+  it('从时间线打开文章时，不使用其他帖子的组件数据，文章数据到达后立即标注', async () => {
+    const articleId = '887766'
+    const statusId = '887767'
+    const articleData = { data: { article_results: { result: { rest_id: articleId, bookmark_count: 108 } } } }
+    window.fetch = vi.fn(async () => Response.json(articleData))
+    window.history.replaceState(null, '', '/home')
+    interceptorScript.main({} as any)
+
+    try {
+      // X 在当前文档内切换页面；详情请求还没返回，React 组件已挂载。
+      window.history.pushState(null, '', `/i/article/${articleId}`)
+      document.body.innerHTML = `
+        <article data-testid="tweet">
+          <article data-testid="twitterArticleReadView">
+            <div role="group">
+              <a href="/author/status/${statusId}/analytics">浏览量</a>
+              <button data-testid="bookmark"></button>
+            </div>
+          </article>
+        </article>`
+      const button = document.querySelector('button[data-testid="bookmark"]')!
+      Object.assign(button, { __reactFiber$test: { memoizedProps: { tweet: {
+        rest_id: '887768', legacy: { bookmark_count: 14 },
+      } } } })
+      await Promise.resolve()
+      const beforeResponse = button.getAttribute('data-xf-bookmark-count')
+
+      const atBroadcast = vi.fn()
+      postMessageSpy.mockImplementation((message: { type: string }) => {
+        if (message.type === 'XF_BOOKMARK_METRICS') atBroadcast(button.getAttribute('data-xf-bookmark-count'))
+      })
+      await window.fetch('https://x.com/i/api/graphql/query/ArticleByRestId')
+      await vi.waitFor(() => expect(atBroadcast).toHaveBeenCalled())
+
+      expect(beforeResponse).toBeNull()
+      expect(atBroadcast).toHaveBeenCalledWith('108')
+    } finally {
+      document.body.innerHTML = ''
+      window.history.replaceState(null, '', '/')
+      sessionStorage.clear()
+    }
+  })
+
   it('X 页面自己存草稿时广播当时的接口编号，同一个编号只广播一次', async () => {
     const mockNativeFetch = vi.fn().mockImplementation(async () => new Response('{}', { status: 200 }))
     window.fetch = mockNativeFetch
