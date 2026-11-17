@@ -6,6 +6,16 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.2.0 - 2026-11-17
+
+### Features
+
+- Add an Articles only toggle to X search filters. It works alongside the existing filters and can be cleared from the filter bar or edited in the search box.
+
+### Fixes and improvements
+
+- Use the current article's bookmark count on first open. The count appears when matching data arrives, and the extension removes its copy if X displays a native number.
+
 ## 3.1.0 - 2026-11-13
 
 ### Features
