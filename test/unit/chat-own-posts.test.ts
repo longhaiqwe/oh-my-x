@@ -105,7 +105,7 @@ describe('XChat own post references', () => {
     expect(picker()).not.toBeNull()
     expect(picker()!.closest('[data-testid="dm-composer-form"]')).toBeNull()
     expect(picker()!.closest('dialog')?.open).toBe(true)
-    expect(searchLibrary).toHaveBeenCalledWith('me', '', 30)
+    expect(searchLibrary).toHaveBeenCalledWith('me', '', 30, false)
   })
 
   it('opens from a pointer click in a translated shadow composer using a top-layer dialog', async () => {

@@ -43,13 +43,13 @@ async function automaticSyncEnabled(): Promise<boolean> {
   const settings = await browser.storage.local.get(KeyOwnPostAutoSync)
   return normalizeSettings(settings)[KeyOwnPostAutoSync] === 'on'
 }
-export async function searchLibrary(handle: string, query: string, limit=30) {
+export async function searchLibrary(handle: string, query: string, limit=30, articlesOnly=false) {
   const owner=getOwnAccount()
   if (!owner || owner.handle.toLowerCase()!==handle.toLowerCase()) throw new AppError('error.accountChanged')
-  const result=await send({...owner,action:'search',query,limit:Math.min(limit,100),offset:0})
+  const result=await send({...owner,action:'search',query,articlesOnly,limit:Math.min(limit,100),offset:0})
   // More than 100 visible rows are read in bounded local pages, never fetched over the network.
   for(let offset=100;offset<Math.min(limit,result.total);offset+=100){
-    const page=await send({...owner,action:'search',query,limit:Math.min(100,limit-offset),offset})
+    const page=await send({...owner,action:'search',query,articlesOnly,limit:Math.min(100,limit-offset),offset})
     result.posts.push(...page.posts)
   }
   if(getOwnAccount()?.account!==owner.account || getOwnHandle()?.toLowerCase()!==handle.toLowerCase()) throw new AppError('error.accountChanged')

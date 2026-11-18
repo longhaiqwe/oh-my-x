@@ -6,6 +6,12 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.2.1 - 2026-11-18
+
+### Features
+
+- Add an Articles only filter to Quote my posts. Use it with keyword search to find X Articles in the local cache.
+
 ## 3.2.0 - 2026-11-17
 
 ### Features

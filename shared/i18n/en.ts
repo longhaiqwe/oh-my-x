@@ -894,6 +894,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   'ownPage.retryAuto': ' (retrying automatically later)',
   'ownPage.retryManual': ' (try again manually later)',
   'ownPage.moreCount': 'Show more results ({shown}/{total})',
+  'ownPage.articlesOnly': 'Articles only',
+  'ownPage.recentArticles': 'Recently published · {count} articles',
   'ownPage.searchFound': 'Local search · {count} found',
   'ownPage.recentCached': 'Recent posts · {count} cached',
   'ownPage.firstSync': 'First sync in progress. Your posts will appear here',

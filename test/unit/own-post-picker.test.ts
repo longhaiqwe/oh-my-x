@@ -22,8 +22,28 @@ describe('local own post picker',()=>{
     const input=document.querySelector<HTMLInputElement>('input')!
     input.value='早睡';input.dispatchEvent(new Event('input'))
     await vi.advanceTimersByTimeAsync(150)
-    expect(searchLibrary).toHaveBeenLastCalledWith('me','早睡',30)
+    expect(searchLibrary).toHaveBeenLastCalledWith('me','早睡',30,false)
     expect(document.querySelector('[contenteditable]')?.textContent).toBe('前文 后文')
+  })
+  it('keeps the keyword and resets pagination when toggling articles', async () => {
+    vi.mocked(searchLibrary).mockResolvedValue({...result([post()]), total:70})
+    open();await flush()
+    const input = document.querySelector<HTMLInputElement>('input')!
+    input.value = '早睡'
+    document.querySelector('form')!.dispatchEvent(new Event('submit', {cancelable:true}))
+    await flush()
+    document.querySelector<HTMLButtonElement>('[data-action="more"]')!.click()
+    await flush()
+    expect(searchLibrary).toHaveBeenLastCalledWith('me','早睡',60,false)
+    const articles = document.querySelector<HTMLInputElement>('[name="articles-only"]')!
+    vi.mocked(searchLibrary).mockResolvedValue(result([{...post('456'),title:'早睡笔记'}]))
+    articles.click();await flush()
+    expect(articles.checked).toBe(true)
+    expect(searchLibrary).toHaveBeenLastCalledWith('me','早睡',30,true)
+    expect(document.querySelector('[data-post-id="456"]')).not.toBeNull()
+    expect(document.querySelector('[data-post-id="123"]')).toBeNull()
+    articles.click();await flush()
+    expect(searchLibrary).toHaveBeenLastCalledWith('me','早睡',30,false)
   })
   it('renders a cover beside text, and falls back cleanly for missing or failed images',async()=>{
     vi.mocked(searchLibrary).mockResolvedValue(result([

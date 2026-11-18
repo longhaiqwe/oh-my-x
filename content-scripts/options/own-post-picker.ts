@@ -29,16 +29,22 @@ function ensureStyles(root: Document | ShadowRoot) {
     .xf-own-post-picker button:disabled{opacity:.5;cursor:wait}
     .xf-own-post-picker .xf-own-close{display:grid;place-items:center;min-width:36px;padding:8px;margin:-4px -4px 0 0;color:var(--xf-own-muted)}
     .xf-own-post-picker svg{width:20px;height:20px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
-    .xf-own-post-picker form{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+    .xf-own-post-picker form{display:flex;align-items:center;gap:8px;margin:0 0 8px}
     .xf-own-post-picker .xf-own-search-field{display:flex;align-items:center;gap:8px;flex:1;min-width:0;background:var(--xf-own-hover);border-radius:999px;padding:0 12px;color:var(--xf-own-muted)}
     .xf-own-post-picker .xf-own-search-field:focus-within{outline:2px solid var(--xf-own-fg);outline-offset:2px}
-    .xf-own-post-picker input{width:100%;min-width:0;height:40px;font:inherit;color:var(--xf-own-fg);background:transparent;border:0;outline:0;padding:8px 0}
+    .xf-own-post-picker input[type="search"]{width:100%;min-width:0;height:40px;font:inherit;color:var(--xf-own-fg);background:transparent;border:0;outline:0;padding:8px 0}
     .xf-own-post-picker input::placeholder{color:var(--xf-own-muted);opacity:1}
     .xf-own-post-picker [type="submit"]{min-height:40px;background:var(--xf-own-fg);color:var(--xf-own-bg);padding:8px 16px;flex-shrink:0}
     .xf-own-post-picker [type="submit"]:hover{background:var(--xf-own-fg);opacity:.85}
-    .xf-own-post-picker .xf-own-summary{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+    .xf-own-post-picker .xf-own-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px}
     .xf-own-post-picker .xf-own-status{flex:1;min-width:0;font-size:12px;color:var(--xf-own-muted);white-space:pre-line;overflow-wrap:anywhere}
     .xf-own-post-picker [data-action="recent"]{font-size:12px;white-space:nowrap;padding:4px 8px;min-height:32px}
+    .xf-own-post-picker .xf-own-filter{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:4px 8px;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+    .xf-own-post-picker .xf-own-filter:hover{background:var(--xf-own-hover)}
+    .xf-own-post-picker .xf-own-filter:has(:focus-visible){outline:2px solid var(--xf-own-fg);outline-offset:2px}
+    .xf-own-post-picker .xf-own-filter input:focus-visible{outline:0}
+    .xf-own-post-picker .xf-own-filter:has(:disabled){opacity:.5;cursor:default}
+    .xf-own-post-picker .xf-own-filter input{width:16px;height:16px;margin:0;accent-color:var(--xf-own-fg);cursor:inherit}
     .xf-own-post-picker .xf-own-results{max-height:280px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:4px}
     .xf-own-post-picker .xf-own-post{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:12px;width:100%;text-align:left;border-radius:12px;padding:12px;font-weight:400}
     .xf-own-post-picker .xf-own-post.xf-own-has-cover{grid-template-columns:112px minmax(0,1fr)}
@@ -68,14 +74,14 @@ function ensureStyles(root: Document | ShadowRoot) {
     .xf-own-post-picker footer:empty{display:none}
     .xf-own-post-picker footer button{font-size:12px}
     .xf-own-post-picker [data-action="previous"]{color:var(--xf-own-muted);margin-left:auto;font-weight:400}
-    @container (max-width:360px){.xf-own-post-picker .xf-own-post{padding:12px 4px;gap:12px}.xf-own-post-picker .xf-own-post.xf-own-has-cover{grid-template-columns:72px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover{width:72px;height:72px}.xf-own-post-picker .xf-own-post:has(> .xf-own-cover[data-article="true"]){grid-template-columns:112px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover[data-article="true"]{width:112px;height:auto}.xf-own-post-picker .xf-own-quote span{display:none}.xf-own-post-picker [data-action="previous"]{margin-left:0}.xf-own-post-picker .xf-own-search-field svg{display:none}.xf-own-post-picker .xf-own-summary{align-items:flex-start}}
+    @container (max-width:360px){.xf-own-post-picker .xf-own-post{padding:12px 4px;gap:12px}.xf-own-post-picker .xf-own-post.xf-own-has-cover{grid-template-columns:72px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover{width:72px;height:72px}.xf-own-post-picker .xf-own-post:has(> .xf-own-cover[data-article="true"]){grid-template-columns:112px minmax(0,1fr)}.xf-own-post-picker .xf-own-cover[data-article="true"]{width:112px;height:auto}.xf-own-post-picker .xf-own-quote span{display:none}.xf-own-post-picker [data-action="previous"]{margin-left:0}.xf-own-post-picker .xf-own-search-field svg{display:none}}
 
   `, root)
 }
 
 export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement, insert: (url: string) => void, options: { presentation?: 'dialog'; onClose?: () => void } = {}) {
   const existing = modal.querySelector<HTMLElement>('[data-testid="xf-own-post-picker"]')
-  if (existing) { existing.querySelector<HTMLInputElement>('input')?.focus(); return }
+  if (existing) { existing.querySelector<HTMLInputElement>('input[type=search]')?.focus(); return }
   const root = modal.getRootNode() as Document | ShadowRoot
   ensureStyles(root)
   const handle = getOwnHandle()
@@ -90,17 +96,18 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   }
   panel.innerHTML = `<header><div><h3>${t('ownPage.title')}</h3><div class="xf-own-account"></div></div><button class="xf-own-close" type="button" aria-label="${t('ownPage.closeLabel')}" title="${t('ownPage.closeTitle')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
     <form><div class="xf-own-search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" aria-label="${t('ownPage.searchLabel')}" placeholder="${t('ownPage.searchPlaceholder')}" maxlength="200"></div><button type="submit">${t('ownPage.search')}</button></form>
-    <div class="xf-own-summary"><div class="xf-own-status" role="status" aria-live="polite"></div><button type="button" data-action="recent" hidden>${t('ownPage.backToRecent')}</button></div>
+    <div class="xf-own-summary"><div class="xf-own-status" role="status" aria-live="polite"></div><button type="button" data-action="recent" hidden>${t('ownPage.backToRecent')}</button><label class="xf-own-filter"><input type="checkbox" name="articles-only">${t('ownPage.articlesOnly')}</label></div>
     <div class="xf-own-results" aria-label="${t('ownPage.listLabel')}"></div>
     <div class="xf-own-sync"><span class="xf-own-sync-text"></span><button type="button" data-action="sync">${t('ownPage.syncOld')}</button></div>
     <footer><button type="button" data-action="more" hidden>${t('ownPage.more')}</button><button type="button" data-action="retry" hidden>${t('ownPage.retry')}</button></footer>`
   panel.querySelector('.xf-own-account')!.textContent = handle ? t('ownPage.accountHint', { handle }) : t('ownPage.pickHint')
-  const input = panel.querySelector('input')!
+  const input = panel.querySelector<HTMLInputElement>('input[type=search]')!
   const status = panel.querySelector<HTMLElement>('.xf-own-status')!
   const results = panel.querySelector<HTMLElement>('.xf-own-results')!
   const more = panel.querySelector<HTMLButtonElement>('[data-action="more"]')!
   const retry = panel.querySelector<HTMLButtonElement>('[data-action="retry"]')!
   const recent = panel.querySelector<HTMLButtonElement>('[data-action="recent"]')!
+  const articles = panel.querySelector<HTMLInputElement>('[name="articles-only"]')!
   const submit = panel.querySelector<HTMLButtonElement>('[type="submit"]')!
   const controller = new AbortController()
   const syncText = panel.querySelector<HTMLElement>('.xf-own-sync-text')!
@@ -213,11 +220,12 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   async function load() {
     if (!handle || controller.signal.aborted) return
     const version = ++sequence
+    const articlesOnly = articles.checked
     results.setAttribute('aria-busy', 'true')
     retry.hidden = true
     recent.hidden = !query
     try {
-      const page = await searchLibrary(handle, query, limit)
+      const page = await searchLibrary(handle, query, limit, articlesOnly)
       if (version !== sequence || controller.signal.aborted) return
       posts.clear()
       for (const post of page.posts) posts.set(post.id, post)
@@ -233,7 +241,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
       if (meta.error) syncText.textContent += `\n${errorText(meta.error)}${meta.retryAt > Date.now() ? t(autoSync && !meta.paused ? 'ownPage.retryAuto' : 'ownPage.retryManual') : ''}`
       more.hidden = posts.size >= page.total
       more.textContent = t('ownPage.moreCount', { shown: posts.size, total: page.total })
-      status.textContent = query ? t('ownPage.searchFound', { count: page.total }) : t('ownPage.recentCached', { count: page.count })
+      status.textContent = query ? t('ownPage.searchFound', { count: page.total }) : t(articlesOnly ? 'ownPage.recentArticles' : 'ownPage.recentCached', { count: articlesOnly ? page.total : page.count })
       if (!posts.size) {
         results.replaceChildren()
         const empty = document.createElement('div')
@@ -255,6 +263,12 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   panel.querySelector('form')!.onsubmit = event => { event.preventDefault();search() }
   input.addEventListener('input', () => { clearTimeout(debounce);debounce=setTimeout(search,150) })
   recent.onclick = () => { input.value='';search() }
+  articles.onchange = () => {
+    results.replaceChildren()
+    rendered = ''
+    more.hidden = true
+    search()
+  }
   more.onclick = () => { limit+=30;void load() }
   retry.onclick = refresh
   syncButton.onclick = async () => {
@@ -307,7 +321,7 @@ export function openOwnPostPicker(modal: HTMLElement, trigger: HTMLButtonElement
   }
   else {
     status.textContent = t('ownPage.noAccount')
-    submit.disabled = recent.disabled = syncButton.disabled = true
+    submit.disabled = recent.disabled = articles.disabled = syncButton.disabled = true
   }
   return () => close(false)
 }

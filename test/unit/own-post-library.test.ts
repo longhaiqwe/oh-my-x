@@ -64,6 +64,18 @@ describe('local own posts library', () => {
     const page=await call('search',{query:'',offset:1,limit:1})
     expect(page.posts.map((p:any)=>p.id)).toEqual(['2']);expect(page.total).toBe(3)
   })
+  it('filters articles by keyword before paginating cached posts', async () => {
+    const {call} = setup()
+    const run = await call('begin')
+    await call('page', {token:run.token, posts:[
+      post('5'), {...post('4'), title:'早睡笔记'}, post('3'),
+      {...post('2'), title:'作息记录'}, {...post('1','阅读'), title:'阅读笔记'},
+    ], cursor:null})
+    const page = await call('search', {query:'早睡', articlesOnly:true, offset:1, limit:1})
+    expect(page.posts.map((p:any) => p.id)).toEqual(['2'])
+    expect(page.total).toBe(2)
+    expect(page.count).toBe(5)
+  })
   it('rechecks a previously empty account for newly published posts', async () => {
     const {call,advance}=setup();let run=await call('begin')
     await call('page',{token:run.token,posts:[],cursor:null});await call('finish',{token:run.token})

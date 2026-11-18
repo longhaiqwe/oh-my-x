@@ -36,6 +36,7 @@ export interface LibraryRequest {
   account: string
   handle: string
   query?: string
+  articlesOnly?: boolean
   offset?: number
   limit?: number
   manual?: boolean
@@ -68,7 +69,8 @@ export function createLibraryService(repo: LibraryRepository, now = Date.now) {
     if (action === 'search') {
       const state = await repo.read(account)
       const words = normalize((request.query || '').slice(0,200)).split(/\s+/).filter(Boolean)
-      const matches = Object.values(state.posts).filter(post => words.every(word => post.searchText.includes(word)))
+      const matches = Object.values(state.posts).filter(post =>
+        (request.articlesOnly !== true || Boolean(post.title)) && words.every(word => post.searchText.includes(word)))
         .sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0) || compareId(b.id,a.id))
       const offset = Math.max(0, Math.floor(Number(request.offset) || 0))
       const limit = Math.min(100, Math.max(1, Math.floor(Number(request.limit) || 30)))

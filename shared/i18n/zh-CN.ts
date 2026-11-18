@@ -916,6 +916,8 @@ export const zhCN = {
   'ownPage.retryAuto': '，稍后自动重试',
   'ownPage.retryManual': '，请稍后手动重试',
   'ownPage.moreCount': '显示更多结果（{shown}/{total}）',
+  'ownPage.articlesOnly': '只看长文',
+  'ownPage.recentArticles': '最近发布 · {count} 篇长文',
   'ownPage.searchFound': '本地搜索 · 找到 {count} 条',
   'ownPage.recentCached': '最近发布 · {count} 条已缓存',
   'ownPage.firstSync': '首次同步中，帖子会陆续出现在这里',
