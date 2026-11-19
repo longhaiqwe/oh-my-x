@@ -407,3 +407,7 @@ No test account is provided. Sign in to x.com. Toggle features in the extension 
 GitHub 标签的 Check 与 Release 工作流在 `npm ci` 阶段遇到第三方镜像站错误：下载 `xmlchars-2.2.0.tgz` 返回 HTTP 500（镜像站数据库缺表）。同一依赖的 npm 官方地址返回 HTTP 200。已通过后续提交 `9e2dab5` 将锁文件中 94 个镜像下载地址改为 npm 官方源，依赖版本与完整性校验值均未改变；保留已发布标签，未移动标签。GitHub Release 由本次已验证构建直接上传。修复后的 [Check 工作流](https://github.com/longhaiqwe/oh-my-x/actions/runs/42644104580) 已成功完成，依赖安装、类型检查、测试和构建均通过。
 
 本次通过 Chrome 原生界面的开发者后台完成送审。提交审核成功不代表已经上架；2.8.0 将在审核通过后自动发布。
+
+## 3.3.0 提交（2026-11-19）
+
+原创内容奖励新增发放记录，保留启用前的曝光历史。2026-11-19 约 22:05（北京时间）送审成功，审核通过后自动发布。提交前线上版本为 3.2.1。[发布与送审记录](releases/v3.3.0-store.md)。
