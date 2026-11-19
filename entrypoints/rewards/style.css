@@ -136,6 +136,7 @@ th { font-weight: 500; }
  .rewards-shell { padding: 14px 16px; }
  .page-header { flex-wrap: wrap; }
  .current-progress { order: 3; width: 100%; margin: 0; grid-template-columns: auto auto 1fr; align-items: center; }
+ .view-switcher { order: 4; }
  progress { grid-column: auto; }
  .toolbar { justify-content: flex-start; }
  .refresh-button { margin-left: auto; }

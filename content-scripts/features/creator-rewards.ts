@@ -1,20 +1,18 @@
 import { ACCOUNT_OVERVIEW_QUERY_TYPE, CREATOR_REWARDS_TYPE, XF_BRIDGE_MARKER } from '../../shared/bridge'
 import { KeyAccountOverviewQueryId } from '../../storage-keys'
 import { getStorage, setStorage } from '../utilities/storage'
-import { persistCreatorRewardsStats } from '../../shared/creator-rewards-daily'
+import { persistCreatorRewardsObservation } from '../../shared/creator-rewards-daily'
 import {
-  parseCreatorRewardsPayload,
-  parseNumberWithUnit,
-  REWARDS_PAGE_MARKERS,
-  TARGET_IMPRESSIONS_COUNT,
-  TARGET_IMPRESSIONS_TEXT,
+  parseCreatorRewardsObservation,
+  parseCreatorRewardsPageState,
   type CreatorRewardsStats,
+  type CreatorRewardsObservation,
 } from '../../shared/creator-rewards'
 
 let isListening = false
 
-function saveStats(stats: CreatorRewardsStats) {
-  persistCreatorRewardsStats(stats).catch(() => {
+function saveObservation(observation: CreatorRewardsObservation) {
+  persistCreatorRewardsObservation(observation).catch(() => {
     // 扩展上下文失效等情况下忽略
   })
 }
@@ -43,9 +41,23 @@ export function listenForCreatorRewardsApi() {
     if (event.data.type !== CREATOR_REWARDS_TYPE) return
 
     try {
-      const stats = event.data.payload as CreatorRewardsStats
-      if (stats && typeof stats === 'object' && typeof stats.impressionsCount === 'number') {
-        saveStats(stats)
+      const payload = event.data.payload as CreatorRewardsObservation | CreatorRewardsStats
+      if (!payload || typeof payload !== 'object') return
+      if ('kind' in payload) {
+        if (payload.kind === 'progress') {
+          if (payload.stats?.impressionsCount > 0) saveObservation(payload)
+        } else {
+          const state = parseCreatorRewardsPageState({ ...payload, stage: payload.kind })
+          if (state?.stage === 'active') {
+            const { stage, ...payout } = state
+            saveObservation({ kind: stage, ...payout })
+          } else if (state?.stage === 'application' || state?.stage === 'under_review') {
+            saveObservation({ kind: state.stage, updatedAt: state.updatedAt })
+          }
+        }
+      } else if (payload.impressionsCount > 0) {
+        // 更新前已打开的 X 页仍可能广播旧格式；零值不能覆盖已保存的读数。
+        saveObservation({ kind: 'progress', stats: payload })
       }
     } catch {
       // 忽略落库异常
@@ -63,57 +75,9 @@ export function scanCreatorRewardsFromDom(): boolean {
   }
 
   try {
-    // 页面上要有曝光数字旁的说明文字（中文或英文界面）
-    const bodyText = document.body.innerText || ''
-    if (!REWARDS_PAGE_MARKERS.some((marker) => bodyText.includes(marker))) {
-      return false
-    }
-
-    // 匹配页面中紧邻进度条的曝光数值（例如 "219.6K", "217.6K"）
-    const match = bodyText.match(
-      /(?:已验证首页时间线曝光|时间线曝光|回复不计入曝光|Verified Home Timeline impressions)[\s\S]{0,100}?(\d+(?:\.\d+)?\s*[KM万])/,
-    ) || bodyText.match(/(\d+(?:\.\d+)?\s*[KM万])[\s\S]{0,80}?(?:回复不计入曝光|Does not include replies)/)
-
-    if (match && match[1]) {
-      const impressionsText = match[1].trim()
-      const impressionsCount = parseNumberWithUnit(impressionsText)
-
-      // 仅在合法且不是目标值 500K 时采纳
-      if (impressionsCount > 0 && impressionsCount !== TARGET_IMPRESSIONS_COUNT) {
-        const progressPercent = Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round((impressionsCount / TARGET_IMPRESSIONS_COUNT) * 1000) / 10,
-          ),
-        )
-
-        const impressionsMet = impressionsCount >= TARGET_IMPRESSIONS_COUNT
-
-        const stats: CreatorRewardsStats = {
-          impressionsText,
-          impressionsCount,
-          targetImpressionsCount: TARGET_IMPRESSIONS_COUNT,
-          targetImpressionsText: TARGET_IMPRESSIONS_TEXT,
-          progressPercent,
-          requirements: {
-            premium: true,
-            age18: true,
-            verifiedFollowers: true,
-            impressionsMet,
-          },
-          updatedAt: Date.now(),
-        }
-
-        saveStats(stats)
-        return true
-      }
-    }
-
-    // 若未通过正则直接提取到，尝试通用 payload 解析器从 bodyText 中提取
-    const fallbackStats = parseCreatorRewardsPayload(bodyText)
-    if (fallbackStats && fallbackStats.impressionsCount > 0) {
-      saveStats(fallbackStats)
+    const observation = parseCreatorRewardsObservation(document.body.innerText || '')
+    if (observation) {
+      saveObservation(observation)
       return true
     }
   } catch {

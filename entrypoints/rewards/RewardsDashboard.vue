@@ -1,20 +1,22 @@
 <!--
 Refactoring UI §2.1 / §2.4 / §3.6：先分层，再着色。
 主要：计入奖励的时段合计与上期比较。次要：每日分布、两个曝光合计。
-辅助：当前 90 天门槛、数据覆盖和更新状态。唯一主要操作：导出图片。
+辅助：申请进度或已启用状态、数据覆盖和更新状态。唯一主要操作：导出图片。
 沿用 theme.css 的文字/强调/状态色、12/14/16/20/24/48 字号与 4/8/12/16/24/32 间距。
 月份仍一屏显示；数值与短条共同表达大小，缺失不编码成零。
 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { KeyCreatorRewardsHistory, KeyCreatorRewardsStats, KeyImpressionsDaily } from '../../storage-keys'
+import { KeyCreatorRewardsHistory, KeyCreatorRewardsPageState, KeyCreatorRewardsPayoutHistory, KeyCreatorRewardsStats, KeyImpressionsDaily } from '../../storage-keys'
 import { parseImpressionsCache, parseRewardsHistory, shiftDateKey, type RewardsHistory, type ImpressionsDailyCache } from '../../shared/creator-rewards-daily'
-import { formatImpressionsCount, type CreatorRewardsStats } from '../../shared/creator-rewards'
+import { formatImpressionsCount, parseCreatorRewardsPageState, type CreatorRewardsPageState, type CreatorRewardsStats } from '../../shared/creator-rewards'
 import { calendarCells, dailyEmphasis, observedMetric, chartBuckets, chartGeometry, clipRange, comparisonPercent, dashboardBounds, periodRange, rangeRows, summarizeMetric, type RewardsMetric, type RewardsPeriod } from '../../shared/creator-rewards-dashboard'
 import { exportRewardsImage } from '../../shared/creator-rewards-export'
 import { errorText } from '../../shared/errors'
 import { useI18n } from '../popup/composables/useI18n'
 import LanguageMenu from '../popup/components/ui/LanguageMenu.vue'
+import RewardsPayoutPanel from '../../shared/components/RewardsPayoutPanel.vue'
+import { readRewardsAccount, rewardsLedgerFor, type RewardsPayoutLedger } from '../../shared/creator-rewards-payouts'
 
 const { t, locale } = useI18n()
 const period = ref<RewardsPeriod>('week')
@@ -28,6 +30,20 @@ const weekly = ref(true)
 const history = ref<RewardsHistory>({})
 const impressions = ref<ImpressionsDailyCache | null>(null)
 const stats = ref<CreatorRewardsStats | null>(null)
+const pageState = ref<CreatorRewardsPageState | null>(null)
+const payout = computed(() => pageState.value?.stage === 'active' ? pageState.value : null)
+const eligibilityStatus = computed(() => {
+  switch (pageState.value?.stage) {
+    case 'active': return t('rewards.active')
+    case 'application': return t('rewards.applicationReady')
+    case 'under_review': return t('rewards.underReview')
+    default: return ''
+  }
+})
+const ledger = ref<RewardsPayoutLedger>()
+const view = ref<'payouts' | 'impressions'>('payouts')
+const showPayouts = computed(() => Boolean(payout.value && view.value === 'payouts'))
+const dataKeys = [KeyCreatorRewardsHistory, KeyCreatorRewardsPageState, KeyCreatorRewardsPayoutHistory, KeyCreatorRewardsStats, KeyImpressionsDaily]
 const loading = ref(false)
 const ready = ref(false)
 const error = ref('')
@@ -95,7 +111,8 @@ watch([range, metric, weekly], () => { picked.value = null })
 watch(locale, () => { document.title = `${t('rewardsDashboard.dashboardTitle')} · oh-my-x` }, { immediate: true })
 
 async function readData() {
-  const data = await browser.storage.local.get([KeyCreatorRewardsHistory, KeyCreatorRewardsStats, KeyImpressionsDaily])
+  const data = await browser.storage.local.get(dataKeys)
+  pageState.value = parseCreatorRewardsPageState(data[KeyCreatorRewardsPageState])
   history.value = parseRewardsHistory(data[KeyCreatorRewardsHistory])
   impressions.value = parseImpressionsCache(data[KeyImpressionsDaily])
   try {
@@ -103,6 +120,8 @@ async function readData() {
     const value = typeof raw === 'string' ? JSON.parse(raw) : raw
     stats.value = value && Number.isFinite(value.impressionsCount) && value.targetImpressionsCount > 0 ? value : null
   } catch { stats.value = null }
+  const account = payout.value ? await readRewardsAccount() : undefined
+  ledger.value = rewardsLedgerFor(data[KeyCreatorRewardsPayoutHistory], account)
 }
 async function refresh() {
   if (loading.value) return
@@ -134,7 +153,7 @@ async function download() {
   finally { exporting.value = false }
 }
 function storageChanged(changes: Record<string, unknown>, area: string) {
-  if (area === 'local' && [KeyCreatorRewardsHistory, KeyCreatorRewardsStats, KeyImpressionsDaily].some(key => key in changes)) {
+  if (area === 'local' && dataKeys.some(key => key in changes)) {
     void readData().catch(() => { error.value = t('rewards.requestFailed') })
   }
 }
@@ -143,7 +162,7 @@ onMounted(async () => {
   try { await readData() } catch { error.value = t('rewards.requestFailed') }
   finally { ready.value = true }
   // 进入看板时一次补取，后续切换时段只读本地数据。
-  if (!impressions.value || Date.now() - impressions.value.updatedAt > 3600000 || !impressions.value.days[bounds.value.start]) void refresh()
+  if ((payout.value?.paidAmount && !ledger.value) || !impressions.value || Date.now() - impressions.value.updatedAt > 3600000 || !impressions.value.days[bounds.value.start]) void refresh()
 })
 onBeforeUnmount(() => browser.storage.onChanged.removeListener(storageChanged))
 </script>
@@ -153,14 +172,30 @@ onBeforeUnmount(() => browser.storage.onChanged.removeListener(storageChanged))
     <main class="rewards-shell">
       <header class="page-header">
         <div class="heading-title"><a class="brand" href="options.html#insight" :title="t('rewardsDashboard.back')"><img src="/icons/32.png" alt="" />oh-my-x</a><h1>{{ t('rewardsDashboard.dashboardTitle') }}</h1></div>
-        <div class="current-progress">
+        <div v-if="payout" class="view-switcher segments" role="group" :aria-label="t('rewardsDashboard.history')">
+          <button type="button" :aria-pressed="showPayouts" @click="view = 'payouts'">{{ t('rewards.payoutHistory') }}</button>
+          <button type="button" :aria-pressed="!showPayouts" @click="view = 'impressions'">{{ t('rewards.impressionHistory') }}</button>
+        </div>
+        <div v-if="eligibilityStatus" class="current-progress">
+          <strong>{{ eligibilityStatus }}</strong>
+          <span v-if="!showPayouts && stats">{{ t('rewards.lastRecordedProgress', { count: format(stats.impressionsCount) }) }}</span>
+        </div>
+        <div v-else class="current-progress">
           <span>{{ t('rewardsDashboard.currentProgress') }}</span>
           <template v-if="stats"><strong>{{ format(stats.impressionsCount) }} <small>/ {{ format(stats.targetImpressionsCount) }}</small></strong><progress :value="progress" max="100" :aria-label="t('rewards.progressLabel')" /></template>
           <strong v-else>{{ t('rewardsDashboard.noStats') }}</strong>
         </div>
-        <div class="page-actions"><button class="export-open export-button" type="button" :disabled="!hasAny || !range" @click="shareDialog?.showModal()">{{ t('rewardsDashboard.export') }} ↓</button><LanguageMenu /></div>
+        <div class="page-actions"><button v-if="!showPayouts" class="export-open export-button" type="button" :disabled="!hasAny || !range" @click="shareDialog?.showModal()">{{ t('rewardsDashboard.export') }} ↓</button><LanguageMenu /></div>
       </header>
-      <section class="dashboard" :aria-label="t('rewardsDashboard.history')">
+      <section v-if="payout && showPayouts" class="dashboard max-w-2xl" :aria-label="t('rewards.payoutHistory')">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2>{{ t('rewards.payoutHistory') }}</h2>
+          <button class="plain-button" type="button" :disabled="loading" @click="refresh">{{ loading ? t('rewards.fetching') : t('rewards.refresh') }}</button>
+        </div>
+        <RewardsPayoutPanel :payout="payout" :ledger="ledger" />
+        <p v-if="error" class="error" role="alert">{{ error }}</p>
+      </section>
+      <section v-else class="dashboard" :aria-label="t('rewardsDashboard.history')">
         <div class="toolbar">
           <div class="segments" :aria-label="t('rewardsDashboard.periodSummary')">
             <button v-for="p in periods" :key="p" type="button" :aria-pressed="period === p" @click="choosePeriod(p)">{{ t(p === '90' ? 'rewardsDashboard.ninety' : p === 'week' ? 'rewardsDashboard.week' : p === 'month' ? 'rewardsDashboard.month' : 'rewardsDashboard.custom') }}</button>

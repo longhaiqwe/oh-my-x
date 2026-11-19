@@ -53,6 +53,7 @@ import {
   KeySpamAiDailyLimit,
   KeySpamAiBotAccounts,
   KeyCreatorRewardsStats,
+  KeyCreatorRewardsPageState,
   KeyCreatorRewardsHistory,
   KeyImpressionsDaily,
   KeyAccountOverviewQueryId,
@@ -62,9 +63,12 @@ import {
   defaultPreferences,
 } from '../storage-keys'
 import {
-  parseCreatorRewardsPayload,
+  parseCreatorRewardsObservation,
+  parseCreatorRewardsPageState,
+  type CreatorRewardsObservation,
   type CreatorRewardsStats,
 } from '../shared/creator-rewards'
+import { readRewardsAccount, recordRewardsPayout } from '../shared/creator-rewards-payouts'
 import {
   ACCOUNT_OVERVIEW_OPERATION,
   FALLBACK_ACCOUNT_OVERVIEW_QUERY_ID,
@@ -73,7 +77,7 @@ import {
   parseAccountOverviewDaily,
   parseImpressionsCache,
   parseRewardsHistory,
-  persistCreatorRewardsStats,
+  persistCreatorRewardsObservation,
   pickCreatorRewardsAutoRefresh,
   type ImpressionsDailyCache,
 } from '../shared/creator-rewards-daily'
@@ -770,6 +774,7 @@ async function fetchAllUserLists(): Promise<QuickListItem[]> {
 }
 
 const ALARM_CREATOR_REWARDS_CHECK = 'XF_ALARM_CREATOR_REWARDS_CHECK'
+const ALARM_CREATOR_REWARDS_DAILY = 'XF_ALARM_CREATOR_REWARDS_DAILY'
 
 async function setupCreatorRewardsAlarm() {
   try {
@@ -777,6 +782,15 @@ async function setupCreatorRewardsAlarm() {
     if (!existing) {
       await browser.alarms?.create(ALARM_CREATOR_REWARDS_CHECK, {
         periodInMinutes: 30,
+      })
+    }
+    // 半小时检查不一定落在 10:30；单独安排北京时间 10:30，保留原闹钟补查延迟数据。
+    if (!(await browser.alarms?.get(ALARM_CREATOR_REWARDS_DAILY))) {
+      const now = new Date()
+      const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 2, 30)
+      await browser.alarms?.create(ALARM_CREATOR_REWARDS_DAILY, {
+        when: today > now.getTime() ? today : today + 24 * 60 * 60 * 1000,
+        periodInMinutes: 24 * 60,
       })
     }
   } catch {
@@ -789,7 +803,7 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
     const csrf = await getCsrfToken()
     if (!csrf) return // 用户当前未在浏览器登录 X，跳过
 
-    const stored = await browser.storage.local.get([KeyCreatorRewardsStats, KeyCreatorRewardsHistory, KeyImpressionsDaily])
+    const stored = await browser.storage.local.get([KeyCreatorRewardsStats, KeyCreatorRewardsPageState, KeyCreatorRewardsHistory, KeyImpressionsDaily])
     const raw = stored[KeyCreatorRewardsStats]
     let updatedAt: number | undefined
     if (typeof raw === 'string') {
@@ -805,6 +819,8 @@ async function checkAndAutoRefreshCreatorRewards(): Promise<void> {
       updatedAt,
       parseRewardsHistory(stored[KeyCreatorRewardsHistory]),
       parseImpressionsCache(stored[KeyImpressionsDaily]),
+      Date.now(),
+      parseCreatorRewardsPageState(stored[KeyCreatorRewardsPageState]),
     )
     if (action === 'all') {
       console.info('[oh-my-x] 创作者奖励数据已到每日刷新节点，执行静默同步...')
@@ -1103,7 +1119,7 @@ export default defineBackground(() => {
   })
 
   browser.alarms?.onAlarm.addListener((alarm) => {
-    if (alarm.name === ALARM_CREATOR_REWARDS_CHECK) {
+    if (alarm.name === ALARM_CREATOR_REWARDS_CHECK || alarm.name === ALARM_CREATOR_REWARDS_DAILY) {
       void checkAndAutoRefreshCreatorRewards()
     }
   })
@@ -1222,8 +1238,8 @@ async function searchMentionUsers(query: string): Promise<MentionUser[]> {
   return parseMentionUsers(await res.json())
 }
 
-async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null> {
-  const csrf = await getCsrfToken()
+async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsObservation> {
+  const [csrf, account] = await Promise.all([getCsrfToken(), readRewardsAccount()])
   if (!csrf) {
     throw new AppError('error.noXSession')
   }
@@ -1249,34 +1265,42 @@ async function fetchCreatorRewardsFromApi(): Promise<CreatorRewardsStats | null>
   }
 
   const arrayBuffer = await res.arrayBuffer()
-  const stats = parseCreatorRewardsPayload(arrayBuffer)
-  if (!stats) {
+  const observation = parseCreatorRewardsObservation(arrayBuffer)
+  if (!observation) {
     throw new AppError('error.rewardsParse')
   }
 
+  if (account && (await readRewardsAccount()) !== account) throw new AppError('error.accountChanged')
+
   try {
-    await persistCreatorRewardsStats(stats)
+    if (account && observation.kind === 'active' && observation.paidAmount) {
+      await recordRewardsPayout(account, observation.paidAmount, observation.updatedAt)
+    }
+    await persistCreatorRewardsObservation(observation)
   } catch {
     // 忽略存储异常
   }
 
-  return stats
+  return observation
 }
 
-/** 奖励计划进度和账号分析的每日曝光一起取；账号分析失败不影响进度 */
+let rewardsFetchInFlight: Promise<CreatorRewardsObservation> | null = null
+
+/** 奖励计划与每日曝光一起取，多个刷新入口共用进行中的奖励请求。 */
 async function refreshCreatorRewardsData(days = 14): Promise<{
   ok: boolean
   stats?: CreatorRewardsStats | null
   error?: TransferableError
   impressionsError?: TransferableError
 }> {
+  rewardsFetchInFlight ??= fetchCreatorRewardsFromApi().finally(() => { rewardsFetchInFlight = null })
   const [rewards, impressions] = await Promise.allSettled([
-    fetchCreatorRewardsFromApi(),
+    rewardsFetchInFlight,
     fetchImpressionsDailyFromApi(days),
   ])
   return {
     ok: rewards.status === 'fulfilled' && Boolean(rewards.value),
-    stats: rewards.status === 'fulfilled' ? rewards.value : null,
+    stats: rewards.status === 'fulfilled' && rewards.value.kind === 'progress' ? rewards.value.stats : null,
     error: rewards.status === 'rejected' ? toTransferable(rewards.reason, 'error.rewardsParse') : undefined,
     impressionsError: impressions.status === 'rejected' ? toTransferable(impressions.reason, 'error.analyticsShape') : undefined,
   }

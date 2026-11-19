@@ -5,12 +5,43 @@ import {
   parseNumberWithUnit,
   formatImpressionsCount,
   parseCreatorRewardsPayload,
+  parseCreatorRewardsObservation,
   isCreatorRewardsStale,
   TARGET_IMPRESSIONS_COUNT,
   TARGET_IMPRESSIONS_TEXT,
 } from '../../shared/creator-rewards'
 
 describe('creator-rewards 单元测试', () => {
+  describe('申请阶段识别', () => {
+    // 2026-11-19 已登录账户真实响应中的稳定字段，不含账户信息。
+    const application = 'page!creators_original_content_rewards\u0000section intro\u0000element application_next\u0000//creators/original_content_rewards/select_posts'
+    it('接口进入选择帖子流程时返回申请状态，不能伪造 500K 读数', () => {
+      expect(parseCreatorRewardsObservation(new TextEncoder().encode(application))).toEqual({
+        kind: 'application', updatedAt: expect.any(Number),
+      })
+      expect(parseCreatorRewardsPayload(application)).toBeNull()
+    })
+    it('已经提交申请时识别审核阶段，不再重复提示申请', () => {
+      const text = 'page!creators_original_content_rewards\u0000section under_review\u0000element under_review_done\u0000/creators/studio'
+      expect(parseCreatorRewardsObservation(text)).toEqual({ kind: 'under_review', updatedAt: expect.any(Number) })
+      expect(parseCreatorRewardsObservation('账户审核\n申请审核中\n感谢提交！你很快会收到更新。\n完成')?.kind).toBe('under_review')
+      expect(parseCreatorRewardsObservation('under_review')).toBeNull()
+    })
+    it('暂缺数字、仅有下一步、登录页、普通 HTML 都不能当成达标', () => {
+      for (const text of ['original_content_rewards', '下一步', 'creators Please log in', '<html>original_content_rewards application_next</html>']) {
+        expect(parseCreatorRewardsObservation(text)).toBeNull()
+      }
+    })
+    it('返回旧资格清单时不能被响应中预载的申请标记误判', () => {
+      const result = parseCreatorRewardsObservation(`${application}\nHave at least 500K Verified Home Timeline impressions\n494.6K\nDoes not include replies`)
+      expect(result?.kind).toBe('progress')
+    })
+    it('实际页面文字也能识别申请入口，资格清单未消失时不识别', () => {
+      const text = '原创内容奖励\n让帖子开始为你赚取收益\n申请加入原创内容奖励计划，开始赚取内容收益。\n下一步'
+      expect(parseCreatorRewardsObservation(text)?.kind).toBe('application')
+      expect(parseCreatorRewardsObservation(`${text}\n回复不计入曝光`)).toBeNull()
+    })
+  })
   describe('isCreatorRewardsUrl URL 判定', () => {
     it('正确识别官方 Jetfuel 接口与页面 URL', () => {
       expect(
@@ -123,6 +154,20 @@ describe('creator-rewards 单元测试', () => {
     it('当数据无关或为空时安全返回 null', () => {
       expect(parseCreatorRewardsPayload('')).toBeNull()
       expect(parseCreatorRewardsPayload('unrelated content without metrics')).toBeNull()
+    })
+
+    it('奖励页不再提供曝光数字时返回 null，不能生成零值覆盖旧数据', () => {
+      expect(parseCreatorRewardsPayload('original_content_rewards creators Check back later')).toBeNull()
+      expect(parseCreatorRewardsPayload('original_content_rewards Have at least 500K Verified Home Timeline impressions in the last 90 days')).toBeNull()
+    })
+
+    it('当前曝光恰好为 500K 时能与说明中的目标值区分', () => {
+      const result = parseCreatorRewardsPayload(
+        'original_content_rewards\nHave at least 500K Verified Home Timeline impressions in the last 90 days\n500K\nDoes not include replies',
+      )
+      expect(result?.impressionsCount).toBe(500000)
+      expect(result?.requirements.impressionsMet).toBe(true)
+      expect(result?.progressPercent).toBe(100)
     })
 
     it('解析 X 英文界面的接口返回（文字取自 2026-10-18 英文账号的真实响应，含分隔字节）', () => {

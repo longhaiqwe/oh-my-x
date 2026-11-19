@@ -23,7 +23,7 @@ const reports = []
 try {
   for (const scenario of [
     {name:'monday',width:1280,height:720,monday:true}, {name:'desktop', width:1366,height:768}, {name:'laptop',width:1280,height:720}, {name:'short-screen',width:1366,height:640}, {name:'english-desktop',width:1366,height:768,en:true}, {name:'mobile', width:375},
-    {name:'dark', width:1280,dark:true}, {name:'english-mobile',width:360,en:true},
+    {name:'dark', width:1280,dark:true}, {name:'english-mobile',width:360,en:true,active:true}, {name:'active-desktop',width:1280,active:true},
     {name:'bursty',width:1280,height:720,bursty:true}, {name:'sparse-history',width:1280,height:720,sparse:true}, {name:'empty',width:1280,empty:true}, {name:'partial',width:1280,partial:true},
   ]) {
     const page = await browser.newPage({viewport:{width:scenario.width,height:scenario.height||768},colorScheme:scenario.dark?'dark':'light',acceptDownloads:true})
@@ -51,13 +51,27 @@ try {
         uiLanguage: scenario.en ? 'en' : 'zh-CN',
         creatorRewardsHistory: JSON.stringify(history),
         impressionsDaily: JSON.stringify({days,updatedAt:fixed}),
+        ...(scenario.active && {
+          creatorRewardsPageState: JSON.stringify({stage:'active',updatedAt:fixed,paidAmount:'$75.00',nextPayoutDate:'2026-11-20'}),
+          creatorRewardsPayoutHistory: { '123': { totalCents: 7500, observedAt: fixed, records: [{fromAt:fixed-86400000,observedAt:fixed,changeCents:7500}] } },
+        }),
         ...(scenario.empty ? {} : {creatorRewardsStats:JSON.stringify({impressionsCount:count,targetImpressionsCount:500000,updatedAt:fixed})}),
       }
       window.requests = []
       window.storageListeners = []
       window.chrome = {runtime:{id:'rewards-test',sendMessage:async msg => {window.requests.push(msg);return scenario.empty ? {ok:false} : {ok:true}},getURL:path=>path},storage:{local:{get:async()=>state,set:async data=>Object.assign(state,data)},onChanged:{addListener:fn=>window.storageListeners.push(fn),removeListener:()=>{}}},i18n:{getUILanguage:()=>scenario.en?'en':'zh-CN'}}
+      window.chrome.cookies = { get: async () => ({ value: 'u%3D123' }) }
     }, scenario)
     await page.goto(`${origin}/rewards.html`)
+    if (scenario.active) {
+      await page.locator('.rewards-payout li').first().waitFor()
+      assert.match(await page.locator('.rewards-payout').innerText(), /75\.00/)
+      assert.equal(await page.locator('.metric-grid').count(), 0)
+      await page.screenshot({path:`${output}/${scenario.name}-payouts.png`,fullPage:true})
+      await page.getByRole('button', {name:scenario.en?'Impression history':'曝光历史'}).click()
+      assert.match(await page.locator('.current-progress').innerText(), scenario.en ? /Rewards program active/ : /奖励计划已启用/)
+      assert.equal(await page.locator('.current-progress progress').count(), 0)
+    }
     await page.locator('.metric-grid').waitFor()
     assert.equal(await page.locator('h2').innerText(),'2026-11-09 — 2026-11-15')
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),scenario.name+' horizontal overflow')

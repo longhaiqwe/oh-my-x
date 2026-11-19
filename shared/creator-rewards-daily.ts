@@ -1,14 +1,16 @@
 /**
  * 原创内容奖励计划的每日数据：
- * - 奖励计划接口只返回「过去 90 天累计的已验证首页时间线曝光」一个数，没有历史，
+ * - 奖励计划接口在进度阶段返回「过去 90 天累计的已验证首页时间线曝光」一个数，没有历史，
  *   所以每天记一次，相邻两天相减得到奖励进度净变化（包含到期移出与平台修正）。
+ * - 申请阶段与已启用的收益面板分别记录页面状态，不据此补写曝光快照。
  * - 整体曝光和蓝 V 曝光来自账号分析页的 accountOverviewDailyQuery，按 UTC 日返回。
  */
 import {
   KeyCreatorRewardsHistory,
   KeyCreatorRewardsStats,
+  KeyCreatorRewardsPageState,
 } from '../storage-keys'
-import { isCreatorRewardsStale, type CreatorRewardsStats } from './creator-rewards'
+import { isCreatorRewardsStale, parseCreatorRewardsPageState, type CreatorRewardsStats, type CreatorRewardsObservation, type CreatorRewardsPageState } from './creator-rewards'
 
 /** 日期（UTC，YYYY-MM-DD）→ 截至当天结束的 90 天累计曝光 */
 export type RewardsHistory = Record<string, number>
@@ -112,7 +114,12 @@ export function pickCreatorRewardsAutoRefresh(
   history: RewardsHistory,
   impressions: ImpressionsDailyCache | null,
   now = Date.now(),
+  pageState: CreatorRewardsPageState | null = null,
 ): 'all' | 'impressions' | null {
+  if (pageState && pageState.stage !== 'tracking') {
+    if (isCreatorRewardsStale(pageState.updatedAt, now)) return 'all'
+    return isImpressionsMissingYesterday(impressions, now) && isAutoRetryDue(impressions?.updatedAt, now) ? 'impressions' : null
+  }
   if (isCreatorRewardsStale(rewardsUpdatedAt, now)) return 'all'
   if (isRewardsHistoryMissingToday(history, now) && isAutoRetryDue(rewardsUpdatedAt, now)) return 'all'
   if (isImpressionsMissingYesterday(impressions, now) && isAutoRetryDue(impressions?.updatedAt, now)) return 'impressions'
@@ -252,6 +259,26 @@ export function buildDailyConversion(
 interface StorageArea {
   get(keys: string | string[]): Promise<Record<string, unknown>>
   set(items: Record<string, unknown>): Promise<void>
+}
+
+/** 未识别的响应不进入本函数；只有进度响应才生成曝光读数或每日快照。 */
+export async function persistCreatorRewardsObservation(
+  observation: CreatorRewardsObservation,
+  storage: StorageArea = browser.storage.local as unknown as StorageArea,
+): Promise<void> {
+  const stored = await storage.get(KeyCreatorRewardsPageState)
+  const previous = parseCreatorRewardsPageState(stored[KeyCreatorRewardsPageState])
+  const updatedAt = observation.kind === 'progress' ? observation.stats.updatedAt : observation.updatedAt
+  if (previous && previous.updatedAt > updatedAt) return
+  let state: CreatorRewardsPageState
+  if (observation.kind === 'active') {
+    const { kind, ...payout } = observation
+    state = { ...payout, stage: kind }
+  } else {
+    if (observation.kind === 'progress') await persistCreatorRewardsStats(observation.stats, storage)
+    state = { stage: observation.kind === 'progress' ? 'tracking' : observation.kind, updatedAt }
+  }
+  await storage.set({ [KeyCreatorRewardsPageState]: JSON.stringify(state) })
 }
 
 /** 保存最新读数，并记入每日历史。拦截器、页面扫描、后台请求都走这里 */

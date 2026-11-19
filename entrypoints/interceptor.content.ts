@@ -41,7 +41,7 @@ import {
 import type { ProfileActivityEntry } from '../shared/profile-activity'
 import {
   isCreatorRewardsUrl,
-  parseCreatorRewardsPayload,
+  parseCreatorRewardsObservation,
 } from '../shared/creator-rewards'
 import { ACCOUNT_OVERVIEW_OPERATION } from '../shared/creator-rewards-daily'
 import { CREATE_DRAFT_OPERATION } from '../shared/selection-draft'
@@ -904,13 +904,13 @@ export default defineContentScript({
 
     function handleCreatorRewards(payload: ArrayBuffer | Uint8Array | string) {
       try {
-        const stats = parseCreatorRewardsPayload(payload)
-        if (!stats) return
+        const observation = parseCreatorRewardsObservation(payload)
+        if (!observation) return
         window.postMessage(
-          { type: CREATOR_REWARDS_TYPE, payload: stats, __xf: XF_BRIDGE_MARKER },
+          { type: CREATOR_REWARDS_TYPE, payload: observation, __xf: XF_BRIDGE_MARKER },
           '*',
         )
-        debug('已广播创作者奖励指标', stats)
+        debug('已广播创作者奖励状态', observation)
       } catch (e) {
         debug('创作者奖励指标解析/发送失败', e)
       }

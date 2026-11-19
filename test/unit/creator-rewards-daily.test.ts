@@ -10,15 +10,50 @@ import {
   parseImpressionsCache,
   parseRewardsHistory,
   persistCreatorRewardsStats,
+  persistCreatorRewardsObservation,
   pickCreatorRewardsAutoRefresh,
   rewardsDataDate,
   shiftDateKey,
 } from '../../shared/creator-rewards-daily'
-import { KeyCreatorRewardsHistory, KeyCreatorRewardsStats } from '../../storage-keys'
+import { KeyCreatorRewardsHistory, KeyCreatorRewardsStats, KeyCreatorRewardsPageState } from '../../storage-keys'
 import type { CreatorRewardsStats } from '../../shared/creator-rewards'
 
 // 北京时间 = UTC + 8；奖励计划在 UTC 02:30（北京 10:30）更新到前一天
 const utc = (iso: string) => Date.parse(`${iso}Z`)
+
+describe('申请阶段存储与自动检查', () => {
+  it('首次观察到申请页只写状态，保留历史数值和全部每日记录', async () => {
+    const stats = { impressionsCount: 494600, updatedAt: 1 }
+    const store: Record<string, unknown> = { [KeyCreatorRewardsStats]: JSON.stringify(stats), [KeyCreatorRewardsHistory]: JSON.stringify({ '2026-11-17': 494600 }) }
+    const before = JSON.stringify(store)
+    const storage = { get: async () => ({ ...store }), set: async (items: Record<string, unknown>) => { Object.assign(store, items) } }
+    await persistCreatorRewardsObservation({ kind: 'application', updatedAt: 100 }, storage)
+    expect(JSON.parse(store[KeyCreatorRewardsPageState] as string)).toEqual({ stage: 'application', updatedAt: 100 })
+    delete store[KeyCreatorRewardsPageState]
+    expect(JSON.stringify(store)).toBe(before)
+  })
+  it('没有旧读数的用户也能记录申请状态，不能补出零值或虚构历史', async () => {
+    const store: Record<string, unknown> = {}
+    const storage = { get: async () => ({ ...store }), set: async (items: Record<string, unknown>) => { Object.assign(store, items) } }
+    await persistCreatorRewardsObservation({ kind: 'application', updatedAt: 100 }, storage)
+    expect(Object.keys(store)).toEqual([KeyCreatorRewardsPageState])
+  })
+  it('晚到的旧进度不覆盖较新的申请状态，实际重新出现的进度可以恢复跟踪', async () => {
+    const store: Record<string, unknown> = { [KeyCreatorRewardsPageState]: JSON.stringify({ stage: 'application', updatedAt: 100 }) }
+    const storage = { get: async () => ({ ...store }), set: async (items: Record<string, unknown>) => { Object.assign(store, items) } }
+    await persistCreatorRewardsObservation({ kind: 'progress', stats: { impressionsCount: 494600, updatedAt: 99 } as CreatorRewardsStats }, storage)
+    expect(JSON.parse(store[KeyCreatorRewardsPageState] as string).stage).toBe('application')
+    await persistCreatorRewardsObservation({ kind: 'progress', stats: { impressionsCount: 494600, updatedAt: 101 } as CreatorRewardsStats }, storage)
+    expect(JSON.parse(store[KeyCreatorRewardsPageState] as string).stage).toBe('tracking')
+  })
+  it('申请阶段不再追补不存在的每日奖励读数，但次日仍检查接口', () => {
+    const now = utc('2026-11-19T03:00:00')
+    const page = { stage: 'application' as const, updatedAt: now }
+    const impressions = { updatedAt: now, days: { '2026-11-18': { total: 1, verified: 1 } } }
+    expect(pickCreatorRewardsAutoRefresh(1, {}, impressions, now + 600000, page)).toBeNull()
+    expect(pickCreatorRewardsAutoRefresh(1, {}, impressions, now + 86400000, page)).toBe('all')
+  })
+})
 
 describe('rewardsDataDate 读数截至哪一天', () => {
   it('UTC 02:30 之后读到的是前一天的累计', () => {

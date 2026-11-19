@@ -28,6 +28,8 @@ import {
   KeyChatMoneyButton,
   KeyCommunitiesButton,
   KeyCreatorRewardsStats,
+  KeyCreatorRewardsPageState,
+  KeyCreatorRewardsPayoutHistory,
   KeyCreatorRewardsHistory,
   KeyImpressionsDaily,
   KeyAccountOverviewQueryId,
@@ -271,7 +273,7 @@ export const FEATURES: readonly FeatureDefinition[] = [
   {
     id: 'creatorRewards',
     module: 'insight',
-    storageKeys: [KeyCreatorRewardsStats, KeyCreatorRewardsHistory, KeyImpressionsDaily, KeyAccountOverviewQueryId, KeyCreatorRewardsCollapsed],
+    storageKeys: [KeyCreatorRewardsStats, KeyCreatorRewardsPageState, KeyCreatorRewardsHistory, KeyCreatorRewardsPayoutHistory, KeyImpressionsDaily, KeyAccountOverviewQueryId, KeyCreatorRewardsCollapsed],
   },
   {
     id: 'audience',

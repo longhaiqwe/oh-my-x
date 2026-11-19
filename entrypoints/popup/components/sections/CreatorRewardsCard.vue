@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   KeyCreatorRewardsCollapsed,
   KeyCreatorRewardsHistory,
+  KeyCreatorRewardsPayoutHistory,
   KeyCreatorRewardsStats,
+  KeyCreatorRewardsPageState,
   KeyImpressionsDaily,
 } from '../../../../storage-keys'
 import { getStorage, setStorage } from '../../../../content-scripts/utilities/storage'
 import type { CreatorRewardsStats } from '../../../../shared/creator-rewards'
-import { formatImpressionsCount, isCreatorRewardsStale } from '../../../../shared/creator-rewards'
+import { formatImpressionsCount, isCreatorRewardsStale, parseCreatorRewardsPageState, type CreatorRewardsPageState } from '../../../../shared/creator-rewards'
 import {
   buildDailyConversion,
   isImpressionsMissingYesterday,
@@ -22,9 +24,11 @@ import {
   type RewardsHistory,
 } from '../../../../shared/creator-rewards-daily'
 import { useI18n } from '../../composables/useI18n'
-import { errorText, type TransferableError } from '../../../../shared/errors'
+import { errorText, hasErrorCode, type TransferableError } from '../../../../shared/errors'
 import FeatureCard from '../ui/FeatureCard.vue'
 import HintTooltip from '../ui/HintTooltip.vue'
+import RewardsPayoutPanel from '../../../../shared/components/RewardsPayoutPanel.vue'
+import { readRewardsAccount, rewardsLedgerFor, type RewardsPayoutLedger } from '../../../../shared/creator-rewards-payouts'
 
 const { t, locale } = useI18n()
 
@@ -42,6 +46,15 @@ const IMPRESSIONS_RETRY_MS = 10 * 60 * 1000
 const BAR_MAX_HEIGHT = 32
 
 const stats = ref<CreatorRewardsStats | null>(null)
+const pageState = ref<CreatorRewardsPageState | null>(null)
+const hasPostEligibilityStage = computed(() => Boolean(pageState.value && pageState.value.stage !== 'tracking'))
+const payout = computed(() => pageState.value?.stage === 'active' ? pageState.value : null)
+const ledger = ref<RewardsPayoutLedger>()
+const hasPayoutAccount = ref(false)
+const rewardsKeys = [KeyCreatorRewardsStats, KeyCreatorRewardsPageState, KeyCreatorRewardsHistory, KeyCreatorRewardsPayoutHistory, KeyImpressionsDaily]
+const isUnderReview = computed(() => pageState.value?.stage === 'under_review')
+const hasReached = computed(() => hasPostEligibilityStage.value || Boolean(stats.value && stats.value.impressionsCount >= stats.value.targetImpressionsCount))
+const refreshPending = ref(false)
 const history = ref<RewardsHistory>({})
 const impressions = ref<ImpressionsDailyCache | null>(null)
 const loading = ref(false)
@@ -136,8 +149,9 @@ const remainingText = computed(() => {
 })
 
 const lastUpdatedText = computed(() => {
-  if (!stats.value?.updatedAt) return ''
-  const d = new Date(stats.value.updatedAt)
+  const updatedAt = hasPostEligibilityStage.value ? pageState.value?.updatedAt : stats.value?.updatedAt
+  if (!updatedAt) return ''
+  const d = new Date(updatedAt)
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -167,7 +181,8 @@ const lastUpdatedText = computed(() => {
 
 async function readStorage() {
   try {
-    const data = await getStorage([KeyCreatorRewardsStats, KeyCreatorRewardsHistory, KeyImpressionsDaily])
+    const data = await getStorage(rewardsKeys)
+    pageState.value = parseCreatorRewardsPageState(data[KeyCreatorRewardsPageState])
     const raw: unknown = data[KeyCreatorRewardsStats]
     if (typeof raw === 'string') {
       stats.value = JSON.parse(raw) as CreatorRewardsStats
@@ -176,6 +191,9 @@ async function readStorage() {
     }
     history.value = parseRewardsHistory(data[KeyCreatorRewardsHistory])
     impressions.value = parseImpressionsCache(data[KeyImpressionsDaily])
+    const account = payout.value ? await readRewardsAccount() : undefined
+    ledger.value = rewardsLedgerFor(data[KeyCreatorRewardsPayoutHistory], account)
+    hasPayoutAccount.value = Boolean(account)
   } catch {
     // ignore
   }
@@ -183,8 +201,13 @@ async function readStorage() {
 
 function needsRefresh(): boolean {
   // 进度过了每天 10:30 的分界线、还没记到当天的累计数，或账号分析数据超过一小时
-  if (!stats.value || isCreatorRewardsStale(stats.value.updatedAt)) return true
-  if (isRewardsHistoryMissingToday(history.value)) return true
+  if (payout.value?.paidAmount && hasPayoutAccount.value && !ledger.value) return true
+  if (hasPostEligibilityStage.value) {
+    if (isCreatorRewardsStale(pageState.value?.updatedAt)) return true
+  } else {
+    if (!stats.value || isCreatorRewardsStale(stats.value.updatedAt)) return true
+    if (isRewardsHistoryMissingToday(history.value)) return true
+  }
   if (!impressions.value) return true
   const age = Date.now() - impressions.value.updatedAt
   // 账号分析还没出昨天的数：打开弹窗时补取，10 分钟内最多一次
@@ -229,6 +252,7 @@ async function requestRefresh(): Promise<RefreshResponse | undefined> {
     type: 'XF_FETCH_CREATOR_REWARDS',
   })) as RefreshResponse | undefined
   await readStorage()
+  refreshPending.value = !response?.ok && hasErrorCode(response?.error, 'error.rewardsParse')
   return response
 }
 
@@ -251,7 +275,7 @@ async function refreshData() {
 
   try {
     const response = await requestRefresh()
-    if (!response?.ok) {
+    if (!response?.ok && !refreshPending.value) {
       errorMsg.value = errorText(response?.error) || t('rewards.fetchFailed')
     }
     impressionsError.value = errorText(response?.impressionsError) || null
@@ -271,12 +295,24 @@ function openHistory() {
 }
 
 onMounted(() => {
+  browser.storage.onChanged?.addListener(onStorageChanged)
   void loadFromStorage()
 })
+
+function onStorageChanged(changes: Record<string, unknown>, area: string) {
+  if (area === 'local' && rewardsKeys.some(key => key in changes)) {
+    void readStorage().then(() => { if (hasReached.value) { errorMsg.value = null; refreshPending.value = false } })
+  }
+}
+
+onUnmounted(() => browser.storage.onChanged?.removeListener(onStorageChanged))
 </script>
 
 <template>
-  <FeatureCard feature-id="creatorRewards">
+  <!-- Refactoring UI：主信息为达标状态与庆祝文案；旧读数、来源为次信息；历史图为第三层。
+       沿用 text-xl/sm/xs、gap-2/3、p-3、rounded-control 与现有语义色；申请阶段唯一主要操作为继续申请。
+       通过标题和勾号表达状态，不只依赖颜色；不把状态换算为虚构的曝光读数。 -->
+  <FeatureCard feature-id="creatorRewards" :description="payout ? t('rewards.activeDescription') : undefined">
     <template #control>
       <div class="flex items-center gap-1">
         <template v-if="!collapsed">
@@ -349,9 +385,25 @@ onMounted(() => {
     <!-- 收起时只剩标题和说明 -->
     <template v-if="!collapsed">
 
-      <template v-if="stats">
+      <div v-if="payout" class="flex flex-col gap-3 p-3 rounded-control bg-sunken-bg">
+        <p class="text-sm font-semibold text-text" role="status">{{ t('rewards.active') }}</p>
+        <RewardsPayoutPanel :payout="payout" :ledger="ledger" compact />
+      </div>
+
+      <div v-else-if="hasReached" class="rewards-achieved flex flex-col gap-3 p-3 rounded-control bg-sunken-bg" role="status" aria-live="polite">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg>
+          <p class="text-base font-semibold text-text">{{ t(isUnderReview ? 'rewards.underReview' : hasPostEligibilityStage ? 'rewards.applicationReady' : 'rewards.reached') }}</p>
+        </div>
+        <p class="text-sm leading-relaxed text-text">{{ t('rewards.celebration') }}</p>
+        <p class="text-xs leading-relaxed text-secondary-text">{{ t(isUnderReview ? 'rewards.reviewConfirmed' : hasPostEligibilityStage ? 'rewards.applicationConfirmed' : 'rewards.impressionsReached') }}</p>
+        <p v-if="hasPostEligibilityStage && stats && stats.impressionsCount > 0" class="text-xs text-muted-text">{{ t('rewards.lastRecorded', { count: stats.impressionsText }) }}</p>
+        <button type="button" @click="openRewardsPage" class="self-start inline-flex items-center min-h-8 px-3 py-2 rounded-control bg-accent text-on-accent text-xs font-semibold hover:bg-accent-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent-ring">{{ t(isUnderReview ? 'rewards.viewReview' : hasPostEligibilityStage ? 'rewards.continueApplication' : 'rewards.openInXLabel') }}</button>
+      </div>
+
+      <template v-if="stats && !payout">
         <!-- 进度：90 天累计 / 目标 -->
-        <div class="flex flex-col gap-2">
+        <div v-if="!hasPostEligibilityStage" class="flex flex-col gap-2">
           <div class="flex items-baseline justify-between gap-2">
             <div class="flex items-baseline gap-2" :title="t('rewards.progressTitle')">
               <span class="text-xl font-semibold tracking-tight text-text">{{ stats.impressionsText }}</span>
@@ -455,7 +507,7 @@ onMounted(() => {
       </template>
 
       <!-- 无数据 -->
-      <div v-else class="flex flex-col items-center justify-center py-1 text-center">
+      <div v-else-if="!hasPostEligibilityStage" class="flex flex-col items-center justify-center py-1 text-center">
         <p class="text-xs text-secondary-text mb-3">{{ t('rewards.noData') }}</p>
         <button
           type="button"
@@ -467,6 +519,7 @@ onMounted(() => {
         </button>
       </div>
 
+      <p v-if="refreshPending" class="text-xs leading-relaxed text-muted-text" role="status">{{ t(stats ? 'rewards.pendingWithCache' : 'rewards.pendingWithoutCache') }}</p>
       <p v-if="errorMsg" class="text-xs text-danger pt-3 border-t border-border">
         {{ errorMsg }}
       </p>
@@ -474,7 +527,7 @@ onMounted(() => {
         {{ impressionsError }}
       </p>
       <button type="button" @click="openHistory" class="w-full flex items-center justify-between text-xs text-accent-text py-2 cursor-pointer rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent-ring">
-        <span>{{ t('rewardsDashboard.history') }}</span><span aria-hidden="true">→</span>
+        <span>{{ t(payout ? 'rewards.viewPayoutHistory' : 'rewardsDashboard.history') }}</span><span aria-hidden="true">→</span>
       </button>
     </template>
   </FeatureCard>

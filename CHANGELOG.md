@@ -6,6 +6,15 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.3.0 - 2026-11-19
+
+### Creator rewards
+
+- Preserve the last recorded impression count and history when X switches from eligibility progress to application or review. Show the milestone message once the goal is reached.
+- After approval, show the total paid, the next payout date reported by X, and the latest payout changes. Open payout history by default and keep impression history available separately.
+- Record changes in the total paid locally for each X account. The first reading sets the baseline. If multiple payouts occur between readings, the record shows the combined change.
+- Schedule the daily check for 10:30 Beijing time while retaining retries for delayed analytics.
+
 ## 3.2.1 - 2026-11-18
 
 ### Features

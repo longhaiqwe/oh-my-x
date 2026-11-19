@@ -105,6 +105,8 @@ export const KeyPopupActiveTab = 'popupActiveTab' // last active tab
 
 // Stat ratio storage keys
 export const KeyCreatorRewardsStats = 'creatorRewardsStats'
+export const KeyCreatorRewardsPageState = 'creatorRewardsPageState' // 进度页 / 申请页，与真实曝光读数分开保存
+export const KeyCreatorRewardsPayoutHistory = 'creatorRewardsPayoutHistory' // 按 X 账号保存累计发放金额的变化
 export const KeyCreatorRewardsHistory = 'creatorRewardsHistory' // 奖励计划 90 天累计曝光的每日记录
 export const KeyImpressionsDaily = 'impressionsDaily' // 账号分析的每日整体 / 蓝 V 曝光
 export const KeyAccountOverviewQueryId = 'accountOverviewQueryId' // 账号分析接口编号，X 页面里抓到的

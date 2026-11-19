@@ -29,6 +29,80 @@ export interface CreatorRewardsStats {
 export const TARGET_IMPRESSIONS_COUNT = 500000
 export const TARGET_IMPRESSIONS_TEXT = '500K'
 
+interface CreatorRewardsPayout {
+  /** 保留 X 已格式化的发放金额，包括真实的 $0.00 */
+  paidAmount?: string
+  /** X 显示的日历日期，不含时区或发放时间 */
+  nextPayoutDate?: string
+}
+
+/** 页面阶段和收益发放信息独立于曝光读数。 */
+export type CreatorRewardsPageState =
+  | { stage: 'tracking' | 'application' | 'under_review'; updatedAt: number }
+  | ({ stage: 'active'; updatedAt: number } & CreatorRewardsPayout)
+
+export type CreatorRewardsObservation =
+  | { kind: 'progress'; stats: CreatorRewardsStats }
+  | { kind: 'application' | 'under_review'; updatedAt: number }
+  | ({ kind: 'active'; updatedAt: number } & CreatorRewardsPayout)
+
+const PAYOUT_AMOUNT = /\$\d+(?:,\d{3})*\.\d{2}(?!\d)/
+const PAYOUT_DATE = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}(?!\d)/
+
+function parseDashboardPayout(text: string): CreatorRewardsPayout {
+  // 实测顺序是金额在「累计收益发放」之前，日期在「下次发放日期」之后。
+  // 二进制控制字段隔开相邻文本。仅在各自标签附近取值，避免读取规则里的最低发放金额。
+  const paidLabel = /累计收益发放|(?:total|lifetime|all-time) payouts/i.exec(text)
+  const dateLabel = /下次发放日期|next payout date/i.exec(text)
+  const paidAmount = paidLabel
+    ? Array.from(text.slice(Math.max(0, paidLabel.index - 100), paidLabel.index).matchAll(new RegExp(PAYOUT_AMOUNT, 'g'))).at(-1)?.[0]
+    : undefined
+  const dateText = dateLabel ? text.slice(dateLabel.index + dateLabel[0].length, dateLabel.index + dateLabel[0].length + 100).match(PAYOUT_DATE)?.[0] : undefined
+  const dateMs = dateText ? Date.parse(`${dateText} UTC`) : NaN
+  return {
+    ...(paidAmount && { paidAmount }),
+    ...(Number.isFinite(dateMs) && { nextPayoutDate: new Date(dateMs).toISOString().slice(0, 10) }),
+  }
+}
+
+export function parseCreatorRewardsPageState(raw: unknown): CreatorRewardsPageState | null {
+  try {
+    const value = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Number.isFinite(value?.updatedAt) || value.updatedAt <= 0) return null
+    if (value.stage === 'active') {
+      const { updatedAt, paidAmount, nextPayoutDate } = value
+      return {
+        stage: 'active', updatedAt,
+        ...(typeof paidAmount === 'string' && paidAmount.match(PAYOUT_AMOUNT)?.[0] === paidAmount && { paidAmount }),
+        ...(typeof nextPayoutDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(nextPayoutDate) &&
+          Number.isFinite(Date.parse(`${nextPayoutDate}T00:00:00Z`)) && { nextPayoutDate }),
+      }
+    }
+    if (['tracking', 'application', 'under_review'].includes(value.stage)) return { stage: value.stage, updatedAt: value.updatedAt }
+  } catch {}
+  return null
+}
+
+/** 同时识别进度与申请阶段。2026-11-19 实测申请页含 application_next 和 select_posts。 */
+export function parseCreatorRewardsObservation(payload: ArrayBuffer | Uint8Array | string): CreatorRewardsObservation | null {
+  const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload)
+  // 普通 HTML 外壳、登录页、预载脚本均不能作为达标凭据。
+  if (/<(?:!doctype|html|script)\b/i.test(text)) return null
+  if (text.includes('page!creators_original_content_rewards') && /\bsection[\x00-\x20]+dashboard\b/.test(text)) {
+    return { kind: 'active', updatedAt: Date.now(), ...parseDashboardPayout(text) }
+  }
+  if (!REWARDS_PAGE_MARKERS.some(marker => text.includes(marker))) {
+    const reviewRoute = text.includes('creators_original_content_rewards') && text.includes('under_review_done') && text.includes('/creators/studio')
+    const reviewPage = text.includes('账户审核') && text.includes('申请审核中') && text.includes('感谢提交！你很快会收到更新。')
+    if (reviewRoute || reviewPage) return { kind: 'under_review', updatedAt: Date.now() }
+    const applicationRoute = text.includes('creators_original_content_rewards') && text.includes('application_next') && text.includes('/creators/original_content_rewards/select_posts')
+    const applicationPage = text.includes('让帖子开始为你赚取收益') && text.includes('申请加入原创内容奖励计划，开始赚取内容收益。') && text.includes('下一步')
+    if (applicationRoute || applicationPage) return { kind: 'application', updatedAt: Date.now() }
+  }
+  const stats = parseCreatorRewardsPayload(text)
+  return stats ? { kind: 'progress', stats } : null
+}
+
 /**
  * 判断是否为创作者奖励相关请求 URL
  */
@@ -145,8 +219,9 @@ export function parseCreatorRewardsPayload(
   for (const m of text.matchAll(candidateRegex)) {
     const raw = m[1].trim()
     const cleanNum = raw.replace(/,/g, '')
+    const pos = (m.index ?? 0) + m[0].indexOf(m[1])
 
-    // 过滤掉目标值（500K / 500,000 / 50万）
+    // 说明中的 500K 是目标值；紧邻「回复不计入曝光」的独立读数也可能恰好是 500K。
     if (
       cleanNum === '500K' ||
       cleanNum === '500k' ||
@@ -154,14 +229,16 @@ export function parseCreatorRewardsPayload(
       cleanNum === '50万' ||
       cleanNum === '50 万'
     ) {
-      continue
+      const afterNumber = text.slice(pos + raw.length)
+      if (!/^(?:[\s\x00-\x1f]|<[^>]*>)*(?:回复不计入曝光|Does not include replies)/.test(afterNumber)) {
+        continue
+      }
     }
 
     const val = parseNumberWithUnit(raw)
     if (val <= 0) continue
 
     // 计算当前匹配项距离最近关键词锚点的字符距离
-    const pos = m.index ?? 0
     let localMinDist = Infinity
 
     for (const anchor of REWARDS_ANCHORS) {
@@ -188,13 +265,9 @@ export function parseCreatorRewardsPayload(
     currentText = bestMatchText
     currentCount = parseNumberWithUnit(bestMatchText)
   } else {
-    // 降级兜底：若未命中锚点但存在明确的奖励关键词与有效数字
-    if (text.includes('original_content_rewards') || text.includes('creators')) {
-      currentText = '0'
-      currentCount = 0
-    } else {
-      return null
-    }
+    // 页面可能已进入申请流程，不再显示进度。缺少数字不代表曝光归零；
+    // 返回 null，让调用方保留旧读数，也不向每日历史写入虚假的变化。
+    return null
   }
 
   const progressPercent = Math.min(
