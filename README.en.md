@@ -251,6 +251,10 @@ Shows the bookmark count next to a post's Bookmark button. Turn it off under Ins
 
 ### 04 Create & Publish
 
+#### Voice replies
+
+Click the microphone in the media toolbar of an inline reply or reply dialog. Record up to 30 seconds and listen to the preview. Choose “Add to reply” to hand the recording to X as a video attachment with a still image, then use X’s Reply button to publish. Anyone who can view the reply can listen with X’s player.
+
 #### Quote my posts
 
 Adds a button to the post, quote, and reply editors. Search your own posts and articles and click a result to insert its link into the draft, without opening another tab.

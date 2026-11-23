@@ -1,6 +1,6 @@
 # Privacy Policy for oh-my-x
 
-Last updated: November 12, 2026
+Last updated: November 23, 2026
 
 **oh-my-x** customizes X/Twitter, filters comments, and provides optional creator tools. This document describes local storage, requests to X, and optional AI requests.
 
@@ -29,6 +29,7 @@ Optional OCR runs locally in a bundled Tesseract worker. It downloads versioned 
 - Mention by name: when you type a name containing non-English characters after @ in a post, quote, or reply editor, that name (up to 30 characters) is sent with your X session to X's user search, the same endpoint X's editor uses for @ suggestions. The results (names, usernames, profile image URLs, and whether you follow the account) are kept in the page's memory and discarded when the page is closed or reloaded.
 - Save selection to drafts: when you choose "Save to X drafts" from the right-click menu, the extension reads the selected text on that page once and sends it, followed by the page's link (http and https pages only), to X with your X session to create a draft in your account. If that fails, it opens `x.com/intent/post` with the same text in the address so you can save the draft yourself. Nothing is read or sent before you click the menu item.
 - GIF export downloads the selected post’s MP4 from `video.twimg.com` without cookies and converts it to GIF locally in an extension page. The extension does not upload media to a conversion service. Clicking Copy GIF writes the animation to the clipboard as HTML. When you paste this marked content into X’s editor, the extension restores it as a GIF attachment for X to upload; it does not publish the post. It does not request clipboard-read permission or read the clipboard in the background.
+- Voice replies request microphone access only when you click the record button. The extension combines up to 30 seconds of audio with a still image on your device, keeps the recording in memory for preview, and does not store the recording on disk or send it to an extension or AI server. When you choose “Add to reply,” the file is handed to the current X composer for upload as a video attachment. You publish the reply yourself. Anyone who can view the published reply can play it on X.
 - User actions can add a member to an X List, download media, or use interaction helpers. If enabled, the reply helper can like a post after a successful reply. These actions communicate with X or its media CDN.
 
 Opening Favorites can look up saved usernames through the existing X user-search endpoint to fill missing avatars. Only still-saved entries without an avatar are updated; names and order are preserved.

@@ -27,6 +27,7 @@ import {
 import { syncRadarPageMarker } from '../options/radar'
 import { ensureCreatorNavEntries } from '../options/creator-nav'
 import { addComposerInsertLinkButton } from '../options/composer'
+import { updateVoiceReplyComposers } from '../options/voice-reply'
 import { updateChatOwnPosts } from '../options/chat-own-posts'
 import { setComposerMediaGridEnabled, updateComposerMediaGrids } from '../options/composer-media'
 import { addScheduledRelativeTimes, maintainScheduledPostsCache, removeScheduledPanorama } from '../options/scheduled-time'
@@ -153,6 +154,7 @@ export const dynamicFeatures = {
 
         if (includesScope(scopes, 'composer')) {
           addComposerInsertLinkButton()
+          updateVoiceReplyComposers()
           updateChatOwnPosts()
           setComposerMediaGridEnabled(await getCachedComposerMediaGrid())
           updateComposerMediaGrids()

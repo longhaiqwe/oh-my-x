@@ -1,0 +1,94 @@
+/* 原生回复是主操作。麦克风沿用原生工具栏，录音控件使用 4/8 px 间距和 32 px 高度。 */
+.xf-voice-reply-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.xf-voice-reply-record,
+.xf-voice-reply-panel button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 32px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.xf-voice-reply-record {
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  color: var(--xf-accent, #1d9bf0);
+}
+
+.xf-voice-reply-record svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.xf-voice-reply-record:is(:hover, [aria-expanded="true"]) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.xf-voice-reply-record:focus-visible,
+.xf-voice-reply-panel button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.xf-voice-reply-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-block: 8px 4px;
+  padding: 8px;
+  border: 1px solid var(--xf-voice-border);
+  border-radius: 8px;
+  color: var(--xf-voice-fg);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.xf-voice-reply-status {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.xf-voice-reply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-inline-size: 100%;
+}
+
+.xf-voice-reply-panel time {
+  font-variant-numeric: tabular-nums;
+}
+
+.xf-voice-reply-panel button {
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.xf-voice-reply-panel :is([data-testid="xf-voice-reply-attach"], [data-testid="xf-voice-reply-stop"]) {
+  border-color: var(--xf-voice-border);
+}
+
+.xf-voice-reply-panel button:hover:not(:disabled) {
+  background: var(--xf-voice-hover);
+}
+
+.xf-voice-reply-panel button:disabled {
+  opacity: .5;
+  cursor: default;
+}
