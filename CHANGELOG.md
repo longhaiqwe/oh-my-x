@@ -6,6 +6,15 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.4.1 - 2026-11-23
+
+### Improvements and fixes
+
+- When Audience Insights is enabled, sync the signed-in account's followers, verified followers, and following in the background. Resume from saved progress and fill missing follower counts in batches.
+- Show views per hour in the X Article reader. Recalculate when X updates its view count and keep statistics from quoted posts separate.
+- Show saving, saved, and error states when editing custom AI repost styles.
+- Close the Rewind panel when clicking outside it.
+
 ## 3.4.0 - 2026-11-23
 
 ### Voice replies
