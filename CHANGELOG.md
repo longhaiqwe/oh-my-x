@@ -6,6 +6,14 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.4.0 - 2026-11-23
+
+### Voice replies
+
+- Record up to 30 seconds from the microphone in X's inline reply box or reply dialog. Preview or discard the recording before adding it.
+- The extension creates a video with a still image on your device. “Add to reply” hands the file to X for upload. Use X's Reply button to publish. Anyone who can view the reply can listen with X's player.
+- Microphone access is requested only when you start recording. No new extension permissions or recording storage.
+
 ## 3.3.0 - 2026-11-19
 
 ### Creator rewards
