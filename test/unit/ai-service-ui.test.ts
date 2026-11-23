@@ -144,6 +144,37 @@ it('copies a built-in without modifying it and cancels unsaved edits', async () 
   expect(root.querySelector<HTMLSelectElement>('#ai-option-a')!.options).toHaveLength(4)
 })
 
+it('shows progress until storage confirms the new style and clears success when editing resumes', async () => {
+  const storage = browser.storage.local
+  const originalSet = storage.set
+  let finishWrite!: () => void
+  const write = vi.spyOn(storage, 'set').mockImplementationOnce(async (patch) => {
+    await new Promise<void>(resolve => { finishWrite = resolve })
+    await originalSet(patch)
+  })
+  app = createApp(AiRepostCard); app.mount(root)
+  await settle()
+  await action('add')
+  await fill('#ai-style-name', '我的风格')
+  const save = root.querySelector<HTMLButtonElement>('[data-action="style-save"]')!
+  const status = () => save.parentElement?.querySelector('[role="status"]')?.textContent?.trim()
+
+  await action('save')
+  expect(status()).toBe('正在保存风格…')
+  expect(save.matches(':disabled')).toBe(true)
+  expect(stored.aiRepostStyles).toBeUndefined()
+  await action('save')
+  expect(write).toHaveBeenCalledTimes(1)
+
+  finishWrite()
+  await settle()
+  expect(status()).toBe('风格已保存')
+  expect(save.matches(':disabled')).toBe(false)
+  expect(JSON.parse(stored.aiRepostStyles as string)[0].name).toBe('我的风格')
+  await fill('#ai-style-examples', '新样本')
+  expect(status()).toBe('')
+})
+
 it('keeps an unsaved style editable when storage fails and allows retry', async () => {
   const storage = (globalThis as any).browser.storage.local
   const originalSet = storage.set
@@ -153,11 +184,17 @@ it('keeps an unsaved style editable when storage fails and allows retry', async 
   await action('add')
   await fill('#ai-style-name', '重试风格')
   await action('save')
-  expect(root.textContent).toContain('设置保存失败')
+  const save = root.querySelector<HTMLButtonElement>('[data-action="style-save"]')!
+  const alert = () => save.closest('fieldset')?.querySelector('[role="alert"]')?.textContent
+  expect(alert()).toBe('风格保存失败，请重试')
+  expect(root.querySelectorAll('[role="alert"]')).toHaveLength(1)
+  expect(root.textContent).not.toContain('风格已保存')
   expect(root.querySelector<HTMLInputElement>('#ai-style-name')!.value).toBe('重试风格')
   expect(root.querySelector<HTMLSelectElement>('#ai-option-a')!.options).toHaveLength(4)
   storage.set = originalSet
   await action('save')
+  expect(alert()).toBeUndefined()
+  expect(save.parentElement?.querySelector('[role="status"]')?.textContent).toBe('风格已保存')
   expect(JSON.parse(stored.aiRepostStyles as string)[0].name).toBe('重试风格')
   expect(root.querySelector<HTMLSelectElement>('#ai-option-a')!.options).toHaveLength(5)
 })

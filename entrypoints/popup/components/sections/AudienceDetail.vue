@@ -25,6 +25,10 @@ const records = ref<AudienceMeta[]>([]),
   dialog = ref<HTMLDialogElement | null>(null)
 let alive = true,
   serial = 0
+let openFollowers: {
+  record: AudienceMeta
+  panel: ReturnType<typeof openAudiencePanel>
+} | undefined
 async function refresh() {
   const token = ++serial
   try {
@@ -32,6 +36,17 @@ async function refresh() {
     if (alive && token === serial) {
       records.value = data.sort((a, b) => b.updatedAt - a.updatedAt)
       error.value = ''
+      const opened = openFollowers
+      const record = opened && data.find((value) => value.key === opened.record.key)
+      if (opened && !record) opened.panel.close()
+      if (opened && record && (record.updatedAt !== opened.record.updatedAt ||
+          record.bytes !== opened.record.bytes || record.batch !== opened.record.batch)) {
+        const snapshot = await audienceRequest<AudienceSnapshot | null>('read', { key: record.key })
+        if (snapshot && alive && token === serial && openFollowers === opened) {
+          opened.record = snapshot
+          opened.panel.update(snapshot)
+        }
+      }
     }
   } catch {
     if (alive && token === serial) error.value = t('audience.failure')
@@ -45,7 +60,13 @@ async function view(record: AudienceMeta) {
     const s = await audienceRequest<AudienceSnapshot | null>('read', {
       key: record.key,
     })
-    if (s && alive) openAudiencePanel(s, { saved: true })
+    if (s && alive) {
+      const panel = openAudiencePanel(s, {
+        saved: true,
+        onClose: () => { openFollowers = undefined },
+      })
+      if (s.kind === 'followers' && s.account === s.targetId) openFollowers = { record: s, panel }
+    }
   } catch {
     error.value = t('audience.failure')
   } finally {
@@ -102,7 +123,7 @@ onBeforeUnmount(() => {
         {{ t('audience.local') }}
       </p>
       <p class="text-xs text-secondary-text mt-2 leading-normal">
-        {{ t('audience.emptyHint') }}
+        {{ t('audience.backgroundHint') }}
       </p>
     </div>
     <h3 class="text-sm font-semibold">{{ t('audience.saved') }}</h3>

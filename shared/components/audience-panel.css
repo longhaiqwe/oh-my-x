@@ -310,7 +310,7 @@ footer {
   margin-left: 8px;
   font-size: 12px;
 }
-.following .analysis-body {
+.wide-list .analysis-body {
   display: block;
 }
 .filters {
@@ -427,7 +427,7 @@ footer {
   strong {
     font-size: 20px;
   }
-  .scroll-area:not(.following):not(.show-list) .accounts {
+  .scroll-area:not(.show-list) .accounts {
     display: none;
   }
   .show-list .summary,

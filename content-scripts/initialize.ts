@@ -44,11 +44,12 @@ function addMutationObserver() {
 
 export function getDynamicFeatureScopes(mutations: MutationRecord[]): Set<DynamicFeatureScope> {
   const scopes = new Set<DynamicFeatureScope>()
+  const tweetSelector = 'article[data-testid="tweet"], [data-testid="twitterArticleReadView"], [data-testid="UserCell"], [data-testid="HoverCard"]'
   const inspect = (node: Node, includeDescendants: boolean) => {
     const el = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
     if (!el) return
     const contains = (selector: string) => includeDescendants && Boolean(el.querySelector(selector))
-    if (el.closest('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]') || contains('article[data-testid="tweet"], [data-testid="UserCell"], [data-testid="HoverCard"]')) {
+    if (el.closest(tweetSelector) || contains(tweetSelector)) {
       scopes.add('tweet')
     }
     if (el.closest('[data-testid="UserName"]') || contains('[data-testid="UserName"]')) scopes.add('tweet')

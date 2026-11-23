@@ -22,6 +22,13 @@ function isSingleMutationSkippable(el: HTMLElement | null, t: HTMLElement | null
   try {
     if (!el && !t) return false
 
+    // X 有时只补写长文的浏览量数字，不能把这个文本变化跳过。
+    const analytics = el?.nodeName === '#text' ? t?.closest('a[href$="/analytics"]') : null
+    if (
+      analytics?.closest('[data-testid="twitterArticleReadView"], article[data-testid="tweet"]:has([data-testid="twitterArticleReadView"])') &&
+      !t?.closest('[data-testid="twitterArticleRichTextView"], [data-xf-viral-badge], .xf-stat-ratio-badge')
+    ) return false
+
     if (el?.nodeName && SKIPPABLE_NODE_NAMES.has(el.nodeName)) return true
     if (t?.nodeName && SKIPPABLE_NODE_NAMES.has(t.nodeName)) return true
 

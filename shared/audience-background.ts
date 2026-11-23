@@ -6,13 +6,16 @@ import {
 import {
   AUDIENCE_MESSAGE,
   audienceRoute,
+  getClassicAudienceEndpoint,
   sanitizeAudienceMember,
   type AudiencePacket,
 } from './audience'
 import { createAudienceRepository } from './audience-db'
 import { AppError, toTransferable } from './errors'
-export function registerAudienceBackground() {
+import { registerAudienceSync, AUDIENCE_ENDPOINT_KEYS } from './audience-sync'
+export function registerAudienceBackground(getHeaders?: (csrf: string) => HeadersInit) {
   const db = createAudienceRepository()
+  if (getHeaders) registerAudienceSync(db, getHeaders)
   browser.runtime.onMessage.addListener((m, sender, respond) => {
     if (m?.type !== AUDIENCE_MESSAGE || sender.id !== browser.runtime.id) return
     const extension =
@@ -60,8 +63,10 @@ export function registerAudienceBackground() {
       } catch {}
       if (!account || (m.account && m.account !== account))
         throw new AppError('error.accountChanged')
-      if (m.action === 'hello')
-        return { account, generation: await db.generation(account) }
+      if (m.action === 'hello') {
+        const { generation, clearedAt } = await db.accountState(account)
+        return { account, generation, clearedAt }
+      }
       if (m.action === 'read') {
         const record = await db.read(String(m.key))
         if (record && record.account !== account)
@@ -132,6 +137,12 @@ export function registerAudienceBackground() {
         },
         now,
       )
+      if (result.state === 'saved' && getHeaders) {
+        const endpointKey = AUDIENCE_ENDPOINT_KEYS[route.kind]
+        const endpoint = getClassicAudienceEndpoint(m.endpoint, route.kind)?.href
+        if (endpoint && (await browser.storage.local.get(endpointKey))[endpointKey] !== endpoint)
+          await browser.storage.local.set({ [endpointKey]: endpoint })
+      }
       if (result.state === 'saved' || result.state === 'capacity')
         await changed()
       return result

@@ -28,7 +28,7 @@ const filter = ref<AudienceFilter>({
     sort: 'followers',
   }),
   page = ref(1),
-  mobile = ref('overview'),
+  mobile = ref(props.snapshot.members.some(({ followers }) => followers !== undefined) ? 'overview' : 'list'),
   confirmReset = ref(false)
 const stats = computed(() => audienceStats(props.snapshot.members))
 const matches = computed(() =>
@@ -39,6 +39,8 @@ const visible = computed(() =>
   matches.value.slice((page.value - 1) * 12, page.value * 12),
 )
 const following = computed(() => props.snapshot.kind === 'following')
+const showDistribution = computed(() => !following.value && stats.value.known > 0)
+const verified = computed(() => props.snapshot.kind === 'verified_followers')
 const own = computed(
   () =>
     !!props.snapshot.account &&
@@ -115,8 +117,11 @@ function download() {
           })
         }}
       </p>
-      <p v-if="snapshot.kind === 'verified_followers'" class="muted">{{ t('audience.verifiedScope') }}</p>
-      <p class="muted">{{ t('audience.sample') }}</p>
+      <p v-if="verified" class="muted">{{ t('audience.verifiedScope') }}</p>
+      <p v-if="stats.known" class="muted">{{ t('audience.sample') }}</p>
+      <p v-else-if="stats.count" class="muted">
+        {{ t(own && snapshot.kind === 'followers' ? 'audience.pendingFollowerCounts' : 'audience.noFollowerCounts') }}
+      </p>
     </div>
     <div
       v-if="temporary || stale || snapshot.limited || status"
@@ -147,7 +152,7 @@ function download() {
       </div>
     </div>
     <nav
-      v-if="!following"
+      v-if="showDistribution"
       class="mobile-tabs"
       :aria-label="t('audience.accounts')"
     >
@@ -162,9 +167,9 @@ function download() {
     </nav>
     <div
       class="scroll-area"
-      :class="{ 'show-list': mobile === 'list', following }"
+      :class="{ 'show-list': !showDistribution || mobile === 'list', 'wide-list': !showDistribution }"
     >
-      <section v-if="!following" class="summary">
+      <section v-if="showDistribution" class="summary">
         <div class="tiles">
           <div v-for="(n, i) in stats.cumulative" :key="i">
             <span class="muted">{{
@@ -181,7 +186,7 @@ function download() {
         <p class="muted">{{ t('audience.cumulative') }}</p>
       </section>
       <div class="analysis-body">
-        <aside v-if="!following" class="distribution">
+        <aside v-if="showDistribution" class="distribution">
           <h2>{{ t('audience.distribution') }}</h2>
           <button
             class="all-bin"
@@ -256,7 +261,7 @@ function download() {
               type="search"
               :placeholder="t('audience.search')"
               :aria-label="t('audience.search')"
-            /><select v-model="filter.sort" :aria-label="t('audience.sort')">
+            /><select v-if="stats.known" v-model="filter.sort" :aria-label="t('audience.sort')">
               <option value="followers">
                 {{ t('audience.sortFollowers') }}
               </option>
@@ -278,7 +283,7 @@ function download() {
           </div>
           <div v-if="!snapshot.members.length" class="empty">
             <h2>{{ t('audience.empty') }}</h2>
-            <p>{{ t('audience.emptyHint') }}</p>
+            <p>{{ t(own ? 'audience.ownEmptyHint' : 'audience.emptyHint') }}</p>
           </div>
           <p v-else-if="!matches.length" class="empty">
             {{ t('audience.noResults') }}
@@ -356,7 +361,7 @@ function download() {
       <button :disabled="!matches.length" @click="download">
         {{ t('audience.export') }}</button
       ><button class="primary" @click="emit('close')">
-        {{ t(saved ? 'audience.close' : 'audience.continue') }}
+        {{ t(saved ? 'audience.close' : own || verified ? 'audience.backToList' : 'audience.continue') }}
       </button>
     </footer>
   </div>

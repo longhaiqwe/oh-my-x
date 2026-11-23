@@ -92,7 +92,7 @@ function saveSettings(overrides: Record<string, string> = {}) {
     [KeyAiRepostOptionB]: optionB.value,
     ...overrides,
   }
-  saveQueue = saveQueue.then(() => setStorage(patch)).then(ok => { saveError.value = !ok; return ok })
+  saveQueue = saveQueue.then(() => setStorage(patch))
   return saveQueue
 }
 
@@ -105,6 +105,7 @@ async function saveLibrary(next: RepostCustomStyle[]): Promise<boolean> {
     [KeyAiRepostOptionA]: selected.optionA,
     [KeyAiRepostOptionB]: selected.optionB,
   })
+  saveError.value = false
   if (ok) {
     styles.value = next
     optionA.value = selected.optionA
@@ -123,7 +124,7 @@ function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     saveTimer = null
-    void saveSettings()
+    void saveSettings().then(ok => { saveError.value = !ok })
   }, 250)
 }
 

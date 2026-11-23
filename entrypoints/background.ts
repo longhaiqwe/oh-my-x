@@ -173,8 +173,7 @@ async function getCsrfToken(): Promise<string> {
   }
 }
 
-async function getBaseApiHeaders(): Promise<HeadersInit> {
-  const csrf = await getCsrfToken()
+function xSessionHeaders(csrf: string): HeadersInit {
   return {
     authorization: X_PUBLIC_BEARER,
     'x-csrf-token': csrf,
@@ -182,6 +181,10 @@ async function getBaseApiHeaders(): Promise<HeadersInit> {
     'x-twitter-auth-type': 'OAuth2Session',
     referer: 'https://x.com/home',
   }
+}
+
+async function getBaseApiHeaders(): Promise<HeadersInit> {
+  return xSessionHeaders(await getCsrfToken())
 }
 
 async function resolveTweetResultQueryId(signal?: AbortSignal): Promise<string> {
@@ -950,7 +953,7 @@ export default defineBackground(() => {
     return true
   })
   registerRewindBackground()
-  registerAudienceBackground()
+  registerAudienceBackground(xSessionHeaders)
   const writeFavoriteBlogger = createFavoriteBloggerWriter(browser.storage.local)
   browser.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== FAVORITE_BLOGGER_MESSAGE) return

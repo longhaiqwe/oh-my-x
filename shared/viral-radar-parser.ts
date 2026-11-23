@@ -52,15 +52,14 @@ export function parseNumberWithSuffix(str: string): number | null {
 /**
  * 从 article[data-testid="tweet"] 中提取浏览量（Impressions / Views）
  */
-export function extractTweetViews(article: HTMLElement): number | null {
-  // 查找包含 analytics / view 信息的节点
+export function extractTweetViews(article: HTMLElement, knownAnalyticsLink?: HTMLElement): number | null {
   const analyticsLink =
+    knownAnalyticsLink ||
     article.querySelector<HTMLElement>('a[href*="/analytics"]') ||
     article.querySelector<HTMLElement>('[data-testid="analytics"]') ||
     article.querySelector<HTMLElement>('a[aria-label*="View" i]') ||
     article.querySelector<HTMLElement>('a[aria-label*="浏览"]') ||
     article.querySelector<HTMLElement>('a[aria-label*="查看"]')
-
   if (analyticsLink) {
     // 优先检查 aria-label
     const ariaLabel = analyticsLink.getAttribute('aria-label')
@@ -69,13 +68,17 @@ export function extractTweetViews(article: HTMLElement): number | null {
       if (parsed !== null) return parsed
     }
 
-    // 检查 visible text
-    const text = analyticsLink.textContent
+    // 数字旁会有本扩展注入的流速和比例提示，先排除，避免把 1k/h 误当成 1,000 次浏览。
+    const nativeAnalytics = analyticsLink.cloneNode(true) as HTMLElement
+    nativeAnalytics.querySelectorAll('[data-xf-viral-badge], .xf-stat-ratio-badge').forEach((badge) => badge.remove())
+    const text = nativeAnalytics.textContent
     if (text) {
       const parsed = parseNumberWithSuffix(text)
       if (parsed !== null) return parsed
     }
   }
+
+  if (knownAnalyticsLink) return null
 
   // 备选方案：在 article 内部查找可能显示 Views 的链接元素
   const statusLinks = article.querySelectorAll<HTMLAnchorElement>('a[href*="/status/"]')
@@ -97,17 +100,20 @@ export function extractTweetViews(article: HTMLElement): number | null {
 
 /**
  * 从 article[data-testid="tweet"] 中提取发布时间戳 (ms)
+ * 长文详情缺少本帖时间时，从本帖的 Snowflake ID（包含发帖时间的编号）还原。
  */
-export function extractTweetPublishTime(article: HTMLElement): number | null {
+export function extractTweetPublishTime(article: HTMLElement, detailStatusId?: string): number | null {
+  if (detailStatusId && !/^[1-9]\d{17,18}$/.test(detailStatusId)) return null
   // 本帖的时间包在指向帖子的链接里；引用帖的时间不在链接里，详情页上它排在本帖时间前面
-  const timeEl =
-    article.querySelector<HTMLElement>('a[href*="/status/"] time[datetime]') ||
-    article.querySelector<HTMLElement>('time[datetime]')
-  if (!timeEl) return null
-  const datetimeStr = timeEl.getAttribute('datetime')
-  if (!datetimeStr) return null
-  const ts = Date.parse(datetimeStr)
-  return isNaN(ts) ? null : ts
+  const timeEl = detailStatusId
+    ? article.querySelector(`a[href$="/status/${detailStatusId}"] time[datetime]`)
+    : article.querySelector('a[href*="/status/"] time[datetime]') || article.querySelector('time[datetime]')
+  const ts = Date.parse(timeEl?.getAttribute('datetime') || '')
+  if (!Number.isNaN(ts)) return ts
+
+  if (!detailStatusId) return null
+  const twitterEpochMs = 1288834974657
+  return Number(BigInt(detailStatusId) >> 22n) + twitterEpochMs
 }
 
 /**

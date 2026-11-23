@@ -124,6 +124,7 @@ describe('audience parser and analysis', () => {
     const result = parseAudienceResponse(url('BlueVerifiedFollowers'), data, '/owner/verified_followers')
     expect(result).toMatchObject({ kind: 'verified_followers', targetId: '1', members: [{ id: '2' }] })
     expect(result?.total).toBeUndefined()
+    expect(result?.members[0]).not.toHaveProperty('followsYou')
     expect(parseAudienceResponse(url(), data, '/owner/verified_followers')).toBeNull()
     expect(parseAudienceResponse(url('Following'), data, '/owner/verified_followers')).toBeNull()
   })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getDynamicFeatureScopes } from '../../content-scripts/initialize'
+import isMutationSkippable from '../../content-scripts/utilities/isMutationSkippable'
 
 function record(target: Node, addedNodes: Node[] = []): MutationRecord {
   return {
@@ -38,6 +39,16 @@ describe('dynamic feature scope routing', () => {
     wrapper.innerHTML = '<article data-testid="tweet"></article><div role="dialog"></div>'
     const scopes = getDynamicFeatureScopes([record(document.body, [wrapper])])
     expect(scopes).toEqual(new Set(['tweet', 'composer', 'scheduled']))
+  })
+
+  it('rescans tweet features when views arrive in a standalone article reader', () => {
+    const reader = document.createElement('article')
+    reader.dataset.testid = 'twitterArticleReadView'
+    reader.innerHTML = '<a href="/u/status/2122568684312940870/analytics"><span>5,845</span></a>'
+    const counter = reader.querySelector('span')!
+    const mutations = [record(counter, [counter.firstChild!])]
+    expect(isMutationSkippable(mutations)).toBe(false)
+    expect(getDynamicFeatureScopes(mutations)).toContain('tweet')
   })
 
   it('routes mutations inside navigation without invoking unrelated scopes', () => {

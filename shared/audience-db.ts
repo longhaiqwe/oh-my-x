@@ -1,8 +1,10 @@
 import {
   audienceKey,
+  AUDIENCE_KINDS,
   audienceStale,
   mergeAudienceMember,
   type AudienceMeta,
+  type AudienceKind,
   type AudienceMember,
   type AudiencePacket,
   type AudienceSnapshot,
@@ -15,7 +17,17 @@ export const AUDIENCE_LIMITS = {
   rows: 100000,
   bytes: 30 * 1024 * 1024,
 }
-type Row = { key: string; list: string; member: AudienceMember }
+type Row = { key: string; list: string; member: AudienceMember; followerCountRetryAt?: number }
+const FOLLOWER_COUNT_QUEUE = 'follower-count-queue'
+const DAY = 86_400_000
+const memberBytes = (member: AudienceMember) =>
+  new TextEncoder().encode(JSON.stringify(member)).byteLength
+type AccountState = {
+  generation: number
+  clearedAt?: number
+  verifiedClearedAt?: number
+  ownClearedAt?: Partial<Record<AudienceKind, number>>
+}
 const request = <T>(req: IDBRequest<T>) =>
   new Promise<T>((resolve, reject) => {
     req.onsuccess = () => resolve(req.result)
@@ -29,13 +41,28 @@ export function createAudienceRepository(
   let opening: Promise<IDBDatabase> | undefined
   function open() {
     return (opening ||= new Promise((resolve, reject) => {
-      const r = indexedDB.open(name, 1)
-      r.onupgradeneeded = () => {
+      const r = indexedDB.open(name, 2)
+      r.onupgradeneeded = (event) => {
         const db = r.result
-        db.createObjectStore('meta', { keyPath: 'key' })
-        db.createObjectStore('accounts')
-        const rows = db.createObjectStore('members', { keyPath: 'key' })
-        rows.createIndex('list', 'list')
+        if (event.oldVersion === 0) {
+          db.createObjectStore('meta', { keyPath: 'key' })
+          db.createObjectStore('accounts')
+          const rows = db.createObjectStore('members', { keyPath: 'key' })
+          rows.createIndex('list', 'list')
+          rows.createIndex(FOLLOWER_COUNT_QUEUE, ['list', 'followerCountRetryAt'])
+        } else {
+          const rows = r.transaction!.objectStore('members')
+          rows.createIndex(FOLLOWER_COUNT_QUEUE, ['list', 'followerCountRetryAt'])
+          const scan = rows.openCursor()
+          scan.onsuccess = () => {
+            const cursor = scan.result
+            if (!cursor) return
+            const row = cursor.value as Row
+            if (/^(\d+):\1:followers$/.test(row.list) && row.member.followers === undefined)
+              cursor.update({ ...row, followerCountRetryAt: 0 })
+            cursor.continue()
+          }
+        }
       }
       r.onsuccess = () => {
         r.result.onversionchange = () => {
@@ -80,17 +107,20 @@ export function createAudienceRepository(
       throw error
     }
   }
-  const generation = async (tx: IDBTransaction, account: string) =>
-    ((await request(tx.objectStore('accounts').get(account))) as
+  const accountState = async (tx: IDBTransaction, account: string) => {
+    const value = (await request(tx.objectStore('accounts').get(account))) as
+      | AccountState
       | number
-      | undefined) || 0
+      | undefined
+    return typeof value === 'object' ? value : { generation: value ?? 0 }
+  }
   const rows = (tx: IDBTransaction, key: string) =>
     request(tx.objectStore('members').index('list').getAll(key)) as Promise<
       Row[]
     >
   return {
-    generation: (account: string) =>
-      transaction(false, (tx) => generation(tx, account)),
+    accountState: (account: string) =>
+      transaction(false, (tx) => accountState(tx, account)),
     list: () =>
       transaction(
         false,
@@ -109,6 +139,54 @@ export function createAudienceRepository(
             } as AudienceSnapshot)
           : null
       }),
+    missingFollowerCounts: (account: string, now: number, limit: number) =>
+      transaction(false, async (tx) => {
+        const key = audienceKey(account, account, 'followers')
+        const range = IDBKeyRange.bound([key, 0], [key, now])
+        const pending = await request(
+          tx.objectStore('members').index(FOLLOWER_COUNT_QUEUE).getAll(range, limit),
+        ) as Row[]
+        return pending.map(({ member: { id, handle } }) => ({ id, handle }))
+      }),
+    fillFollowerCounts: (
+      account: string,
+      expected: number,
+      counts: Array<{ id: string; followers?: number }>,
+      now: number,
+    ) =>
+      transaction(true, async (tx) => {
+        if ((await accountState(tx, account)).generation !== expected) return 0
+        const key = audienceKey(account, account, 'followers')
+        const metaStore = tx.objectStore('meta')
+        const metas = await request(metaStore.getAll()) as AudienceMeta[]
+        const meta = metas.find((record) => record.key === key)
+        if (!meta) return 0
+        let totalBytes = metas.reduce((n, record) => n + record.bytes, 0)
+        let updated = 0
+        const memberStore = tx.objectStore('members')
+        for (const { id, followers } of counts) {
+          const row = await request(memberStore.get(`${key}:${id}`)) as Row | undefined
+          if (!row || row.member.followers !== undefined) continue
+          row.followerCountRetryAt = now + DAY
+          if (typeof followers === 'number' && Number.isSafeInteger(followers) && followers >= 0) {
+            const member = { ...row.member, followers, clocks: { ...row.member.clocks, followers: now } }
+            const addedBytes = memberBytes(member) - memberBytes(row.member)
+            if (totalBytes + addedBytes <= limits.bytes) {
+              row.member = member
+              delete row.followerCountRetryAt
+              meta.bytes += addedBytes
+              totalBytes += addedBytes
+              updated++
+            }
+          }
+          memberStore.put(row)
+        }
+        if (updated) {
+          meta.updatedAt = Math.max(meta.updatedAt, now)
+          metaStore.put(meta)
+        }
+        return updated
+      }),
     add: (
       account: string,
       expected: number,
@@ -116,7 +194,7 @@ export function createAudienceRepository(
       now = Date.now(),
     ) =>
       transaction(true, async (tx) => {
-        if ((await generation(tx, account)) !== expected)
+        if ((await accountState(tx, account)).generation !== expected)
           return { state: 'changed' as const }
         const metas = (await request(
             tx.objectStore('meta').getAll(),
@@ -150,18 +228,16 @@ export function createAudienceRepository(
         let totalRows = metas.reduce((n, m) => n + m.count, 0),
           totalBytes = metas.reduce((n, m) => n + m.bytes, 0),
           limited = false
-        const previous = new Map(
-          (await rows(tx, key)).map((r) => [r.member.id, r.member]),
-        )
+        const memberStore = tx.objectStore('members')
+        const previous = new Map<string, Row>()
+        const ownFollowers = packet.kind === 'followers' && packet.targetId === account
         for (const item of packet.members) {
-          const before = previous.get(item.id),
+          const rowKey = `${key}:${item.id}`
+          const beforeRow = previous.get(item.id) ||
+              (await request(memberStore.get(rowKey))) as Row | undefined
+          const before = beforeRow?.member,
             member = mergeAudienceMember(before, item)
-          const size = new TextEncoder().encode(
-              JSON.stringify(member),
-            ).byteLength,
-            oldSize = before
-              ? new TextEncoder().encode(JSON.stringify(before)).byteLength
-              : 0
+          const size = memberBytes(member), oldSize = before ? memberBytes(before) : 0
           if (
             (!before &&
               (meta.count >= limits[packet.kind] ||
@@ -171,12 +247,11 @@ export function createAudienceRepository(
             limited = true
             continue
           }
-          tx.objectStore('members').put({
-            key: `${key}:${item.id}`,
-            list: key,
-            member,
-          })
-          previous.set(item.id, member)
+          const row: Row = { key: rowKey, list: key, member }
+          if (ownFollowers && member.followers === undefined)
+            row.followerCountRetryAt = member.handle === before?.handle ? beforeRow?.followerCountRetryAt ?? 0 : 0
+          memberStore.put(row)
+          previous.set(item.id, row)
           meta.bytes += size - oldSize
           totalBytes += size - oldSize
           if (!before) {
@@ -206,8 +281,13 @@ export function createAudienceRepository(
             tx.objectStore('members').delete(row.key)
           tx.objectStore('meta').delete(m.key)
         }
-        const next = (await generation(tx, account)) + 1
-        tx.objectStore('accounts').put(next, account)
+        const previous = await accountState(tx, account)
+        const next = previous.generation + 1
+        const clearedAt = Date.now()
+        const ownClearedAt = { ...previous.ownClearedAt }
+        for (const kind of AUDIENCE_KINDS)
+          if (!key || key === audienceKey(account, account, kind)) ownClearedAt[kind] = clearedAt
+        tx.objectStore('accounts').put({ ...previous, generation: next, clearedAt, ownClearedAt }, account)
         return next
       }),
   }

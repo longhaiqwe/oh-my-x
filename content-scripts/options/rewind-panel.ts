@@ -318,7 +318,7 @@ export function updateRewindTheme() {
       }
   } else restoreInert()
 }
-export function closeRewindPanel() {
+export function closeRewindPanel(restoreFocus = true) {
   if (!root) return
   scrollTop = $('.list').scrollTop
   request++
@@ -331,13 +331,25 @@ export function closeRewindPanel() {
   // Chrome can throw synchronously even while removing a stale listener.
   try { browser.storage.onChanged.removeListener(storageChanged) } catch {}
   window.removeEventListener('keydown', keydown, true)
+  window.removeEventListener('click', outsideClick, true)
   window.removeEventListener('xf-rewind-save-failed', saveFailed)
   document
     .querySelector('.xf-rewind-nav')
     ?.setAttribute('aria-expanded', 'false')
-  trigger?.focus({ preventScroll: true })
+  if (restoreFocus) trigger?.focus({ preventScroll: true })
 }
 const close = closeRewindPanel
+function outsideClick(event: MouseEvent) {
+  if (!host) return
+  const path = event.composedPath()
+  // The entry handles its own toggle; clicks inside the shadow tree stay open.
+  if (
+    path.includes(host) ||
+    (trigger && path.includes(trigger)) ||
+    path.some((node) => node instanceof Element && node.matches('.xf-rewind-nav'))
+  ) return
+  close(false)
+}
 export function resetRewindPanel() {
   const reopen = !!root
   close()
@@ -379,7 +391,7 @@ function saveFailed() {
 export async function openRewindPanel(from?: HTMLElement) {
   if (!hasExtensionContext()) return
   if (root) {
-    $('#search').focus()
+    close()
     return
   }
   trigger = from
@@ -486,6 +498,7 @@ export async function openRewindPanel(from?: HTMLElement) {
     return
   }
   window.addEventListener('keydown', keydown, true)
+  window.addEventListener('click', outsideClick, true)
   window.addEventListener('xf-rewind-save-failed', saveFailed)
   const openedRoot = root
   const preference = await getStorage([KeyRewindFilter])

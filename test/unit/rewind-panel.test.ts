@@ -101,3 +101,56 @@ it('筛选写入遇到同步上下文失效时提示失败，不产生未捕获�
   ;(root.querySelector('[data-filter="video"]') as HTMLElement).click()
   await vi.waitFor(() => expect(root.querySelector('#notice')!.textContent).not.toBe(''))
 })
+
+it('点击外部收起，保留外部焦点及重新展开后的搜索、筛选和滚动位置', async () => {
+  const outside = document.createElement('button')
+  const trigger = document.createElement('button')
+  trigger.className = 'xf-rewind-nav'
+  document.body.append(trigger, outside)
+  try {
+    await open(trigger)
+    const root = document.getElementById('xf-rewind-root')!.shadowRoot!
+    ;(root.querySelector('[data-filter="image"]') as HTMLElement).click()
+    const input = root.querySelector('input')!
+    input.value = '记录'
+    input.dispatchEvent(new Event('input'))
+    await vi.waitFor(() => expect(root.querySelector('#count')!.textContent).not.toBe(''))
+    root.querySelector('.list')!.scrollTop = 120
+    outside.focus()
+    outside.click()
+    expect(document.getElementById('xf-rewind-root')).toBeNull()
+    expect(document.activeElement).toBe(outside)
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+
+    await open(trigger)
+    const reopened = document.getElementById('xf-rewind-root')!.shadowRoot!
+    expect(reopened.querySelector('input')!.value).toBe('记录')
+    expect(reopened.querySelector('[data-filter="image"]')!.getAttribute('aria-pressed')).toBe('true')
+    expect(reopened.querySelector('.list')!.scrollTop).toBe(120)
+  } finally {
+    trigger.remove()
+    outside.remove()
+  }
+})
+
+it('面板内点击不关闭，再点回看入口收起且不会立即重新展开', async () => {
+  const trigger = document.createElement('button')
+  trigger.className = 'xf-rewind-nav'
+  const icon = document.createElement('span')
+  trigger.append(icon)
+  trigger.addEventListener('click', () => void open(trigger))
+  document.body.append(trigger)
+  try {
+    icon.click()
+    await vi.waitFor(() => expect(document.getElementById('xf-rewind-root')).not.toBeNull())
+    const root = document.getElementById('xf-rewind-root')!.shadowRoot!
+    ;(root.querySelector('[data-filter="video"]') as HTMLElement).click()
+    expect(document.getElementById('xf-rewind-root')).not.toBeNull()
+    icon.click()
+    expect(document.getElementById('xf-rewind-root')).toBeNull()
+    icon.click()
+    await vi.waitFor(() => expect(document.getElementById('xf-rewind-root')).not.toBeNull())
+  } finally {
+    trigger.remove()
+  }
+})

@@ -360,6 +360,6 @@ AI 请求通过 `shared/ai-request.ts` 的一次性 runtime Port 发送，后台
 
 ## 粉丝与关注分析
 
-`shared/audience.ts` 是名单解析、分档、筛选与 CSV 导出的纯逻辑；`audience-interceptor.ts` 仅旁路观察 Followers / BlueVerifiedFollowers / Following 响应，三类名单分开保存。`audience-background.ts` 验证消息来源、浏览器当前标签页地址、当前登录账号和设置后，调用 `audience-db.ts` 在扩展源 IndexedDB 原子写入。清除操作递增账号代次，拒绝旧请求写回。跨天记录不自动合并。不能用通用用户指标缓存推断名单。
+`shared/audience.ts` 是名单解析、分档、筛选与 CSV 导出的纯逻辑。`audience-interceptor.ts` 观察 Followers / BlueVerifiedFollowers / Following 响应。认证名单允许短暂等待采集上下文就绪。`audience-sync.ts` 通过扩展定时任务读取登录账号的三类名单，各自保存下一页位置，重启 Chrome 后可以续读。它也分批查询自己普通粉丝名单缺失的粉丝数，按账号 ID 核对后写回原记录。`audience-background.ts` 验证消息来源、浏览器当前标签页地址、当前登录账号和设置后，调用 `audience-db.ts` 在扩展源 IndexedDB 原子写入。清除操作递增账号代次并记录清除时间，拒绝旧请求写回。三类名单分开保存，自己的名单可跨天续写。
 
-设置入口在「数据 → 看板」，详情路径 `#insight/audience`；关闭采集或没有 X 标签页时仍可查看本地记录。X 页面入口由 `content-scripts/features/audience.ts` 管理，模态窗口使用 `shared/components/AudiencePanel.vue` 和 `shared/audience-panel.ts`，打开时固定样本。仅本人关注名单使用明确的 `followed_by` 字段；缺失不是 false。测试见 `test/unit/audience*.test.ts`，真实 Chromium 的合成数据界面检查见 `scripts/test-audience-layout.mjs`。
+设置入口在「数据 → 看板」，详情路径 `#insight/audience`。关闭采集或没有 X 标签页时仍可查看本地记录。X 页面入口由 `content-scripts/features/audience.ts` 管理，分析窗口使用 `shared/components/AudiencePanel.vue` 和 `shared/audience-panel.ts`。自己的名单在 X 页面分析窗口内原位更新。从设置打开自己的普通粉丝面板时，补查到的粉丝数会原位更新。仅本人关注名单使用明确的 `followed_by` 字段，缺失时标为未知。测试见 `test/unit/audience*.test.ts`、`scripts/test-audience-layout.mjs` 和 `scripts/test-audience-extension.mjs`。

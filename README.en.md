@@ -224,14 +224,14 @@ Open a profile page, then click Scan last 7 days under Insights → Account acti
 
 #### Audience insights
 
-Enable Insights → Dashboards → Audience insights (off by default). An entry appears below the native tabs on Followers, Verified followers and Following pages. Only entries already loaded by X are recorded; the extension does not auto-scroll or make additional X API requests. Refresh once if the list was already open before enabling.
+Enable Insights → Dashboards → Audience insights (off by default). An entry appears below the native tabs on Followers, Verified followers and Following pages.
 
-- **Verified follower composition:** a separate sample from the Verified followers tab, with the same distribution and filters. It is never merged into the ordinary follower sample.
+- **Background sync:** when enabled, the extension syncs the signed-in account’s followers, verified followers and following while Chrome is running and the X session is active. Each list keeps its own progress and reads about one page per minute. Another pass starts 24 hours after completion. Open Local records and settings to view the accumulated sample. For your followers, the extension checks missing follower counts in batches of up to 50 saved accounts. The distribution updates as counts arrive. Unavailable counts are shown as unknown.
 - **Follower composition:** six exclusive follower-count bins, three overlapping cumulative thresholds, account search and pagination. Percentages use entries with known follower counts and do not describe the entire audience.
 - **Following analysis:** follower-count and follower/following-ratio sorting; filters for 10K+ followers, accounts under 90 days old, and fewer than 100 followers. Follows me / Does not follow me / Unknown filters are available only for your own following list and use explicit relationship fields.
 - **Local records:** separated by signed-in account, target account and list kind. Settings can view, export or confirm deletion even when capture is disabled and no X tab is open. CSV exports include all filtered results, not just the current page.
 
-Limits: 3 targets per signed-in account, 20K ordinary or verified followers, or 10K following per list, and 100K entries or about 30 MiB of record content globally. New entries stop at capacity without silently removing old records. Records stop merging across days or after 24 hours; starting a new record explicitly replaces the old one. If sign-in identity cannot be confirmed, entries remain only in current-page memory and are cleared on navigation.
+Limits: 3 targets per signed-in account, 20K ordinary or verified followers, or 10K following per list, and 100K entries or about 30 MiB of record content globally. At capacity, previously saved records are kept. For other accounts, records are collected when the matching X tab loads. For older Followers or Following records, start a new record to continue collecting. If sign-in identity cannot be confirmed, entries remain only in current-page memory and are cleared on navigation.
 
 #### Viral radar
 

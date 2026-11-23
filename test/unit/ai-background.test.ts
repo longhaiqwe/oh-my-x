@@ -16,9 +16,9 @@ beforeEach(async () => {
     runtime, permissions,
     storage: { local: { get: vi.fn().mockResolvedValue({
       [KeyAiServiceApiKey]: 'test-key', [KeyAiServiceBaseUrl]: 'https://ai.example/v1', [KeyAiServiceModel]: 'test-model',
-    }) } },
+    }) }, onChanged: event() },
     cookies: { get: vi.fn().mockResolvedValue(null) },
-    alarms: { create: vi.fn(), get: vi.fn().mockResolvedValue({}), onAlarm: event() },
+    alarms: { create: vi.fn(), clear: vi.fn(), get: vi.fn().mockResolvedValue({}), onAlarm: event() },
     downloads: { download: vi.fn().mockRejectedValue(new Error('下载失败')) },
   })
   fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"optionA":"总结一","optionB":"总结二"}' } }] })))

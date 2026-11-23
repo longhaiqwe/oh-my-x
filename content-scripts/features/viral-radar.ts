@@ -25,6 +25,40 @@ import {
   type TweetVelocityCategory,
 } from '../../shared/viral-radar-parser'
 
+const TWEET_SELECTOR = 'article[data-testid="tweet"]'
+const ARTICLE_READER_SELECTOR = '[data-testid="twitterArticleReadView"]'
+const METRIC_BADGE_SELECTOR = '[data-xf-viral-badge], .xf-stat-ratio-badge'
+
+let observedArticleAnalytics: HTMLElement | null = null
+let articleAnalyticsObserver: MutationObserver | null = null
+
+function observeArticleAnalytics(analytics: HTMLElement | null) {
+  if (observedArticleAnalytics === analytics) return
+  articleAnalyticsObserver?.disconnect()
+  observedArticleAnalytics = analytics
+  if (!analytics) return
+
+  // X 会分别更新数字文本、说明属性和整个数字节点，只观察当前长文的浏览量入口。
+  articleAnalyticsObserver = new MutationObserver((mutations) => {
+    const nativeChange = mutations.some((mutation) => {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
+      if (target?.closest(METRIC_BADGE_SELECTOR)) return false
+      if (mutation.type !== 'childList' || mutation.removedNodes.length) return true
+      return Array.from(mutation.addedNodes).some((node) =>
+        !(node instanceof Element && node.matches(METRIC_BADGE_SELECTOR)),
+      )
+    })
+    if (nativeChange) void runViralRadar()
+  })
+  articleAnalyticsObserver.observe(analytics, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['aria-label', 'href'],
+  })
+}
+
 export function ensureViralRadarStyles() {
   if (document.getElementById('xf-viral-radar-styles')) return
   const styleEl = document.createElement('style')
@@ -99,17 +133,26 @@ export function ensureViralRadarStyles() {
     .x-focus-velocity-badge--normal {
       color: rgb(0, 118, 70);
       background: rgba(0, 186, 124, 0.18);
+      --xf-velocity-dark-text: #60bd98;
     }
 
     .x-focus-velocity-badge--potential {
       color: rgb(169, 76, 0);
       background: rgba(255, 122, 0, 0.18);
+      --xf-velocity-dark-text: #ebc55e;
     }
 
     .x-focus-velocity-badge--viral {
       color: rgb(176, 24, 38);
       background: rgba(244, 33, 46, 0.16);
+      --xf-velocity-dark-text: #e38561;
       animation: xf-badge-pulse 2s infinite ease-in-out;
+    }
+
+    :is(html[style*="color-scheme: dark"],
+        body[style*="background-color: rgb(0, 0, 0)"],
+        body[style*="background-color: rgb(21, 32, 43)"]) .x-focus-velocity-badge--article {
+      color: var(--xf-velocity-dark-text);
     }
 
     /* 确保带有雷达速度徽章的推文底栏释放宽度限制并避免挤压书签 */
@@ -130,13 +173,14 @@ export function ensureViralRadarStyles() {
 }
 
 export function cleanupViralRadar() {
+  observeArticleAnalytics(null)
   document.querySelectorAll('[data-xf-viral-badge]').forEach((el) => el.remove())
   document.querySelectorAll('[data-xf-viral-highlight]').forEach((el) => {
     el.removeAttribute('data-xf-viral-highlight')
     el.removeAttribute('data-xf-viral-style')
   })
   // 一并清除幂等标记，确保重新启用雷达时能重算（而非被旧标记跳过）
-  document.querySelectorAll<HTMLElement>('article[data-xf-viral-key]').forEach((el) => {
+  document.querySelectorAll<HTMLElement>('[data-xf-viral-key]').forEach((el) => {
     delete el.dataset.xfViralKey
   })
 }
@@ -187,7 +231,7 @@ export async function runViralRadar(force = false) {
   // force=true：清除所有推文的幂等标记，强制本轮重算
   // （用户改动了雷达阈值 / 显示开关等设置时，由调用方传入）
   if (force) {
-    document.querySelectorAll<HTMLElement>('article[data-xf-viral-key]').forEach((a) => {
+    document.querySelectorAll<HTMLElement>('[data-xf-viral-key]').forEach((a) => {
       delete a.dataset.xfViralKey
     })
   }
@@ -198,26 +242,23 @@ export async function runViralRadar(force = false) {
   const showBadge = parseViralShowBadge(data)
   const highlightStyle = parseViralHighlightStyle(data)
 
-  const articles = Array.from(document.querySelectorAll<HTMLElement>('article[data-testid="tweet"]'))
+  const statusId = window.location.pathname.match(/\/status\/(\d+)/)?.[1]
+  const reader = statusId ? document.querySelector<HTMLElement>(ARTICLE_READER_SELECTOR) : null
+  const readerTweet = reader?.closest<HTMLElement>(TWEET_SELECTOR) ?? reader
+  const readerAnalytics = readerTweet
+    ? readerTweet.querySelector<HTMLElement>(`a[href$="/status/${statusId}/analytics"]:not([data-testid="twitterArticleRichTextView"] *)`)
+    : null
+  observeArticleAnalytics(readerAnalytics)
+  const articles = Array.from(document.querySelectorAll<HTMLElement>(TWEET_SELECTOR))
+  if (readerTweet && !articles.includes(readerTweet)) articles.unshift(readerTweet)
   if (!articles.length) return
 
   const now = Date.now()
-
-  // 区分：是否处于帖子详情页 (e.g. /username/status/123456789)
-  const statusMatch = window.location.pathname.match(/\/status\/(\d+)/)
-  const isDetailPage = Boolean(statusMatch)
-
-  let mainTweetIndex = -1
-  if (isDetailPage) {
-    const statusId = statusMatch![1]
-    mainTweetIndex = articles.findIndex((art) =>
-      art.querySelector(`a[href*="/status/${statusId}"]`),
-    )
-    if (mainTweetIndex === -1) {
-      // 降级：如果未能找到包含对应 statusId 的链接，默认第 1 条为主贴
-      mainTweetIndex = 0
-    }
-  }
+  const mainTweetIndex = readerTweet
+    ? articles.indexOf(readerTweet)
+    : statusId
+      ? Math.max(0, articles.findIndex((art) => art.querySelector(`a[href*="/status/${statusId}"]`)))
+      : -1
 
   let commentCounter = 0
 
@@ -225,7 +266,7 @@ export async function runViralRadar(force = false) {
     // 处于帖子详情页时：
     // - index <= mainTweetIndex 的是主贴（及主贴上文）：必须展示标签
     // - index > mainTweetIndex 的是评论：仅展示前 10 条评论的标签，超出的评论清理/隐藏标签
-    if (isDetailPage && index > mainTweetIndex) {
+    if (statusId && index > mainTweetIndex) {
       commentCounter++
       if (commentCounter > 10) {
         const existingBadge = article.querySelector<HTMLElement>('[data-xf-viral-badge="1"]')
@@ -235,21 +276,18 @@ export async function runViralRadar(force = false) {
       }
     }
 
-    // 幂等：同一推文已处理过且身份未变 → 整体跳过，不再重算、不碰 DOM。
-    // 这是消除「抖动」与高频轮询性能浪费的关键：挂载首算一次后即冻结，
-    // 仅当 force（用户改设置）或节点被复用换成新推文（key 变化）时才重算。
-    if (!force) {
-      const stamped = article.dataset.xfViralKey
-      if (stamped) {
-        const currentKey = getTweetKey(article)
-        if (currentKey && stamped === currentKey) return
-      }
-    }
+    // 时间线维持首算缓存。长文浏览量会分批到达，且 X 会重建挂载节点，需要核对当前显示。
+    const articleStatusId = article === readerTweet ? statusId : undefined
+    const key = articleStatusId ? `article:${articleStatusId}` : getTweetKey(article)
+    if (!force && !articleStatusId && key && article.dataset.xfViralKey === key) return
 
-    const views = extractTweetViews(article)
-    const publishTime = extractTweetPublishTime(article)
+    // 长文只使用当前主帖的浏览量入口，避免拿正文里的引用帖来算流速。
+    if (articleStatusId && !readerAnalytics) return
+    const analytics = articleStatusId ? readerAnalytics : null
+    const views = extractTweetViews(article, analytics ?? undefined)
+    const publishTime = extractTweetPublishTime(article, articleStatusId)
 
-    if (views === null || publishTime === null) {
+    if (views === null || publishTime === null || (articleStatusId && publishTime > now)) {
       return
     }
 
@@ -265,7 +303,8 @@ export async function runViralRadar(force = false) {
     // 1. 推文高亮处理：仅由「高亮样式」控制（潜力/爆款级，样式非 none 即高亮）。
     //    刻意不与「展示标签级别」耦合——后者只影响标签，避免用户关掉某级标签时
     //    连高亮也一起消失的隐藏副作用。
-    if (highlightStyle !== 'none' && (level === 'potential' || level === 'viral')) {
+    // 长文阅读页只标记数据栏里的流速，不给正文整块着色。
+    if (!articleStatusId && highlightStyle !== 'none' && (level === 'potential' || level === 'viral')) {
       article.setAttribute('data-xf-viral-highlight', level)
       article.setAttribute('data-xf-viral-style', highlightStyle)
     } else {
@@ -275,13 +314,12 @@ export async function runViralRadar(force = false) {
 
     // 2. 标签处理（仅当「标签」开关开启且该级别已勾选时展示）
     const shouldShowBadge = showBadge && levelEnabled
-    let badgeContainer = article.querySelector<HTMLElement>('[data-xf-viral-badge="1"]')
+    let badgeContainer = (analytics ?? article).querySelector<HTMLElement>('[data-xf-viral-badge="1"]')
 
     if (!shouldShowBadge) {
       if (badgeContainer) badgeContainer.remove()
       // 即使不展示徽章也标记为已处理：该推文的「不展示」结论同样无需每轮重算
-      const skipKey = getTweetKey(article)
-      if (skipKey) article.dataset.xfViralKey = skipKey
+      if (key) article.dataset.xfViralKey = key
       return
     }
 
@@ -297,7 +335,8 @@ export async function runViralRadar(force = false) {
       badgeContainer = document.createElement('span')
       badgeContainer.setAttribute('data-xf-viral-badge', '1')
     }
-    badgeContainer.className = `x-focus-velocity-badge x-focus-velocity-badge--${level}`
+    const badgeClass = `x-focus-velocity-badge x-focus-velocity-badge--${level}${articleStatusId ? ' x-focus-velocity-badge--article' : ''}`
+    if (badgeContainer.className !== badgeClass) badgeContainer.className = badgeClass
 
     // 挂载到推文底部数据条的「观看量 / 分析」按钮（即观看量位置）。
     // - 主页（自己 / 他人）会同时渲染 .xf-stat-ratio-badge：速度徽章紧贴其右侧；
@@ -306,6 +345,7 @@ export async function runViralRadar(force = false) {
     const countsGroup = article.querySelector<HTMLElement>('[role="group"][id*="id__"]:only-child')
     // 详情页主帖的操作栏没有浏览量按钮，浏览量链接在时间那一行
     const analyticsBtn =
+      analytics ||
       countsGroup?.querySelector<HTMLElement>('a[href*="/analytics"]') ||
       article.querySelector<HTMLElement>('a[href*="/analytics"]')
 
@@ -313,8 +353,7 @@ export async function runViralRadar(force = false) {
       // 该推文没有观看量入口：清理残留徽章后跳过，避免错位
       badgeContainer.remove()
       // 无 analytics 入口的推文通常不会异步补出该按钮，同样标记为已处理，避免每轮空跑
-      const noBtnKey = getTweetKey(article)
-      if (noBtnKey) article.dataset.xfViralKey = noBtnKey
+      if (key) article.dataset.xfViralKey = key
       return
     }
 
@@ -337,11 +376,11 @@ export async function runViralRadar(force = false) {
     }
 
     // 设置 Hover 提示 (e.g. "121,756 次浏览 · 🔥 12.5万/h")
-    badgeContainer.title = t('viralPage.title', { views: views.toLocaleString(getLocale()), label: labelText })
-    badgeContainer.textContent = labelText
+    const title = t('viralPage.title', { views: views.toLocaleString(getLocale()), label: labelText })
+    if (badgeContainer.title !== title) badgeContainer.title = title
+    if (badgeContainer.textContent !== labelText) badgeContainer.textContent = labelText
 
     // 标记该推文已处理（携带身份 key），后续轮询命中即跳过，除非 force 或换了推文
-    const doneKey = getTweetKey(article)
-    if (doneKey) article.dataset.xfViralKey = doneKey
+    if (key) article.dataset.xfViralKey = key
   })
 }

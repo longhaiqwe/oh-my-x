@@ -21,14 +21,15 @@ const path = '/owner/followers'
 const url =
   'https://x.com/i/api/graphql/hash/Followers?variables=' +
   encodeURIComponent(JSON.stringify({ userId: '1' }))
-function context(token: string) {
+const verifiedUrl = url.replace('https://x.com', '').replace('/Followers?', '/BlueVerifiedFollowers?')
+function context(token: string, account = '', generation = 0, clearedAt?: number) {
   window.dispatchEvent(
     new MessageEvent('message', {
       source: window,
       origin: location.origin,
       data: {
         type: AUDIENCE_CONTEXT,
-        context: { account: '', generation: 0, path: location.pathname, token },
+      context: { account, generation, clearedAt, path: location.pathname, token },
       },
     }),
   )
@@ -49,6 +50,7 @@ const response = {
 async function finish() {
   waiting.shift()?.({
     ok: true,
+    json: async () => response,
     clone: () => ({ json: async () => response }),
   })
   await Promise.resolve()
@@ -77,11 +79,44 @@ describe('audience passive interception', () => {
     history.pushState({}, '', '/owner/verified_followers')
     context('verified')
     const post = vi.spyOn(window, 'postMessage')
-    void window.fetch(url.replace('/Followers?', '/BlueVerifiedFollowers?'))
+    void window.fetch(verifiedUrl)
     await finish()
     expect(post.mock.calls.filter(c => (c[0] as any).type === AUDIENCE_DATA)).toHaveLength(1)
     expect((post.mock.calls[0][0] as any).packet.kind).toBe('verified_followers')
     history.pushState({}, '', path)
+  })
+  it('delivers the native verified first page even when it finishes before the handshake', async () => {
+    history.pushState({}, '', '/first/verified_followers')
+    const post = vi.spyOn(window, 'postMessage')
+    void window.fetch(verifiedUrl)
+    await finish()
+    expect(post).not.toHaveBeenCalled()
+    context('first')
+    expect(post.mock.calls.filter(c => c[0]?.type === AUDIENCE_DATA)).toHaveLength(1)
+  })
+  it('passes only the public endpoint parameters from a native verified request', async () => {
+    history.pushState({}, '', '/native/verified_followers')
+    context('native')
+    const post = vi.spyOn(window, 'postMessage')
+    const native = new URL(verifiedUrl, 'https://x.com')
+    native.searchParams.set('features', JSON.stringify({ enabled: true, ignored: 'example' }))
+    native.searchParams.set('unrelated', 'example')
+    const before = fetchMock.mock.calls.length
+    void window.fetch(native)
+    await finish()
+    context('native')
+    expect(fetchMock).toHaveBeenCalledTimes(before + 1)
+    const endpoint = new URL(post.mock.calls[0][0].endpoint)
+    expect([...endpoint.searchParams.keys()]).toEqual(['features'])
+    expect(JSON.parse(endpoint.searchParams.get('features')!)).toEqual({ enabled: true })
+  })
+  it('does not write a pre-handshake first page started before the last clear', async () => {
+    history.pushState({}, '', '/cleared/verified_followers')
+    const post = vi.spyOn(window, 'postMessage')
+    void window.fetch(verifiedUrl)
+    await finish()
+    context('new-generation', '', 1, Date.now())
+    expect(post).not.toHaveBeenCalled()
   })
   it('discards a response after navigation away and back, disabling, or context replacement', async () => {
     const post = vi.spyOn(window, 'postMessage')

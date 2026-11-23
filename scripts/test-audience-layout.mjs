@@ -47,6 +47,7 @@ try {
     { name: 'following-light', width: 1280, kind: 'following' },
     { name: 'followers-mobile', width: 375, kind: 'followers' },
     { name: 'following-mobile', width: 375, kind: 'following' },
+    { name: 'followers-no-counts', width: 375, kind: 'followers', noCounts: true },
     { name: 'followers-english', width: 360, kind: 'followers', en: true },
   ]) {
     const page = await browser.newPage({
@@ -87,7 +88,7 @@ try {
           handle: 'sample' + i,
           name: i === 0 ? '=安全导出测试' : `示例账号 ${i + 1}`,
           followers:
-            i % 7 === 0
+            s.noCounts || i % 7 === 0
               ? undefined
               : [42, 2999, 3500, 12000, 32000, 65000, 150000][i % 7],
           following: i % 3 === 0 ? 0 : 100 + i,
@@ -101,7 +102,8 @@ try {
     const dialog = page.locator('#xf-audience-panel').locator('dialog')
     await dialog.waitFor({ state: 'visible' })
     await page.keyboard.press('Shift+Tab')
-    assert.equal(await page.evaluate(() => document.querySelector('#xf-audience-panel').shadowRoot.activeElement.textContent.trim()), scenario.en ? 'Return to list to load more' : '返回列表继续加载')
+    const backLabel = scenario.en ? 'Back to list' : '返回列表'
+    assert.equal(await page.evaluate(() => document.querySelector('#xf-audience-panel').shadowRoot.activeElement.textContent.trim()), backLabel)
     await page.keyboard.press('Tab')
     assert.equal(await page.evaluate(() => document.querySelector('#xf-audience-panel').shadowRoot.activeElement.getAttribute('aria-label')), scenario.en ? 'Close' : '关闭')
     const geometry = await dialog.evaluate((el) => ({
@@ -133,7 +135,14 @@ try {
     assert.equal(styles.headerPadding, scenario.width <= 700 ? '16px' : '24px')
     await page.screenshot({ path: `${output}/${scenario.name}.png` })
     if (scenario.kind !== 'following') {
-      if (scenario.width <= 700) {
+      if (scenario.noCounts) {
+        assert(await dialog.getByText('后台会分批补查粉丝数。拿到数值后，这里会显示分布。').isVisible())
+        assert.equal(await dialog.locator('.mobile-tabs, .summary, .distribution').count(), 0)
+        assert(await dialog.locator('input[type=search]').isVisible())
+        await dialog.locator('input[type=search]').fill('sample36')
+        assert.equal(await dialog.locator('article').count(), 1)
+        await dialog.locator('input[type=search]').fill('')
+      } else if (scenario.width <= 700) {
         await dialog.locator('.bin').nth(2).click()
         await dialog.locator('.mobile-view').click()
         assert(await dialog.locator('.accounts').isVisible())
@@ -172,7 +181,7 @@ try {
     await page.close()
   }
   console.log(
-    'PASS: 8 production-panel layouts with native fonts and orange theme; bins, relationship filters, search, pagination, complete CSV export, Escape/focus/scroll restoration. Screenshots: ' +
+    'PASS: 9 production-panel layouts with native fonts and orange theme; bins, relationship filters, search, pagination, complete CSV export, Escape/focus/scroll restoration. Screenshots: ' +
       output,
   )
 } finally {

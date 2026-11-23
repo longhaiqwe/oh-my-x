@@ -46,9 +46,10 @@ export function startAudience() {
   const identity = () =>
     `${location.pathname}|${getRewindAccount()?.account || ''}`
   let lastIdentity = ''
+  const isCurrent = (token: number) => token === serial && lastIdentity === identity()
   function broadcast() {
     window.postMessage(
-      { type: AUDIENCE_CONTEXT, context: enabled ? context : undefined },
+      { type: AUDIENCE_CONTEXT, enabled, context: enabled ? context : undefined },
       location.origin,
     )
   }
@@ -64,12 +65,14 @@ export function startAudience() {
     panel = undefined
     broadcast()
   }
+  const isOwnHandle = (handle: string) =>
+    getRewindAccount()?.handle.toLowerCase() === handle.toLowerCase()
   const empty = (): AudienceSnapshot => {
     const route = audienceRoute(location.pathname)!
     return {
       key: '',
       account: context?.account || '',
-      targetId: '',
+      targetId: isOwnHandle(route.handle) ? context?.account || '' : '',
       handle: route.handle,
       kind: route.kind,
       batch: 'temporary',
@@ -81,7 +84,8 @@ export function startAudience() {
     }
   }
   function render() {
-    if (!enabled || !audienceRoute(location.pathname) || (!context && !error)) {
+    const route = audienceRoute(location.pathname)
+    if (!enabled || !route || (!context && !error)) {
       bar?.remove()
       bar = undefined
       return
@@ -125,12 +129,27 @@ export function startAudience() {
     for (const [key, value] of Object.entries(style))
       bar.style.setProperty(`--au-entry-${key}`, value)
     const count = snapshot?.members.length || 0
-    const kind = t(AUDIENCE_LABELS[audienceRoute(location.pathname)!.kind])
+    const kind = t(AUDIENCE_LABELS[route.kind])
     bar.querySelector('.au-count')!.textContent = error ? '' : t('audience.entryCount', { count })
     bar.querySelector('.au-action-label')!.textContent = error || t('audience.entryAction', { kind })
     bar.setAttribute('aria-label', error || t('audience.entry', { count, kind }))
-    bar.title = t('audience.emptyHint')
-    // The open analysis window keeps its original sample; new native pages appear after reopening.
+    bar.title = t(
+      isOwnHandle(route.handle) || (snapshot?.account && snapshot.account === snapshot.targetId)
+        ? 'audience.ownEmptyHint'
+        : 'audience.emptyHint',
+    )
+  }
+  function showSnapshot(value: AudienceSnapshot | null) {
+    const visibleSnapshot = value || snapshot
+    snapshot = value || undefined
+    if (
+      panel &&
+      visibleSnapshot &&
+      (visibleSnapshot.kind === 'verified_followers' || (
+        visibleSnapshot.account && visibleSnapshot.account === visibleSnapshot.targetId
+      ))
+    )
+      panel.update(value || empty(), value?.limited ? t('audience.capacity') : undefined)
   }
   async function readCurrent(token = serial) {
     if (!context?.account) return
@@ -139,7 +158,7 @@ export function startAudience() {
     const metas = await audienceRequest<AudienceMeta[]>('list', {
       account: owner,
     })
-    if (token !== serial) return
+    if (!isCurrent(token)) return
     const meta = metas.find(
       (m) =>
         m.kind === route.kind &&
@@ -151,9 +170,8 @@ export function startAudience() {
           account: owner,
         })
       : null
-    if (token !== serial) return
-    snapshot = value || undefined
-    render()
+    if (!isCurrent(token)) return
+    showSnapshot(value)
   }
   async function restart() {
     if (!snapshot?.key || !context?.account) return
@@ -162,7 +180,7 @@ export function startAudience() {
       account = context.account
     try {
       await audienceRequest('clear', { key, account })
-      if (token !== serial) return
+      if (!isCurrent(token)) return
       reset()
       lastIdentity = ''
       await refresh()
@@ -193,29 +211,30 @@ export function startAudience() {
       path = location.pathname,
       account = getRewindAccount()?.account || ''
     try {
-      let generation = 0
+      let login: { generation: number; clearedAt?: number } = { generation: 0 }
       if (account) {
         const result = await audienceRequest<{
           account: string
           generation: number
+          clearedAt?: number
         }>('hello', { account })
         if (result.account !== account) return
-        generation = result.generation
+        login = result
       }
       if (token !== serial || current !== identity() || !enabled) return
-      if (!context || context.generation !== generation) {
+      if (!context || context.generation !== login.generation) {
         if (context) {
           closeAudiencePanel()
           panel = undefined
         }
-        context = { account, generation, path, token: crypto.randomUUID() }
+        context = { ...login, account, path, token: crypto.randomUUID() }
       }
       broadcast()
       await readCurrent(token)
       error = ''
       render()
     } catch {
-      if (token === serial) {
+      if (isCurrent(token)) {
         error = t('audience.failure')
         context = undefined
         broadcast()
@@ -236,6 +255,7 @@ export function startAudience() {
       return
     const c = event.data.context,
       packet = event.data.packet as AudiencePacket,
+      endpoint = event.data.endpoint,
       current = context
     if (
       c?.token !== current.token ||
@@ -257,7 +277,7 @@ export function startAudience() {
     const token = serial
     queue = queue
       .then(async () => {
-        if (token !== serial || !enabled || current.token !== context?.token)
+        if (!isCurrent(token) || !enabled || current.token !== context?.token)
           return
         if (!current.account) {
           const initial = snapshot || {
@@ -274,20 +294,20 @@ export function startAudience() {
                 members.set(m.id, mergeAudienceMember(members.get(m.id), m))
             }
           }
-          snapshot = {
+          showSnapshot({
             ...initial,
             members: [...members.values()],
             count: members.size,
             updatedAt: Date.now(),
-          }
+          })
           render()
           return
         }
         const result = await audienceRequest<{ state: string; key?: string }>(
           'add',
-          { account: current.account, generation: current.generation, packet },
+          { account: current.account, generation: current.generation, packet, endpoint },
         )
-        if (token !== serial) return
+        if (!isCurrent(token)) return
         state = result.state
         if (result.state === 'changed') {
           reset()
@@ -300,14 +320,14 @@ export function startAudience() {
             key: result.key,
             account: current.account,
           })
-          if (token !== serial) return
-          snapshot = value || undefined
+          if (!isCurrent(token)) return
+          showSnapshot(value)
         }
         error = ''
         render()
       })
       .catch(() => {
-        if (token === serial) {
+        if (isCurrent(token)) {
           error = t('audience.failure')
           render()
         }

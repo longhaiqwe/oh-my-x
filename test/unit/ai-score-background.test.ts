@@ -35,9 +35,9 @@ beforeEach(async () => {
         return Object.fromEntries(list.filter((k) => k in stored).map((k) => [k, stored[k]]))
       }),
       set: vi.fn(async (items: Record<string, unknown>) => { Object.assign(stored, items) }),
-    } },
+    }, onChanged: event() },
     cookies: { get: vi.fn().mockResolvedValue(null) },
-    alarms: { create: vi.fn(), get: vi.fn().mockResolvedValue({}), onAlarm: event() },
+    alarms: { create: vi.fn(), clear: vi.fn(), get: vi.fn().mockResolvedValue({}), onAlarm: event() },
     downloads: { download: vi.fn() },
   })
   fetchMock = vi.fn().mockImplementation(async () => modelReply(goodContent))

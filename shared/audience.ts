@@ -3,6 +3,17 @@ export const AUDIENCE_MESSAGE = 'xf-audience'
 export const AUDIENCE_CONTEXT = 'xf-audience-context'
 export const AUDIENCE_DATA = 'xf-audience-data'
 export type AudienceKind = 'followers' | 'verified_followers' | 'following'
+export const AUDIENCE_KINDS = ['followers', 'verified_followers', 'following'] as const
+export const AUDIENCE_CLASSIC = {
+  followers: 'Followers',
+  verified_followers: 'BlueVerifiedFollowers',
+  following: 'Following',
+} as const
+export const AUDIENCE_RELAY = {
+  followers: { operation: 'followersQuery', timeline: 'followers_timeline' },
+  verified_followers: { operation: 'verifiedFollowersQuery', timeline: 'blue_verified_followers_timeline' },
+  following: { operation: 'followingQuery', timeline: 'following_timeline' },
+} as const
 export const AUDIENCE_LABELS = {
   followers: 'audience.followers',
   verified_followers: 'audience.verifiedFollowers',
@@ -38,6 +49,7 @@ export type AudienceSnapshot = AudienceMeta & { members: AudienceMember[] }
 export type AudienceContext = {
   account: string
   generation: number
+  clearedAt?: number
   path: string
   token: string
 }
@@ -46,6 +58,7 @@ export type AudiencePacket = {
   handle: string
   kind: AudienceKind
   total?: number
+  nextCursor?: string
   members: AudienceMember[]
 }
 export const AUDIENCE_BOUNDS = [0, 3000, 10000, 30000, 50000, 100000, Infinity]
@@ -60,6 +73,26 @@ export function audienceRoute(path: string) {
   )
   return match ? { handle: match[1], kind: match[2] as AudienceKind } : null
 }
+export function getClassicAudienceEndpoint(raw: unknown, kind: AudienceKind) {
+  if (typeof raw !== 'string' || raw.length > 16_000) return
+  try {
+    const url = new URL(raw, 'https://x.com')
+    const match = /^\/i\/api\/graphql\/[\w-]+\/(\w+)$/.exec(url.pathname)
+    if (url.origin !== 'https://x.com' || match?.[1] !== AUDIENCE_CLASSIC[kind])
+      return
+    const endpoint = new URL(url.pathname, 'https://x.com')
+    for (const key of ['features', 'fieldToggles']) {
+      const text = url.searchParams.get(key)
+      if (!text) continue
+      const values = JSON.parse(text)
+      if (!values || Array.isArray(values) || typeof values !== 'object') return
+      const flags = Object.entries(values).filter(([k, value]) => /^\w{1,100}$/.test(k) && typeof value === 'boolean')
+      endpoint.searchParams.set(key, JSON.stringify(Object.fromEntries(flags)))
+    }
+    return endpoint
+  } catch {}
+}
+
 const count = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined
 export function sanitizeAudienceMember(
@@ -98,50 +131,61 @@ export function parseAudienceResponse(
   data: unknown,
   path: string,
   now = Date.now(),
+  ownerId?: string,
 ): AudiencePacket | null {
   const route = audienceRoute(path)
   if (!route) return null
   try {
     const request = new URL(url, 'https://x.com')
-    const operation = request.pathname
-      .match(/\/graphql\/[^/]+\/(Followers|BlueVerifiedFollowers|Following)$/)?.[1]
-    const expected = {
-      followers: 'Followers',
-      verified_followers: 'BlueVerifiedFollowers',
-      following: 'Following',
-    }
-    if (operation !== expected[route.kind]) return null
+    const operation = request.pathname.match(/\/graphql\/[\w-]+\/(\w+)$/)?.[1]
+    const relaySpec = AUDIENCE_RELAY[route.kind]
+    const relay = operation === relaySpec.operation
+    if (!relay && operation !== AUDIENCE_CLASSIC[route.kind]) return null
     const variables = JSON.parse(request.searchParams.get('variables') || '{}')
-    if (typeof variables.userId !== 'string' || !/^\d+$/.test(variables.userId))
+    const target = relay
+      ? (data as any)?.data?.user_result_by_screen_name?.result
+      : (data as any)?.data?.user?.result
+    const targetId = relay ? (ownerId || target?.rest_id) : variables.userId
+    if (typeof targetId !== 'string' || !/^\d+$/.test(targetId))
       return null
-    const target = (data as any)?.data?.user?.result
     if (
       !target ||
-      (target.rest_id !== undefined && target.rest_id !== variables.userId)
+      (target.rest_id !== undefined && target.rest_id !== targetId) ||
+      (relay && variables.screenName?.toLowerCase() !== route.handle.toLowerCase())
     )
       return null
     const handle = target.core?.screen_name || target.legacy?.screen_name
     // Some timeline responses contain only the target ID. The request-time route supplies its handle.
     if (handle && handle.toLowerCase() !== route.handle.toLowerCase())
       return null
-    const instructions =
-      target.timeline?.timeline?.instructions || target.timeline?.instructions
+    const instructions = relay
+      ? target[relaySpec.timeline]?.timeline?.instructions
+      : target.timeline?.timeline?.instructions || target.timeline?.instructions
     if (!Array.isArray(instructions)) return null
     const members = new Map<string, AudienceMember>()
+    let nextCursor: string | undefined
+    let ended = false
     for (const instruction of instructions) {
-      if (
-        !['TimelineAddEntries', 'TimelineReplaceEntry'].includes(
-          instruction.type,
-        )
-      )
-        continue
+      const type = relay ? instruction?.__typename : instruction?.type
+      if (type === 'TimelineTerminateTimeline' && instruction.direction === 'Bottom') ended = true
+      if (type !== 'TimelineAddEntries' && type !== 'TimelineReplaceEntry') continue
       const entries = instruction.entries || [instruction.entry]
       if (!Array.isArray(entries)) continue
       for (const entry of entries.slice(0, 1000)) {
-        if (!/^user-\d+$/.test(entry?.entryId || '')) continue
-        const item = entry?.content?.itemContent
+        const entryId = relay ? entry?.entry_id : entry?.entryId
+        const content = entry?.content
+        const item = relay ? content?.content : content?.itemContent
+        if (/^cursor-bottom(?:-|$)/i.test(entryId || '')) {
+          const cursor = relay ? (item || content) : content
+          if (
+            (cursor?.cursor_type ?? cursor?.cursorType) === 'Bottom' &&
+            typeof cursor.value === 'string' && cursor.value.length > 0 && cursor.value.length <= 2048
+          ) nextCursor = cursor.value
+        }
+        if (!/^user-\d+$/.test(entryId || '')) continue
         if (
           !item ||
+          (relay && item.__typename !== 'TimelineUser') ||
           (item.itemType !== undefined && item.itemType !== 'TimelineUser') ||
           item.promotedMetadata ||
           entry.content.promotedMetadata
@@ -163,18 +207,19 @@ export function parseAudienceResponse(
             followers: rc.followers ?? legacy.followers_count,
             following: rc.following ?? legacy.friends_count,
             createdAt: Number.isFinite(date) ? date : undefined,
-            followsYou:
-              u.relationship_perspectives?.followed_by ?? legacy.followed_by,
+            followsYou: route.kind === 'verified_followers'
+              ? undefined
+              : u.relationship_perspectives?.followed_by ?? legacy.followed_by ?? u.is_followed_by,
             observedAt: now,
           },
           now,
         )
-        if (member && entry.entryId === `user-${member.id}`)
+        if (member && entryId === `user-${member.id}`)
           members.set(member.id, member)
       }
     }
     return {
-      targetId: variables.userId,
+      targetId,
       handle: handle || route.handle,
       kind: route.kind,
       total:
@@ -188,6 +233,7 @@ export function parseAudienceResponse(
                     target.legacy?.friends_count),
             ),
       members: [...members.values()],
+      ...(!ended && nextCursor ? { nextCursor } : {}),
     }
   } catch {
     return null
@@ -308,8 +354,10 @@ export function queryAudience(
     })
 }
 export const audienceStale = (s: AudienceMeta, now = Date.now()) =>
-  now - s.updatedAt >= 86400000 ||
-  new Date(now).toDateString() !== new Date(s.startedAt).toDateString()
+  s.kind !== 'verified_followers' &&
+  (!s.account || s.account !== s.targetId) &&
+  (now - s.updatedAt >= 86400000 ||
+    new Date(now).toDateString() !== new Date(s.startedAt).toDateString())
 export function audienceCsv(
   snapshot: AudienceSnapshot,
   members: AudienceMember[],

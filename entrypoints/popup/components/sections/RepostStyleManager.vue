@@ -15,7 +15,8 @@ const selected = ref('summary')
 const draft = ref<RepostCustomStyle | null>(null)
 const baseline = ref('')
 const busy = ref(false)
-const error = ref('')
+const saveStatus = ref<'ai.styleSaving' | 'ai.styleSaved' | null>(null)
+const error = ref<'ai.styleNameRequired' | 'ai.styleSaveFailed' | 'ai.saveFailed' | null>(null)
 const dirty = computed(() => !!draft.value && JSON.stringify(draft.value) !== baseline.value)
 const base = computed(() => (draft.value?.base ?? selected.value) as RepostPreset)
 const sampleCount = computed(() => parseStyleSamples(draft.value?.samples).length)
@@ -26,9 +27,13 @@ function load() {
   const saved = props.styles.find(item => item.id === selected.value)
   draft.value = saved ? { ...saved } : null
   baseline.value = JSON.stringify(draft.value)
-  error.value = ''
+  saveStatus.value = null
+  error.value = null
 }
 watch(selected, load, { flush: 'sync' })
+watch(dirty, (changed) => {
+  if (changed && saveStatus.value === 'ai.styleSaved') saveStatus.value = null
+})
 
 function create(copy: boolean) {
   const existing = props.styles.find(item => item.id === selected.value)
@@ -44,31 +49,38 @@ function create(copy: boolean) {
   // 选择变化会先读取已保存项；新建项随后填入独立草稿，保存前不写入风格库。
   draft.value = next
   baseline.value = ''
-  error.value = ''
 }
 
 async function saveDraft() {
   if (!draft.value || busy.value) return
-  if (!draft.value.name.trim()) { error.value = t('ai.styleNameRequired'); return }
+  if (!draft.value.name.trim()) { error.value = 'ai.styleNameRequired'; return }
   const item = { ...draft.value, name: draft.value.name.trim(), description: draft.value.description.trim(), samples: draft.value.samples.trim() }
   const next = props.styles.filter(style => style.id !== item.id)
   const index = props.styles.findIndex(style => style.id === item.id)
   next.splice(index < 0 ? next.length : index, 0, item)
+  error.value = null
+  saveStatus.value = 'ai.styleSaving'
   busy.value = true
   const ok = await props.save(next)
   busy.value = false
-  if (!ok) { error.value = t('ai.saveFailed'); return }
+  if (!ok) {
+    saveStatus.value = null
+    error.value = 'ai.styleSaveFailed'
+    return
+  }
   draft.value = item
   baseline.value = JSON.stringify(item)
-  error.value = ''
+  saveStatus.value = 'ai.styleSaved'
 }
 
 async function remove() {
   if (!draft.value || busy.value) return
+  saveStatus.value = null
+  error.value = null
   busy.value = true
   const ok = await props.save(props.styles.filter(item => item.id !== selected.value))
   busy.value = false
-  if (!ok) { error.value = t('ai.saveFailed'); return }
+  if (!ok) { error.value = 'ai.saveFailed'; return }
   selected.value = 'summary'
   load()
 }
@@ -121,11 +133,16 @@ function cancel() {
         <textarea id="ai-style-examples" v-model="draft.samples" :class="fieldClass" rows="3" maxlength="12000" :placeholder="t('ai.samplesPlaceholder')" />
         <p class="text-xs text-muted-text">{{ sampleCount ? t('ai.samplesCount', { count: sampleCount }) : t('ai.samplesHint') }}</p>
       </div>
-      <div class="flex gap-2">
-        <button type="button" :class="buttonClass" data-action="style-save" @click="saveDraft">{{ t('ai.saveStyle') }}</button>
-        <button type="button" :class="buttonClass" data-action="style-cancel" @click="cancel">{{ t('ai.cancelStyleEdit') }}</button>
+      <div class="flex flex-col gap-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" :class="buttonClass" data-action="style-save" @click="saveDraft">{{ t('ai.saveStyle') }}</button>
+          <button type="button" :class="buttonClass" data-action="style-cancel" @click="cancel">{{ t('ai.cancelStyleEdit') }}</button>
+          <p role="status" class="text-xs" :class="saveStatus === 'ai.styleSaved' ? 'text-success' : 'text-secondary-text'">
+            {{ saveStatus ? t(saveStatus) : '' }}
+          </p>
+        </div>
+        <p v-if="error" role="alert" class="text-xs text-danger">{{ t(error) }}</p>
       </div>
     </fieldset>
-    <p v-if="error" role="alert" class="text-xs text-danger">{{ error }}</p>
   </div>
 </template>

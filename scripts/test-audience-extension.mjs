@@ -16,13 +16,14 @@ const context = await chromium.launchPersistentContext(directory, {
   args: [
     `--disable-extensions-except=${extension}`,
     `--load-extension=${extension}`,
+    '--host-resolver-rules=MAP x.com ~NOTFOUND,MAP api.x.com ~NOTFOUND',
   ],
   viewport: { width: 1280, height: 900 },
 })
 context.setDefaultTimeout(15000)
 console.log('Chromium ready')
 const html = `<!doctype html><meta charset="utf-8"><style>body{margin:0;background:white;color:#0f1419;font:16px serif}main{max-width:700px;margin:auto}nav{display:flex;border-bottom:1px solid #ddd}.swipe{height:60px;overflow:hidden;position:relative;flex:1}[role=tablist]{display:flex;height:60px;align-items:center;gap:24px}article{height:100px;border-bottom:1px solid #ddd;padding:20px}button{font:inherit}</style><div id="react-root"><a href="/i/keyboard_shortcuts" style="color:rgb(255,122,0)">Shortcuts</a><a data-testid="AppTabBar_Profile_Link" href="/owner">Profile</a><main data-testid="primaryColumn"><nav role="navigation"><div class="swipe" data-testid="ScrollSnap-SwipeableList"><div role="tablist"><a role="tab" href="/owner/followers"><span style="font-family:Arial,sans-serif">Followers</span></a><a role="tab" href="/owner/following"><span style="font-family:Arial,sans-serif">Following</span></a></div></div></nav><section>${Array.from({ length: 10 }, (_, i) => `<article>Native list row ${i + 1}</article>`).join('')}</section></main></div>`
-const makeResponse = () => ({
+const makeResponse = (count = 25, first = 1) => ({
   data: {
     user: {
       result: {
@@ -31,18 +32,18 @@ const makeResponse = () => ({
             instructions: [
               {
                 type: 'TimelineAddEntries',
-                entries: Array.from({ length: 25 }, (_, i) => ({
-                  entryId: `user-${i + 1}`,
+                entries: Array.from({ length: count }, (_, i) => ({
+                  entryId: `user-${i + first}`,
                   content: {
                     itemContent: {
                       itemType: 'TimelineUser',
                       user_results: {
                         result: {
                           __typename: 'User',
-                          rest_id: String(i + 1),
+                          rest_id: String(i + first),
                           core: {
-                            screen_name: 'synthetic' + i,
-                            name: '测试账号 ' + i,
+                            screen_name: 'synthetic' + (i + first - 1),
+                            name: '测试账号 ' + (i + first - 1),
                           },
                           relationship_counts: {
                             followers: i * 3000,
@@ -67,11 +68,17 @@ const request =
   'https://x.com/i/api/graphql/test/Following?variables=' +
   encodeURIComponent(JSON.stringify({ userId: '100' }))
 let release,
-  hold = false
+  hold = false,
+  verifiedRequests = 0
 try {
   await context.route('https://**/*', async (route) => {
     if (route.request().url().includes('/graphql/')) {
       if (hold) await new Promise((resolve) => (release = resolve))
+      const verified = route.request().url().includes('/BlueVerifiedFollowers?')
+      if (verified) {
+        verifiedRequests++
+        assert.equal(route.request().headers()['x-client-uuid'], 'audience-fixture')
+      }
       await route
         .fulfill({
           contentType: 'application/json',
@@ -188,16 +195,34 @@ try {
     ['followers', 'Followers', '粉丝构成'],
     ['verified_followers', 'BlueVerifiedFollowers', '认证粉丝构成'],
   ]) {
-    await page.evaluate(kind => history.pushState({}, '', `/owner/${kind}`), kind)
-    await page.waitForFunction(label => document.querySelector('#xf-audience-entry')?.textContent === `已记录 0 人 · 查看${label}`, label)
-    await page.evaluate(url => fetch(url).then(r => r.json()), request.replace('/Following?', `/${operation}?`))
+    const url = request.replace('/Following?', `/${operation}?`)
+    if (kind === 'verified_followers') {
+      // X starts its first page while changing tabs, before the extension has its new route context.
+      await page.evaluate((url) => new Promise(resolve => {
+        history.pushState({}, '', '/owner/verified_followers')
+        const xhr = new XMLHttpRequest()
+        xhr.open('GET', url)
+        xhr.setRequestHeader('x-client-uuid', 'audience-fixture')
+        xhr.onloadend = resolve
+        xhr.send()
+      }), url)
+    } else {
+      await page.evaluate(kind => history.pushState({}, '', `/owner/${kind}`), kind)
+      await page.waitForFunction(label => document.querySelector('#xf-audience-entry')?.textContent === `已记录 0 人 · 查看${label}`, label)
+      await page.evaluate(url => fetch(url).then(r => r.json()), url)
+    }
     await page.waitForFunction(label => document.querySelector('#xf-audience-entry')?.textContent === `已记录 25 人 · 查看${label}`, label).catch(async error => { console.log('Capture failed', kind, await page.locator('#xf-audience-entry').textContent(), await options.evaluate(() => chrome.runtime.sendMessage({ type: 'xf-audience', action: 'list' }))); throw error })
     await page.locator('#xf-audience-entry').click()
     await page.locator('#xf-audience-panel').getByRole('heading', { name: label, exact: true }).waitFor()
     if (kind === 'verified_followers') {
-      await page.locator('#xf-audience-panel').getByText('仅统计“认证关注者”标签中已加载的账号，与普通粉丝名单分开保存。').waitFor()
+      const panel = page.locator('#xf-audience-panel')
+      await panel.getByText('认证名单按已加载的账号累计，单独保存。').waitFor()
+      assert.equal(verifiedRequests, 1)
       await mkdir('/tmp/oh-my-x-audience-validation', { recursive: true })
       await page.screenshot({ path: '/tmp/oh-my-x-audience-validation/verified-panel.png' })
+      await page.setViewportSize({ width: 375, height: 820 })
+      await page.screenshot({ path: '/tmp/oh-my-x-audience-validation/verified-panel-mobile.png' })
+      await page.setViewportSize({ width: 1280, height: 900 })
     }
     await page.keyboard.press('Escape')
   }
@@ -216,6 +241,101 @@ try {
   )
   await page.locator('#xf-audience-entry').waitFor({ state: 'detached' })
   await page.close()
+  const firstBatch = makeResponse(1, 26)
+  firstBatch.data.user.result.timeline.timeline.instructions[0].entries.push({
+    entryId: 'cursor-bottom-1', content: { cursorType: 'Bottom', value: 'next-batch' },
+  })
+  await worker.evaluate(({ firstBatch, secondBatch }) => {
+    const nativeFetch = globalThis.fetch
+    globalThis.audienceFixtureRequests = []
+    globalThis.fetch = (input, init) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith('/viewerQuery')) {
+        return Promise.resolve(Response.json({ data: { viewer: { user_results: { result: {
+          rest_id: '100', id: 'fixture-owner', core: { screen_name: 'owner' },
+        } } } } }))
+      }
+      const operation = url.pathname.split('/').at(-1)
+      if (operation === 'UsersByScreenNames') {
+        const { screen_names } = JSON.parse(url.searchParams.get('variables'))
+        return Promise.resolve(Response.json({ data: { users: screen_names.map(handle => ({
+          result: { rest_id: String(Number(handle.replace('synthetic', '')) + 1), relationship_counts: { followers: 12000 } },
+        })) } }))
+      }
+      if (['followersQuery', 'BlueVerifiedFollowers', 'Following'].includes(operation)) {
+        const variables = JSON.parse(url.searchParams.get('variables'))
+        globalThis.audienceFixtureRequests.push({ operation, ...variables })
+        const data = variables.cursor ? secondBatch : firstBatch
+        if (operation !== 'followersQuery') return Promise.resolve(Response.json(data))
+        const entries = data.data.user.result.timeline.timeline.instructions[0].entries.map(entry => {
+          if (entry.content.cursorType) return { entry_id: entry.entryId, content: {
+            cursor_type: 'Bottom', value: entry.content.value,
+          }}
+          const { relationship_counts: _, ...identity } = entry.content.itemContent.user_results.result
+          return { entry_id: entry.entryId, content: { content: {
+            __typename: 'TimelineUser', user_results: { result: identity },
+          } } }
+        })
+        return Promise.resolve(Response.json({ data: { user_result_by_screen_name: { result: {
+          id: 'fixture-owner',
+          followers_timeline: { timeline: { instructions: [{ __typename: 'TimelineAddEntries', entries }] } },
+        } } } }))
+      }
+      return nativeFetch(input, init)
+    }
+  }, { firstBatch, secondBatch: makeResponse(1, 27) })
+  await context.addCookies([
+    { name: 'ct0', value: 'fixture-csrf', domain: '.x.com', path: '/', secure: true },
+  ])
+  await options.evaluate(async () => {
+    await chrome.storage.local.remove([
+      'audienceFollowersClassicEndpoint', 'verifiedAudienceClassicEndpoint', 'audienceFollowingClassicEndpoint',
+    ])
+    await chrome.storage.local.set({ audienceEnabled: 'on' })
+  })
+  await options.getByText('26 个账号', { exact: true }).first().waitFor()
+  await options.getByText('26 个账号', { exact: true }).nth(1).waitFor()
+  assert.deepEqual(
+    (await worker.evaluate(() => globalThis.audienceFixtureRequests.map(({ operation }) => operation))).sort(),
+    ['BlueVerifiedFollowers', 'followersQuery'],
+  )
+  const followerRecord = options.getByText('@owner · 粉丝构成', { exact: true }).locator('../..')
+  await followerRecord.getByRole('button', { name: '查看', exact: true }).click()
+  const followersPanel = options.locator('#xf-audience-panel')
+  await followersPanel.getByText(/粉丝数已知 25 人/).waitFor()
+  const followerSearch = followersPanel.getByRole('searchbox')
+  await followerSearch.fill('synthetic25')
+  // The previously cleared own Following list waits a day before resuming.
+  await worker.evaluate(async () => {
+    const now = Date.now
+    Date.now = () => now() + 25 * 60 * 60 * 1000
+    await chrome.alarms.create('XF_ALARM_VERIFIED_AUDIENCE', { delayInMinutes: 0.002 })
+  })
+  await options.getByText('27 个账号', { exact: true }).nth(1).waitFor()
+  await options.getByText('26 个账号', { exact: true }).waitFor()
+  await followersPanel.getByText(/粉丝数已知 26 人/).waitFor()
+  await followersPanel.getByText('12,000', { exact: true }).waitFor()
+  assert.equal(await followerSearch.inputValue(), 'synthetic25')
+  await options.keyboard.press('Escape')
+  await worker.evaluate(async () => {
+    const { audienceSyncProgress } = await chrome.storage.local.get('audienceSyncProgress')
+    audienceSyncProgress.lists.following.nextAt = 0
+    await chrome.storage.local.set({ audienceSyncProgress })
+    await chrome.alarms.create('XF_ALARM_VERIFIED_AUDIENCE', { delayInMinutes: 0.002 })
+  })
+  await options.getByText('27 个账号', { exact: true }).nth(2).waitFor()
+  const cursors = await worker.evaluate(() => Object.groupBy(globalThis.audienceFixtureRequests, ({ operation }) => operation))
+  assert.deepEqual(Object.keys(cursors).sort(), ['BlueVerifiedFollowers', 'Following', 'followersQuery'])
+  for (const [operation, pages] of Object.entries(cursors)) {
+    assert.deepEqual(pages.map(({ cursor }) => cursor), [operation === 'followersQuery' ? null : undefined, 'next-batch'])
+    assert(pages.every(({ userId, screenName }) => operation === 'followersQuery' ? screenName === 'owner' : userId === '100'))
+  }
+  await options.getByText('保持 Chrome 运行并登录 X。你的普通粉丝、认证粉丝和正在关注会在后台同步，结果保存在这里。').waitFor()
+  await options.screenshot({ path: '/tmp/oh-my-x-audience-validation/background-settings.png' })
+  await options.setViewportSize({ width: 375, height: 820 })
+  assert(await options.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+  await options.screenshot({ path: '/tmp/oh-my-x-audience-validation/background-settings-mobile.png' })
+  await options.setViewportSize({ width: 1280, height: 900 })
   await options.reload()
   await options.getByRole('button', { name: '查看', exact: true }).first().waitFor()
   await options.getByRole('button', { name: '查看', exact: true }).first().click()
@@ -228,7 +348,7 @@ try {
     path: '/tmp/oh-my-x-audience-validation/saved-settings.png',
   })
   console.log(
-    'PASS: production extension MAIN → content → background → IndexedDB → Vue; local settings without X tab; clear/late response race; disabled capture; visible entry below clipped navigation; three separate list kinds with SPA navigation. Synthetic data only.',
+    'PASS: all three lists and follower counts sync without an X tab; the open distribution updates and retains search; clear/late response race and disabled capture. Synthetic data only.',
   )
 } finally {
   release?.()

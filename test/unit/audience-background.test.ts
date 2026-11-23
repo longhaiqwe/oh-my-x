@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { IDBFactory } from 'fake-indexeddb'
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
 import { registerAudienceBackground } from '../../shared/audience-background'
 import { AUDIENCE_MESSAGE } from '../../shared/audience'
 import { KeyAudienceEnabled, KeyExtensionStatus } from '../../storage-keys'
@@ -49,11 +49,13 @@ const send = (
   })
 beforeEach(() => {
   vi.stubGlobal('indexedDB', new IDBFactory())
+  vi.stubGlobal('IDBKeyRange', IDBKeyRange)
   api = {
     runtime: {
       id: 'extension',
       getURL: (p: string) => `chrome-extension://extension${p}`,
       onMessage: { addListener: (l: any) => (listener = l) },
+      onStartup: { addListener: vi.fn() },
     },
     storage: {
       local: {
@@ -63,7 +65,9 @@ beforeEach(() => {
         })),
         set: vi.fn(async () => {}),
       },
+      onChanged: { addListener: vi.fn() },
     },
+    alarms: { get: vi.fn(), create: vi.fn(), clear: vi.fn(), onAlarm: { addListener: vi.fn() } },
     cookies: { get: vi.fn(async () => ({ value: 'u=100' })) },
     tabs: { query: vi.fn(), get: vi.fn(async () => ({ id: 5, url: x.url })) },
   }
@@ -131,5 +135,92 @@ describe('audience RPC authorization', () => {
         })
       ).result.state,
     ).toBe('changed')
+  })
+  it('syncs all three lists without an X tab and resumes each unfinished list after restart', async () => {
+    const store: Record<string, unknown> = { [KeyAudienceEnabled]: 'on' }
+    api.storage.local.get.mockImplementation(async () => ({ ...store }))
+    api.storage.local.set.mockImplementation(async (items: object) => Object.assign(store, items))
+    api.cookies.get.mockImplementation(async ({ name }: { name: string }) =>
+      ({ value: name === 'twid' ? 'u=100' : 'fixture-csrf' }),
+    )
+    const pages: Record<string, (string | null | undefined)[]> = {}
+    vi.stubGlobal('fetch', vi.fn(async (input: URL | string) => {
+      const url = new URL(input)
+      expect(url.origin).toBe('https://x.com')
+      expect(url.pathname).toMatch(/^\/i\/api\/graphql\/[^/]+\//)
+      const operation = url.pathname.split('/').at(-1)!
+      if (operation === 'viewerQuery')
+        return Response.json({ data: { viewer: { user_results: { result: {
+          rest_id: '100', id: 'fixture-owner', core: { screen_name: 'owner' },
+        } } } } })
+      if (operation === 'BlueVerifiedFollowers') return new Response(null, { status: 404 })
+      const { userId, screenName, cursor, screen_names } = JSON.parse(url.searchParams.get('variables')!)
+      if (operation === 'UsersByScreenNames') {
+        return Response.json({ data: { users: screen_names.map((handle: string) => ({
+          result: { rest_id: handle.replace('member', ''), relationship_counts: { followers: 4720 } },
+        })) } })
+      }
+      ;(pages[operation] ??= []).push(cursor)
+      const id = cursor ? '2' : '1'
+      const user = { rest_id: id, core: { screen_name: 'member' + id }, is_followed_by: false }
+      if (operation === 'Following') {
+        expect(userId).toBe('100')
+        const entries = [
+          { entryId: 'user-' + id, content: { itemContent: { user_results: { result: user } } } },
+          ...(!cursor ? [{ entryId: 'cursor-bottom-0', content: { cursorType: 'Bottom', value: 'following-two' } }] : []),
+        ]
+        return Response.json({ data: { user: { result: {
+          timeline: { timeline: { instructions: [{ type: 'TimelineAddEntries', entries }] } },
+        } } } })
+      }
+      expect(screenName).toBe('owner')
+      const timeline = operation === 'followersQuery' ? 'followers_timeline' : 'blue_verified_followers_timeline'
+      const entries = [
+        { entry_id: 'user-' + id, content: { content: {
+          __typename: 'TimelineUser', user_results: { result: user },
+        } } },
+        ...(!cursor ? [{ entry_id: 'cursor-bottom-0', content: {
+          __typename: 'TimelineTimelineCursor', cursor_type: 'Bottom', value: operation + '-two',
+        } }] : []),
+      ]
+      return Response.json({ data: { user_result_by_screen_name: { result: {
+        id: 'fixture-owner', [timeline]: { timeline: { instructions: [{ __typename: 'TimelineAddEntries', entries }] } },
+      } } } })
+    }))
+    const now = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
+    try {
+      const headers = (csrf: string) => ({ 'x-csrf-token': csrf })
+      const read = async (kind: string) => (await send('read', { key: '100:100:' + kind }, extension)).result
+      registerAudienceBackground(headers)
+      await vi.waitFor(async () => {
+        expect((await read('followers'))?.count).toBe(1)
+        expect((await read('following'))?.count).toBe(1)
+        expect(store.audienceSyncProgress).toBeDefined()
+      })
+      clock.mockReturnValue(now + 60_001)
+      registerAudienceBackground(headers)
+      await vi.waitFor(async () => {
+        expect((await read('followers'))?.members).toMatchObject([{ followers: 4720 }, { id: '2' }])
+        expect((await read('following'))?.members).toMatchObject([{ followsYou: false }, { followsYou: false }])
+        expect((await read('verified_followers'))?.count).toBe(1)
+        expect(store.audienceSyncProgress).toMatchObject({ lists: { verified_followers: { cursor: 'verifiedFollowersQuery-two' } } })
+      })
+      clock.mockReturnValue(now + 120_002)
+      registerAudienceBackground(headers)
+      await vi.waitFor(async () => {
+        expect((await read('verified_followers'))?.count).toBe(2)
+        expect((await read('followers'))?.members.every((m: {followers?:number}) => m.followers === 4720)).toBe(true)
+      })
+      expect(pages).toEqual({
+        followersQuery: [null, 'followersQuery-two'],
+        Following: [undefined, 'following-two'],
+        verifiedFollowersQuery: [null, 'verifiedFollowersQuery-two'],
+      })
+      expect(api.tabs.query).not.toHaveBeenCalled()
+      expect(api.tabs.get).not.toHaveBeenCalled()
+    } finally {
+      clock.mockRestore()
+    }
   })
 })
