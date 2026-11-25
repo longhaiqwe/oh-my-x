@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'wxt'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+import { prepareOcrDependencies } from './scripts/patch-ocr.mjs'
 
 export default defineConfig({
   browser: 'chrome',
@@ -15,6 +16,7 @@ export default defineConfig({
   modules: [],
   hooks: {
     'build:publicAssets'(_wxt, files) {
+      prepareOcrDependencies({ check: true })
       for (const [source, destination] of [
         ['tesseract.js/dist/worker.min.js', 'worker.min.js'],
         ['tesseract.js/dist/worker.min.js.LICENSE.txt', 'worker.min.js.LICENSE.txt'],

@@ -6,6 +6,12 @@
 
 - 2026-11-12: Record the native Chrome review-submission workflow as the user-requested default, including file-picker recovery, so future releases do not depend on unconfigured API credentials.
 
+## 3.4.2 - 2026-11-25
+
+### Fixes
+
+- Rewind image recognition loads its worker, engine and WebAssembly only from the extension package. Only language data may be downloaded on first use. No new permissions.
+
 ## 3.4.1 - 2026-11-23
 
 ### Improvements and fixes

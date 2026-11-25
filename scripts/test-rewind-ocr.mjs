@@ -1,11 +1,14 @@
 // 生产构建的 OCR 回归测试：真实 worker、语言数据与中英文图片，不访问 X 账号。
 // REWIND_TESSDATA_DIR：含 eng/chi_sim/chi_tra/jpn/kor.traineddata 的目录（解压后）。
+// REWIND_OCR_COLD=1：不预填缓存。使用同目录的 .traineddata.gz 模拟首次下载，只放行测试图片和五个语言数据 URL。
 // Playwright 与 Chromium 路径变量与 test-rewind-extension.mjs 相同。
 import assert from 'node:assert/strict'
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+const languages = ['eng', 'chi_sim', 'chi_tra', 'jpn', 'kor']
+const cold = process.env.REWIND_OCR_COLD === '1'
 const dataDir = process.env.REWIND_TESSDATA_DIR
 if (!dataDir) throw Error('请设置 REWIND_TESSDATA_DIR，指向解压后的语言数据目录')
 const { chromium } = await import(process.env.REWIND_PLAYWRIGHT_MODULE || 'playwright-core')
@@ -28,6 +31,30 @@ try {
   const id = new URL(sw.url()).host
   const page = await context.newPage()
   const errors = []
+  const workerUrls = []
+  const languageFetches = []
+  const unexpectedRequests = []
+  page.on('worker', worker => workerUrls.push(worker.url()))
+  const dataUrls = new Map(languages.map(lang => [
+    `https://cdn.jsdelivr.net/npm/@tesseract.js-data/${lang}/4.0.0_best_int/${lang}.traineddata.gz`,
+    lang,
+  ]))
+  await page.route(/^https?:/, async (route) => {
+    const url = route.request().url()
+    const lang = dataUrls.get(url)
+    if (cold && lang) {
+      languageFetches.push(lang)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: await readFile(path.join(dataDir, `${lang}.traineddata.gz`)),
+      })
+      return
+    }
+    unexpectedRequests.push(url)
+    await route.abort()
+  })
   page.on('console', message => {
     if (/Error opening data file|Failed loading language|TESSDATA_PREFIX|Parameter not found/.test(message.text()))
       errors.push(message.text())
@@ -35,7 +62,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   // 使用同一入口的普通扩展页，便于拦截测试图片；后台仍通过正式消息接口调用。
   await page.goto(`chrome-extension://${id}/rewind-ocr.html`)
-  for (const lang of ['eng', 'chi_sim', 'chi_tra', 'jpn', 'kor']) {
+  for (const lang of cold ? [] : languages) {
     const data = (await readFile(path.join(dataDir, `${lang}.traineddata`))).toString('base64')
     await page.evaluate(({ lang, data }) => new Promise((resolve, reject) => {
       const request = indexedDB.open('keyval-store')
@@ -82,6 +109,11 @@ try {
     assert.deepEqual(errors, [])
     console.log(`${language}: 识别通过，无语言加载错误`)
   }
+  assert.equal(workerUrls.length, 7)
+  assert.ok(workerUrls.every(url => url === `chrome-extension://${id}/ocr/worker.min.js`))
+  assert.deepEqual(languageFetches.slice().sort(), cold ? languages.slice().sort() : [])
+  assert.deepEqual(unexpectedRequests, [])
+  console.log(cold ? '空缓存：每个语言数据只下载一次' : '预填缓存：没有语言数据请求')
 } finally {
   await context?.close()
   await rm(profile, { recursive: true, force: true })

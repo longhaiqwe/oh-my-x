@@ -86,15 +86,7 @@ async function read(src: string, langs: string) {
     // 第四个参数在初始化前禁用附加语言加载；所有识别语言已在 langs 中明确指定。
     // 避免语言包自带的附加语言配置导致请求乱码文件名，不能等 setParameters 时再设置。
     worker = await createWorker(langs, OEM.LSTM_ONLY, {
-      workerPath: new URL('ocr/worker.min.js', browser.runtime.getURL('/'))
-        .href,
-      // CJK language data includes legacy parameters, even with LSTM recognition.
-      // The full core accepts those parameters without emitting missing-parameter warnings.
-      corePath: new URL(
-        'ocr/tesseract-core-simd.js',
-        browser.runtime.getURL('/'),
-      ).href,
-      workerBlobURL: false,
+      // Build-time adapters enforce extension-local worker, core and WASM.
       cacheMethod: 'readOnly',
       langPath: DATA,
     }, 'tessedit_load_sublangs \n')

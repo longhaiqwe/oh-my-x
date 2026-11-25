@@ -1,7 +1,7 @@
 {
   "name": "oh-my-x",
   "displayName": "oh-my-x",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,14 +10,14 @@
     "zip": "wxt zip",
     "store": "node scripts/chrome-web-store.mjs",
     "compile": "wxt prepare",
-    "postinstall": "wxt prepare",
+    "postinstall": "node scripts/patch-ocr.mjs && wxt prepare",
     "clean": "rm -rf build .output",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:live": "vitest run --config vitest.live.config.ts",
     "typecheck": "vue-tsc --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build && node scripts/audit-ocr-package.mjs"
   },
   "dependencies": {
     "dayjs": "^1.11.23",
